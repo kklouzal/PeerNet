@@ -9,3 +9,5 @@ Multi Threadded Winsock 2 Registered Input/Output (RIO) Peer to Peer (P2P) Netwo
 >>Data Serialization with Cereal - https://github.com/USCiLab/cereal
 >>
 >>Data Compression with LZ4 - https://github.com/Cyan4973/lz4
+
+PeerNet is entirely UDP Packet based with mechanisms in place for sending and receiving reliable packets.
