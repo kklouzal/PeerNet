@@ -14,9 +14,6 @@
     <ClInclude Include="PeerNet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="lz4.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="NetPacket.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -24,6 +21,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="NetPeer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="lz4.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

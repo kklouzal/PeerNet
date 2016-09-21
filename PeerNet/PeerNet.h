@@ -8,8 +8,8 @@
 #include <MSWSock.h>
 
 // Cereal Serialization Headers
-#include <cereal\types\string.hpp>
-#include <cereal\archives\portable_binary.hpp>
+#include "cereal\types\string.hpp"
+#include "cereal\archives\portable_binary.hpp"
 
 // STD Headers
 #include <chrono>
