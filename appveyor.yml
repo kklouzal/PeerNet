@@ -20,7 +20,7 @@ build_script:
 on_success:
   7z a "$Env:APPVEYOR_BUILD_FOLDER\$Env:APPVEYOR_PROJECT_NAME.zip" "$Env:APPVEYOR_BUILD_FOLDER\cov-int\"
   Remove-item alias:curl
-  curl --silent --show-error `
+  curl --show-error `
     --output curl-out.txt `
     --form token="$Env:coverity_token" `
     --form email="$Env:coverity_email" `
