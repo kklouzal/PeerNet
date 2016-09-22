@@ -23,7 +23,7 @@ on_success:
   curl --form token=%coverity_token% `
     --form email=%coverity_email% `
     --form file=@PeerNet.zip `
-    --form version={build} `
+    --form version="1.0" `
     --form description="AppVeyor Build." `
     https://scan.coverity.com/builds?project=kklouzal%2FPeerNet
   
