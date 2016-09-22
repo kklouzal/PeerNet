@@ -18,12 +18,12 @@ build_script:
       /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
       
 on_success:
-  7z a "$Env:APPVEYOR_BUILD_FOLDER\$Env:APPVEYOR_PROJECT_NAME.zip" "$Env:APPVEYOR_BUILD_FOLDER\cov-int\"
+  7z a "PeerNet.zip" "cov-int"
   
-  curl --form token="$Env:coverity_token" `
-    --form email="$Env:coverity_email" `
-    --form file=@$Env:APPVEYOR_BUILD_FOLDER\$Env:APPVEYOR_PROJECT_NAME.zip" `
-    --form version=$Env:APPVEYOR_REPO_COMMIT" `
+  curl --form token=$Env:coverity_token `
+    --form email=$Env:coverity_email `
+    --form file=@PeerNet.zip `
+    --form version={build} `
     --form description="AppVeyor Build." `
     https://scan.coverity.com/builds?project=kklouzal%2FPeerNet
   
