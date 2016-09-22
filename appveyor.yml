@@ -1,5 +1,36 @@
 version: 1.0.{build}
-configuration: Release
-platform: x86
-build:
-  verbosity: minimal
+
+environment:
+  coverity_token:
+    secure: WhwjmR5SADRwFkBX06kWsl1SNdovILcyr0hlXerox6I=
+  coverity_email:
+    secure: vBiSHFruVmaa7NLHJWzvHL4CHgOQ+vzDMYmR2LshjLM=
+    
+install:
+- ps: cinst curl -y
+
+build_script:
+- ps: |
+    & cov-build.exe --dir cov-int msbuild "$Env:APPVEYOR_BUILD_FOLDER\PeerNet.sln" `
+      /verbosity:normal `
+      /p:Configuration=Release `
+      /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
+      
+on_success:
+  7z a "$Env:APPVEYOR_BUILD_FOLDER\$Env:APPVEYOR_PROJECT_NAME.zip" "$Env:APPVEYOR_BUILD_FOLDER\cov-int\"
+  Remove-item alias:curl
+  Write-Host "Uploading Coverity..." -ForegroundColor "Green"
+  curl --silent --show-error `
+    --output curl-out.txt `
+    --form token="$Env:coverity_token" `
+    --form email="$Env:coverity_email" `
+    --form file=@$Env:APPVEYOR_BUILD_FOLDER\$Env:APPVEYOR_PROJECT_NAME.zip" `
+    --form version=$Env:APPVEYOR_REPO_COMMIT" `
+    --form version="AppVeyor Build."
+  cat .\curl-out.txt
+  
+notifications:
+- provider: Email
+  to:
+    - kyle.klouzal@gmail.com
+  on_build_status_changed: true
