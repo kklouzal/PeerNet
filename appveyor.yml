@@ -19,14 +19,12 @@ build_script:
       
 on_success:
   7z a "$Env:APPVEYOR_BUILD_FOLDER\$Env:APPVEYOR_PROJECT_NAME.zip" "$Env:APPVEYOR_BUILD_FOLDER\cov-int\"
-  curl --output curl-out.txt `
-    --form token="$Env:coverity_token" `
+  curl --form token="$Env:coverity_token" `
     --form email="$Env:coverity_email" `
     --form file=@$Env:APPVEYOR_BUILD_FOLDER\$Env:APPVEYOR_PROJECT_NAME.zip" `
     --form version=$Env:APPVEYOR_REPO_COMMIT" `
     --form description="AppVeyor Build." `
     https://scan.coverity.com/builds?project=kklouzal%2FPeerNet
-  cat .\curl-out.txt
   
 notifications:
 - provider: Email
