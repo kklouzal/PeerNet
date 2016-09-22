@@ -19,6 +19,7 @@ build_script:
       
 on_success:
 - cmd: >-
+
   7z a "PeerNet.zip" "cov-int"
   
   curl --form token=%coverity_token% `
