@@ -20,7 +20,7 @@ build_script:
 on_success:
   7z a "PeerNet.zip" "cov-int"
   
-  curl --form token=%COVERITY_TOKEN% --form email=%COVERITY_EMAIL% --form file=@PeerNet.zip --form version="1.0" --form description="AppVeyor Build." https://scan.coverity.com/builds?project=kklouzal%2FPeerNet
+  curl --form token=%COVERITY_TOKEN% --form email=%COVERITY_EMAIL% --form file=@PeerNet.zip --form version="1.0" --form description="AppVeyor Build." https://scan.coverity.com/projects/10224/builds
   
 notifications:
 - provider: Email
