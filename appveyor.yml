@@ -17,15 +17,10 @@ build_script:
       /p:Platform=x86 `
       /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
       
-on_success:
+build_success:
   7z a "PeerNet.zip" "cov-int"
   
-  curl --form token=%coverity_token% \
-    --form email=%coverity_email% \
-    --form file=@PeerNet.zip \
-    --form version="1.0" \
-    --form description="AppVeyor Build." \
-    https://scan.coverity.com/builds?project=kklouzal%2FPeerNet
+  curl --form token=%coverity_token% --form email=%coverity_email% --form file=@PeerNet.zip --form version="1.0" --form description="AppVeyor Build." https://scan.coverity.com/builds?project=kklouzal%2FPeerNet
   
 notifications:
 - provider: Email
