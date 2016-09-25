@@ -205,13 +205,13 @@ namespace PeerNet
 	NetSocket::NetSocket(const std::string StrIP, const std::string StrPort) :
 		IP(StrIP), Port(StrPort), FormattedAddress(IP + std::string(":") + Port),
 		PendingRecvs(1024), PendingSends(128), PacketSize(1472), AddrSize(sizeof(SOCKADDR_INET)),
-		p_addr_dBuffer(reinterpret_cast<char*>(malloc(AddrSize*(PendingRecvs + PendingSends)))),
-		p_recv_dBuffer(reinterpret_cast<char*>(malloc(PacketSize*PendingRecvs))),
-		p_send_dBuffer(reinterpret_cast<char*>(malloc(PacketSize*PendingSends))),
+		p_addr_dBuffer(new char[AddrSize*(PendingRecvs + PendingSends)]),
+		p_recv_dBuffer(new char[PacketSize*PendingRecvs]),
+		p_send_dBuffer(new char[PacketSize*PendingSends]),
 		g_recv_IOCP(CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 0)),
 		g_send_IOCP(CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 0)),
 		recv_overlapped(new OVERLAPPED), send_overlapped(new OVERLAPPED),
-		PeersMutex(), Peers(), uncompressed_data((char*)malloc(1436)),
+		PeersMutex(), Peers(), uncompressed_data(new char[1436]),
 		q_ReliablePackets(), q_OutgoingPackets(),
 		ReliableMutex(), OutgoingMutex(), Initialized(true),
 		OutgoingCondition()
@@ -342,7 +342,10 @@ namespace PeerNet
 		OutgoingThread.join();			//	Block until this thread finishes
 		IncomingThread.join();			//	Block until this thread finishes
 		closesocket(Socket);			//	Shutdown Socket
-		realloc(uncompressed_data, 0);	//	Deallocate Variables
+		//realloc(uncompressed_data, 0);	//	Deallocate Variables
+		delete[] uncompressed_data;
+		delete[] recv_overlapped;
+		delete[] send_overlapped;
 		printf("PeerNet NetSocket %s:%s Destroyed\n", IP.c_str(), Port.c_str());
 	}
 
