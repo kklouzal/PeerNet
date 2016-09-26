@@ -144,11 +144,8 @@ namespace PeerNet
 					break;
 
 					default:
-					{
 						printf("Received Unknown Packet Type\n");
 						delete NewPacket;
-					}
-					break;
 					}
 				}
 				else { printf("Packet Decompression Failed\n"); }

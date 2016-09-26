@@ -16,7 +16,11 @@ int main()
 	printf("\tdiscover - Discover new peer from IP and PORT\n");
 	printf("\tforget - Forget a discovered peer\n");
 	printf("\tr - Send reliable packet to discovered peer\n");
-	printf("\tur - Send unreliable packet to discovered peer\n");
+	printf("\trl - Send 1000 reliable packets to discovered peer\n");
+	printf("\tu - Send unreliable packet to discovered peer\n");
+	printf("\tul - Send 1000 unreliable packet to discovered peer\n");
+	printf("\tn - Send unknown packet to discovered peer\n");
+	
 	printf("\n");
 
 	PeerNet::NetSocket* Socket = nullptr;
@@ -87,6 +91,15 @@ int main()
 			if (Peer != nullptr)
 			{
 				auto NewPacket = PeerNet::CreateNewPacket(PeerNet::PacketType::PN_Unreliable);
+				NewPacket->WriteData<std::string>("I'm about to be serialized and I'm unreliable..");
+				Peer->SendPacket(NewPacket);
+			}
+		}
+		else if (ConsoleInput == "n")
+		{
+			if (Peer != nullptr)
+			{
+				auto NewPacket = PeerNet::CreateNewPacket((PeerNet::PacketType)1001);
 				NewPacket->WriteData<std::string>("I'm about to be serialized and I'm unreliable..");
 				Peer->SendPacket(NewPacket);
 			}
