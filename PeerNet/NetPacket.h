@@ -4,7 +4,7 @@ namespace PeerNet
 {
 	class NetPacket
 	{
-		std::chrono::time_point<std::chrono::system_clock> CreationTime;
+		std::chrono::time_point<std::chrono::high_resolution_clock> CreationTime;
 
 		unsigned int PacketID;
 		unsigned short TypeID;
@@ -20,13 +20,13 @@ namespace PeerNet
 		{
 			BinaryOut(PacketID);
 			BinaryOut(TypeID);
-			if (TypeID == PacketType::PN_ACK) { CreationTime = std::chrono::system_clock::now(); }
+			if (TypeID == PacketType::PN_ACK) { CreationTime = std::chrono::high_resolution_clock::now(); }
 		}
 
 		// This constructor is for handling Send Packets ONLY
 		NetPacket(const unsigned long pID, const unsigned short pType) : PacketID(pID), TypeID(pType), DataStream(std::ios::in | std::ios::out | std::ios::binary), BinaryIn(DataStream), BinaryOut(DataStream), SendAttempts(0)
 		{
-			if (IsReliable()) { CreationTime = std::chrono::system_clock::now(); }
+			if (IsReliable()) { CreationTime = std::chrono::high_resolution_clock::now(); }
 			BinaryIn(PacketID);
 			BinaryIn(TypeID);
 		}
@@ -61,7 +61,8 @@ namespace PeerNet
 		const bool IsReliable() const {	return ((TypeID == PacketType::PN_Discovery) || (TypeID == PacketType::PN_Reliable)); }
 
 		// Returns true if packet needs resend
-		//const bool NeedsResend() const { return (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - CreationTime).count > 10); }
+		// Waits 300ms between send attempts
+		const bool NeedsResend() const { return (std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - CreationTime).count() > (0.3*SendAttempts)); }
 	};
 
 }

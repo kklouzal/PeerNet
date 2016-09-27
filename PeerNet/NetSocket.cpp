@@ -132,7 +132,7 @@ namespace PeerNet
 			//	Swap all the current outgoing packets into a new unordered_map so we can quickly iterate over them
 			//	Any reliable packets left over from the last loop will be swapped back into the main unordered_map
 			std::unique_lock<std::mutex> OutgoingLock(OutgoingMutex);
-			OutgoingCondition.wait(OutgoingLock, [&]() { return (!q_OutgoingPackets.empty() || !Initialized); });
+			OutgoingCondition.wait(OutgoingLock, [&]() { return (!q_OPackets.empty() || !q_OutgoingPackets.empty() || !Initialized); });
 			q_OutgoingPackets.swap(q_OPackets);
 			OutgoingLock.unlock();
 
@@ -141,15 +141,34 @@ namespace PeerNet
 			// Loop through all the current outgoing packets
 			for (auto Pair: q_OPackets)
 			{
-				/*if (Pair.first->GetSendAttempts() > 0)
+				//	Check and see if this is a reliable packet
+				if (Pair.first->IsReliable())
 				{
-					//if (!Pair.first->NeedsResend()) { continue; }
-					if (Pair.first->GetSendAttempts() > 5)
-					{
-						q_OPackets.erase(Pair.first);
-						delete Pair.first;
-					}
-				}*/
+					//	Check if we've received an ACK for this packet
+					//	if (RECEIVED_ACK)
+					//	{
+
+					//	}
+					//	else
+					//	{
+
+						if (Pair.first->SendAttempts == 0)
+						{
+							Pair.first->SendAttempts++;
+						}
+						else if (Pair.first->SendAttempts < 5)
+						{
+							//	If it's not time for us to send again then jump to the next packet
+							if (!Pair.first->NeedsResend()) { continue; }
+							Pair.first->SendAttempts++;
+						}
+						else
+						{
+							q_OPackets.erase(Pair.first);
+							delete Pair.first;
+							break;
+						}
+				}
 				pBuffer->Length = LZ4_compress_default(Pair.first->GetData().c_str(), &p_send_dBuffer[pBuffer->Offset], Pair.first->GetData().size(), PacketSize);
 
 				if (pBuffer->Length > 0)
@@ -165,27 +184,13 @@ namespace PeerNet
 				else { printf("Failed Compression!\n"); }
 				
 				// If this packet wasnt reliable, release the packets memory and remove it from the unordered_map
-				// If it was reliable, leave it in the map so it will be swapped back on the next loop
-				if (Pair.first->IsReliable())
-				{
-					if (Pair.first->SendAttempts < 5)
-					{
-						Pair.first->SendAttempts++;
-					}
-					else {
-						q_OPackets.erase(Pair.first);
-						delete Pair.first;
-						break;
-					}
-				}
-				else
+				if (!Pair.first->IsReliable())
 				{
 					q_OPackets.erase(Pair.first);
 					delete Pair.first;
 					break;
 				}
 			}
-			//q_OPackets.clear();
 			SendBuffs.push_back(pBuffer);
 		}
 		printf("PeerNet NetSocket Outgoing Thread %s:%s Stopping\n", IP.c_str(), Port.c_str());
