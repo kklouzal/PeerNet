@@ -16,6 +16,7 @@ namespace PeerNet
 
 	class NetSocket
 	{
+		std::deque<PRIO_BUF_EXT> AddrBuffs;
 		std::deque<PRIO_BUF_EXT> SendBuffs;
 
 
@@ -49,22 +50,17 @@ namespace PeerNet
 
 		char *uncompressed_data;
 
-		std::unordered_map<unsigned long, std::pair<NetPacket*const, NetPeer*const>> q_ReliablePackets;
-		std::deque<std::pair<NetPacket*const, NetPeer*const>> q_OutgoingPackets;
-		std::mutex ReliableMutex;
+		std::unordered_map<NetPacket*, NetPeer*const> q_OutgoingPackets;
 		std::mutex OutgoingMutex;
 
 		std::condition_variable OutgoingCondition;
 
 		bool Initialized;
-		void ReliableFunction();
 		void OutgoingFunction();
 		void IncomingFunction();
-		std::thread ReliableThread;
 		std::thread OutgoingThread;
 		std::thread IncomingThread;
 
-		void PushOutgoingPacket(NetPeer*const Peer, NetPacket*const Packet);
 		NetPeer * const GetPeer(const std::string Address);
 
 	public:

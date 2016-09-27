@@ -3,33 +3,6 @@
 
 namespace PeerNet
 {
-	// This is a dedicated thread to process reliable packets for a single socket
-	// Put as much workload as you can into this single function
-	void NetSocket::ReliableFunction()
-	{
-		printf("PeerNet NetSocket Reliable Thread %s:%s Starting\n", IP.c_str(), Port.c_str());
-		//std::this_thread::sleep_for(std::chrono::seconds(3));
-		while (Initialized)
-		{
-			std::this_thread::sleep_for(std::chrono::seconds(5));	// Process Reliable Packets Only Every bnn 5 Seconds
-
-			// every 5 seconds loop and add packets to send queue
-			// if time to live has expired delete the packet
-
-			ReliableMutex.lock();
-			std::unordered_map<unsigned long, std::pair<NetPacket*const, NetPeer*const>> q_RPackets(q_ReliablePackets);
-			ReliableMutex.unlock();
-
-			// Loop through a copy of all our reliable packets adding them into the outgoing queue
-			for (auto ThisPair : q_RPackets)
-			{
-				PushOutgoingPacket(ThisPair.second.second, ThisPair.second.first);
-			}
-		}
-
-		printf("PeerNet NetSocket Reliable Thread %s:%s Stopping\n", IP.c_str(), Port.c_str());
-	}
-
 	// This is a dedicated thread to receive packets for a single socket
 	// Put as much workload as you can into this single function
 	void NetSocket::IncomingFunction()
@@ -95,27 +68,15 @@ namespace PeerNet
 						if (ThisPeer != nullptr) {
 							//printf("Send Discovery Ack #%u\n", NewPacket->GetPacketID());
 							// Send ACK for this discovery
-							PushOutgoingPacket(ThisPeer, new NetPacket(NewPacket->GetPacketID(), PacketType::PN_ACK));
-							delete NewPacket;
+							AddOutgoingPacket(ThisPeer, new NetPacket(NewPacket->GetPacketID(), PacketType::PN_ACK));
 						}
 					}
 					break;
 
 					case PacketType::PN_ACK:
 					{
-						//printf("Recv ACK #%u\n", NewPacket->GetPacketID());
-						// First check and see if our reliable packet still exists, if not toss the packet out
-						//ReliableMutex.lock();
-						if (q_ReliablePackets.count(NewPacket->GetPacketID()) > 0)
-						{
-							NetPacket* ReliablePacket = q_ReliablePackets.at(NewPacket->GetPacketID()).first;
-							q_ReliablePackets.erase(NewPacket->GetPacketID());
-							//ReliableMutex.unlock();
-							ReliablePacket->RecvAck(NewPacket);
-							//delete ReliablePacket;
-							delete NewPacket;
-						}
-						//else { ReliableMutex.unlock(); }
+						printf("Recv ACK #%u\n", NewPacket->GetPacketID());
+						//	ToDo: Handle packet acknowledgements...
 					}
 					break;
 
@@ -125,7 +86,6 @@ namespace PeerNet
 						{
 							printf("Recv Unreliable\n");
 							//ThisPeer->AddPacket(NewPacket);
-							delete NewPacket;
 						}
 					}
 					break;
@@ -134,19 +94,19 @@ namespace PeerNet
 					{
 						if (ThisPeer != nullptr)
 						{
-							//printf("Recv Reliable\n");
+							printf("Recv Reliable\n");
 							//ThisPeer->AddPacket(NewPacket);
 							// Send ACK
-							PushOutgoingPacket(ThisPeer, new NetPacket(NewPacket->GetPacketID(), PacketType::PN_ACK));
-							delete NewPacket;
+							AddOutgoingPacket(ThisPeer, new NetPacket(NewPacket->GetPacketID(), PacketType::PN_ACK));
 						}
 					}
 					break;
 
 					default:
 						printf("Received Unknown Packet Type\n");
-						delete NewPacket;
 					}
+
+					delete NewPacket;
 				}
 				else { printf("Packet Decompression Failed\n"); }
 				//	Push another read request into the queue
@@ -162,18 +122,34 @@ namespace PeerNet
 	void NetSocket::OutgoingFunction()
 	{
 		printf("PeerNet NetSocket Outgoing Thread %s:%s Starting\n", IP.c_str(), Port.c_str());
-		std::deque<std::pair<NetPacket*const, NetPeer*const>> q_OPackets;
+		std::unordered_map<NetPacket*, NetPeer*const> q_OPackets;
 		PRIO_BUF_EXT pBuffer = 0;
+
+		// This is our Outgoing Threads main loop
 		while (Initialized)
 		{
+			//	Let this thread sleep until we have outgoing packets to process.
+			//	Swap all the current outgoing packets into a new unordered_map so we can quickly iterate over them
+			//	Any reliable packets left over from the last loop will be swapped back into the main unordered_map
 			std::unique_lock<std::mutex> OutgoingLock(OutgoingMutex);
 			OutgoingCondition.wait(OutgoingLock, [&]() { return (!q_OutgoingPackets.empty() || !Initialized); });
 			q_OutgoingPackets.swap(q_OPackets);
 			OutgoingLock.unlock();
+
 			pBuffer = SendBuffs.front();
 			SendBuffs.pop_front();
-			for (auto Pair : q_OPackets)
+			// Loop through all the current outgoing packets
+			for (auto Pair: q_OPackets)
 			{
+				/*if (Pair.first->GetSendAttempts() > 0)
+				{
+					//if (!Pair.first->NeedsResend()) { continue; }
+					if (Pair.first->GetSendAttempts() > 5)
+					{
+						q_OPackets.erase(Pair.first);
+						delete Pair.first;
+					}
+				}*/
 				pBuffer->Length = LZ4_compress_default(Pair.first->GetData().c_str(), &p_send_dBuffer[pBuffer->Offset], Pair.first->GetData().size(), PacketSize);
 
 				if (pBuffer->Length > 0)
@@ -188,12 +164,28 @@ namespace PeerNet
 				}
 				else { printf("Failed Compression!\n"); }
 				
-				if (!Pair.first->IsReliable())
+				// If this packet wasnt reliable, release the packets memory and remove it from the unordered_map
+				// If it was reliable, leave it in the map so it will be swapped back on the next loop
+				if (Pair.first->IsReliable())
 				{
+					if (Pair.first->SendAttempts < 5)
+					{
+						Pair.first->SendAttempts++;
+					}
+					else {
+						q_OPackets.erase(Pair.first);
+						delete Pair.first;
+						break;
+					}
+				}
+				else
+				{
+					q_OPackets.erase(Pair.first);
 					delete Pair.first;
+					break;
 				}
 			}
-			q_OPackets.clear();
+			//q_OPackets.clear();
 			SendBuffs.push_back(pBuffer);
 		}
 		printf("PeerNet NetSocket Outgoing Thread %s:%s Stopping\n", IP.c_str(), Port.c_str());
@@ -209,8 +201,7 @@ namespace PeerNet
 		g_send_IOCP(CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 0)),
 		recv_overlapped(new OVERLAPPED), send_overlapped(new OVERLAPPED),
 		PeersMutex(), Peers(), uncompressed_data(new char[1436]),
-		q_ReliablePackets(), q_OutgoingPackets(),
-		ReliableMutex(), OutgoingMutex(), Initialized(true),
+		q_OutgoingPackets(), OutgoingMutex(), Initialized(true),
 		OutgoingCondition()
 	{
 		//	Describe our sockets protocol
@@ -286,6 +277,7 @@ namespace PeerNet
 			pBuf->pAddrBuff->BufferId = AddrBufferID;
 			pBuf->pAddrBuff->Offset = AddrOffset;
 			pBuf->pAddrBuff->Length = AddrSize;
+			AddrBuffs.push_back(pBuf);
 
 			RecvOffset += PacketSize;
 			AddrOffset += AddrSize;
@@ -318,8 +310,10 @@ namespace PeerNet
 			AddrOffset += AddrSize;
 		}
 
+		// Reserve our maximum outgoing packet count
+		q_OutgoingPackets.reserve(1024);
+
 		//	Create our threads
-		ReliableThread = std::thread(std::thread(&NetSocket::ReliableFunction, this));
 		OutgoingThread = std::thread(std::thread(&NetSocket::OutgoingFunction, this));
 		IncomingThread = std::thread(std::thread(&NetSocket::IncomingFunction, this));
 		//	Set Priority
@@ -335,14 +329,28 @@ namespace PeerNet
 		CloseHandle(g_recv_IOCP);		//	Terminates any current call to GetQueuedCompletionStatus on the specific IOCP Port
 		CloseHandle(g_send_IOCP);		//	Terminates any current call to GetQueuedCompletionStatus on the specific IOCP Port
 		OutgoingCondition.notify_all();	//	Awaken our Outgoing Thread if it's asleep
-		ReliableThread.join();			//	Block until this thread finishes
 		OutgoingThread.join();			//	Block until this thread finishes
 		IncomingThread.join();			//	Block until this thread finishes
 		closesocket(Socket);			//	Shutdown Socket
-		//realloc(uncompressed_data, 0);	//	Deallocate Variables
+
+		//	Cleanup Our Memory
 		delete[] uncompressed_data;
-		delete[] recv_overlapped;
-		delete[] send_overlapped;
+		delete recv_overlapped;
+		delete send_overlapped;
+		for (auto Buff : SendBuffs)
+		{
+			delete Buff->pAddrBuff;
+			delete Buff;
+		}
+		for (auto Buff : AddrBuffs)
+		{
+			delete Buff->pAddrBuff;
+			delete Buff;
+		}
+		delete p_addr_dBuffer;
+		delete p_recv_dBuffer;
+		delete p_send_dBuffer;
+
 		printf("PeerNet NetSocket %s:%s Destroyed\n", IP.c_str(), Port.c_str());
 	}
 
@@ -372,24 +380,10 @@ namespace PeerNet
 		return Peer;
 	}
 
-	void NetSocket::PushOutgoingPacket(NetPeer*const Peer, NetPacket*const Packet)
-	{
-		std::unique_lock<std::mutex> OutgoingLock(OutgoingMutex);
-		q_OutgoingPackets.push_back(std::make_pair(Packet, Peer));
-		OutgoingLock.unlock();
-		OutgoingCondition.notify_one(); // Wake our Outgoing Thread if it's sleeping
-	}
-
 	void NetSocket::AddOutgoingPacket(NetPeer*const Peer, NetPacket*const Packet)
 	{
-		if (Packet->IsReliable())
-		{
-			ReliableMutex.lock();
-			q_ReliablePackets.emplace(Packet->GetPacketID(), std::make_pair(Packet, Peer));
-			ReliableMutex.unlock();
-		}
 		std::unique_lock<std::mutex> OutgoingLock(OutgoingMutex);
-		q_OutgoingPackets.push_back(std::make_pair(Packet, Peer));
+		q_OutgoingPackets.insert(std::make_pair(Packet, Peer));
 		OutgoingLock.unlock();
 		OutgoingCondition.notify_one(); // Wake our Outgoing Thread if it's sleeping
 	}

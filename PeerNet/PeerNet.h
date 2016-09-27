@@ -28,7 +28,6 @@ namespace PeerNet
 		PN_ACK = 1,
 		PN_Reliable = 2,
 		PN_Unreliable = 3,
-		PN_DELETE = 1000,
 	};
 	class NetPeer;
 	class NetPacket;
