@@ -132,6 +132,20 @@ int main()
 				}
 			}
 		}
+		else if (ConsoleInput == "rl10")
+		{
+			if (Peer != nullptr)
+			{
+				unsigned int i = 0;
+				while (i < 100000)
+				{
+					auto NewPacket = PeerNet::CreateNewPacket(PeerNet::PacketType::PN_Reliable);
+					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm reliable!!");
+					Peer->SendPacket(NewPacket);
+					i++;
+				}
+			}
+		}
 	}
 	std::system("PAUSE");
 	return 0;

@@ -28,9 +28,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="lz4.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="NetSocket.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -38,6 +35,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="NetPeer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="lz4.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
