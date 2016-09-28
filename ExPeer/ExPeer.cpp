@@ -66,6 +66,7 @@ int main()
 				printf("Port: ");
 				std::string InputPort;
 				std::getline(std::cin, InputPort);
+				printf("here2\n");
 				Peer = Socket->DiscoverPeer(InputIP.c_str(), InputPort.c_str());
 			}
 		}

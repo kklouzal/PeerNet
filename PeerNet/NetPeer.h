@@ -14,6 +14,8 @@ namespace PeerNet
 
 		NetSocket*const MySocket;
 
+		unsigned long LastReceivedReliablePacketID = 0;
+
 		NetPeer(const std::string IP, const std::string Port, NetSocket*const Socket) : StrIP(IP), StrPort(Port), Result(), MySocket(Socket), q_IncomingPackets()
 		{
 			addrinfo Hint;

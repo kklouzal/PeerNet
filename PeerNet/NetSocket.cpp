@@ -25,7 +25,7 @@ namespace PeerNet
 			{ if (GetLastError() == ERROR_ABANDONED_WAIT_0) { break; } }
 
 			NumResults = g_rio.RIODequeueCompletion(g_recv_cQueue, g_recv_Results, PendingRecvs);
-			if (RIO_CORRUPT_CQ == NumResults) { printf("RIO Corrupt Results\n"); }
+			if (RIO_CORRUPT_CQ == NumResults) { printf("RIO Corrupt Results - Deleting Socket\n"); delete this; return; }
 
 			//	Actually read the data from each received packet
 			for (CurResult = 0; CurResult < NumResults; ++CurResult)
@@ -49,6 +49,11 @@ namespace PeerNet
 					switch (NewPacket->GetType())
 					{
 
+					//	Client Discovery Protocol:
+					//	Send Discovery Packet to Host
+					//	Host sends Discovery Packet back to Peer
+					//	Peer sends ACK back to Host
+					//	Connection Established
 					case PacketType::PN_Discovery:
 					{
 						// Received Discovery Packet
@@ -77,6 +82,7 @@ namespace PeerNet
 					{
 						printf("Recv ACK #%u\n", NewPacket->GetPacketID());
 						//	ToDo: Handle packet acknowledgements...
+						ThisPeer->LastReceivedReliablePacketID = NewPacket->GetPacketID();
 					}
 					break;
 
@@ -94,6 +100,8 @@ namespace PeerNet
 					{
 						if (ThisPeer != nullptr)
 						{
+							if (NewPacket->GetPacketID() <= ThisPeer->LastReceivedReliablePacketID) { break; }
+
 							printf("Recv Reliable\n");
 							//ThisPeer->AddPacket(NewPacket);
 							// Send ACK
@@ -117,8 +125,13 @@ namespace PeerNet
 	}
 
 
-	// This is a dedicated thread to send packets for a single socket
-	// Put as much workload as you can into this single function
+	//	This is a dedicated thread to send packets for a single socket
+	//	Put as much workload as you can into this single function
+	//
+	//	ToDo:
+	//	**Still debaiting on a dedicated thread for Unreliable/Reliable packets
+	//	**Still debaiting on weather not each client needs its own dedicated thread
+	//	First one i'm not so sure on, second one i think is a yes
 	void NetSocket::OutgoingFunction()
 	{
 		printf("PeerNet NetSocket Outgoing Thread %s:%s Starting\n", IP.c_str(), Port.c_str());
@@ -145,28 +158,32 @@ namespace PeerNet
 				if (Pair.first->IsReliable())
 				{
 					//	Check if we've received an ACK for this packet
-					//	if (RECEIVED_ACK)
-					//	{
-
-					//	}
-					//	else
-					//	{
-
-						if (Pair.first->SendAttempts == 0)
-						{
-							Pair.first->SendAttempts++;
-						}
-						else if (Pair.first->SendAttempts < 5)
-						{
-							//	If it's not time for us to send again then jump to the next packet
-							if (!Pair.first->NeedsResend()) { continue; }
-							Pair.first->SendAttempts++;
-						}
-						else
+						if (Pair.first->GetPacketID() <= Pair.second->LastReceivedReliablePacketID)
 						{
 							q_OPackets.erase(Pair.first);
 							delete Pair.first;
 							break;
+						}
+						else
+						{
+							//	This is the newest ACK we've received, update our counter
+							Pair.second->LastReceivedReliablePacketID = Pair.first->GetPacketID();
+							if (Pair.first->SendAttempts == 0)
+							{
+								Pair.first->SendAttempts++;
+							}
+							else if (Pair.first->SendAttempts < 5)
+							{
+								//	If it's not time for us to send again then jump to the next packet
+								if (!Pair.first->NeedsResend()) { continue; }
+								Pair.first->SendAttempts++;
+							}
+							else
+							{
+								q_OPackets.erase(Pair.first);
+								delete Pair.first;
+								break;
+							}
 						}
 				}
 				pBuffer->Length = LZ4_compress_default(Pair.first->GetData().c_str(), &p_send_dBuffer[pBuffer->Offset], Pair.first->GetData().size(), PacketSize);
@@ -196,6 +213,49 @@ namespace PeerNet
 		printf("PeerNet NetSocket Outgoing Thread %s:%s Stopping\n", IP.c_str(), Port.c_str());
 	}
 
+	//	Retrieve a NetPeer* from it's formatted address
+	NetPeer * const NetSocket::GetPeer(const std::string Address)
+	{
+		PeersMutex.lock();
+		if (Peers.count(Address.c_str()))
+		{
+			NetPeer* Peer = Peers.at(Address).get();
+			PeersMutex.unlock();
+			return Peer;
+		}
+		PeersMutex.unlock();
+		return nullptr;
+	}
+
+	//	DiscoverPeer - Essentially a Connect function
+	std::shared_ptr<NetPeer> NetSocket::DiscoverPeer(const std::string StrIP, const std::string StrPort)
+	{
+		std::string FormattedAddress(StrIP + std::string(":") + StrPort);
+
+		printf("New Peer! - %s\n", FormattedAddress.c_str());
+		PeersMutex.lock();
+		auto Peer = Peers.emplace(std::make_pair(FormattedAddress, std::make_shared<NetPeer>(StrIP, StrPort, this))).first->second;
+		PeersMutex.unlock();
+		AddOutgoingPacket(Peer.get(), CreateNewPacket(PacketType::PN_Discovery));
+		return Peer;
+	}
+
+	//	Adds an outgoing packet into the send queue
+	void NetSocket::AddOutgoingPacket(NetPeer*const Peer, NetPacket*const Packet)
+	{
+		std::unique_lock<std::mutex> OutgoingLock(OutgoingMutex);
+		q_OutgoingPackets.insert(std::make_pair(Packet, Peer));
+		OutgoingLock.unlock();
+		OutgoingCondition.notify_one(); // Wake our Outgoing Thread if it's sleeping
+	}
+
+	//	Retrieves the sockets formatted address
+	const std::string NetSocket::GetFormattedAddress() const
+	{
+		return FormattedAddress;
+	}
+
+	//	Constructor
 	NetSocket::NetSocket(const std::string StrIP, const std::string StrPort) :
 		IP(StrIP), Port(StrPort), FormattedAddress(IP + std::string(":") + Port),
 		PendingRecvs(1024), PendingSends(128), PacketSize(1472), AddrSize(sizeof(SOCKADDR_INET)),
@@ -327,6 +387,7 @@ namespace PeerNet
 		/*Peers.reserve(128);*/ printf("PeerNet NetSocket %s:%s Created\n", IP.c_str(), Port.c_str());
 	}
 
+	//	Destructor
 	NetSocket::~NetSocket()
 	{
 		Initialized = false;			//	Stop Thread Loops
@@ -357,43 +418,5 @@ namespace PeerNet
 		delete p_send_dBuffer;
 
 		printf("PeerNet NetSocket %s:%s Destroyed\n", IP.c_str(), Port.c_str());
-	}
-
-	NetPeer * const NetSocket::GetPeer(const std::string Address)
-	{
-		PeersMutex.lock();
-		if (Peers.count(Address.c_str()))
-		{
-			NetPeer* Peer = Peers.at(Address).get();
-			PeersMutex.unlock();
-			return Peer;
-		}
-		PeersMutex.unlock();
-		return nullptr;
-	}
-
-	// DiscoverPeer - Essentially a Connect function
-	std::shared_ptr<NetPeer> NetSocket::DiscoverPeer(const std::string StrIP, const std::string StrPort)
-	{
-		std::string FormattedAddress(StrIP + std::string(":") + StrPort);
-
-		printf("New Peer! - %s\n", FormattedAddress.c_str());
-		PeersMutex.lock();
-		auto Peer = Peers.emplace(std::make_pair(FormattedAddress, std::make_shared<NetPeer>(StrIP, StrPort, this))).first->second;
-		PeersMutex.unlock();
-		AddOutgoingPacket(Peer.get(), CreateNewPacket(PacketType::PN_Discovery));
-		return Peer;
-	}
-
-	void NetSocket::AddOutgoingPacket(NetPeer*const Peer, NetPacket*const Packet)
-	{
-		std::unique_lock<std::mutex> OutgoingLock(OutgoingMutex);
-		q_OutgoingPackets.insert(std::make_pair(Packet, Peer));
-		OutgoingLock.unlock();
-		OutgoingCondition.notify_one(); // Wake our Outgoing Thread if it's sleeping
-	}
-	const std::string NetSocket::GetFormattedAddress() const
-	{
-		return FormattedAddress;
 	}
 }

@@ -5,6 +5,7 @@ namespace PeerNet
 	class NetPacket
 	{
 		std::chrono::time_point<std::chrono::high_resolution_clock> CreationTime;
+		std::chrono::time_point<std::chrono::high_resolution_clock> NextSendTime;
 
 		unsigned int PacketID;
 		unsigned short TypeID;
@@ -26,7 +27,10 @@ namespace PeerNet
 		// This constructor is for handling Send Packets ONLY
 		NetPacket(const unsigned long pID, const unsigned short pType) : PacketID(pID), TypeID(pType), DataStream(std::ios::in | std::ios::out | std::ios::binary), BinaryIn(DataStream), BinaryOut(DataStream), SendAttempts(0)
 		{
-			if (IsReliable()) { CreationTime = std::chrono::high_resolution_clock::now(); }
+			if (IsReliable()) {
+				CreationTime = std::chrono::high_resolution_clock::now();
+				NextSendTime = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(300);
+			}
 			BinaryIn(PacketID);
 			BinaryIn(TypeID);
 		}
@@ -62,7 +66,14 @@ namespace PeerNet
 
 		// Returns true if packet needs resend
 		// Waits 300ms between send attempts
-		const bool NeedsResend() const { return (std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - CreationTime).count() > (0.3*SendAttempts)); }
+		const bool NeedsResend() {
+			if (std::chrono::high_resolution_clock::now() > NextSendTime)
+			{
+				NextSendTime += std::chrono::milliseconds(350);
+				return true;
+			}
+			return false;
+		}
 	};
 
 }
