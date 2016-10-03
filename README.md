@@ -15,4 +15,4 @@ Multi Threadded Winsock 2 Registered Input/Output (RIO) Peer to Peer (P2P) Netwo
 
 PeerNet is entirely UDP Packet based with mechanisms in place for sending and receiving reliable packets.
 
-Round Trip Time (RTT) for a reliable packet is 200μs (Microseconds) and 100μs for unreliable packets.
+Round Trip Time (RTT) for a reliable packet using localhost is 200μs (Microseconds) and 100μs for unreliable packets.
