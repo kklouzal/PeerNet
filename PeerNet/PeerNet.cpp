@@ -8,8 +8,10 @@ namespace PeerNet
 	// Only Visible In This File
 	namespace
 	{
-		unsigned long NextPacketID = 1;
 		std::forward_list<std::pair<std::string,NetSocket*>> NetSockets;
+
+		std::mutex PeersMutex;
+		std::unordered_map<std::string, const std::shared_ptr<NetPeer>> Peers;
 	}
 
 	// Public Implementation Methods
@@ -35,11 +37,6 @@ namespace PeerNet
 		}
 		WSACleanup();
 		printf("PeerNet Deinitialized\n");
-	}
-
-	NetPacket* CreateNewPacket(PacketType pType)
-	{
-		return new NetPacket(NextPacketID++, pType);
 	}
 
 	NetSocket* CreateSocket(const std::string StrIP, const std::string StrPort)
@@ -77,5 +74,29 @@ namespace PeerNet
 			}
 			return false;
 		});
+	}
+
+	//	Add a new peer
+	void AddPeer(std::string FormattedAddress, std::shared_ptr<NetPeer> Peer)
+	{
+		//	Grab a lock on our Peers
+		PeersMutex.lock();
+		//	Create a new NetPeer into the Peers variable 
+		Peers.emplace(FormattedAddress, Peer);
+		PeersMutex.unlock();
+	}
+
+	//	Retrieve a NetPeer* from it's formatted address
+	std::shared_ptr<NetPeer> GetPeer(const std::string Address)
+	{
+		PeersMutex.lock();
+		if (Peers.count(Address.c_str()))
+		{
+			auto Peer = Peers.at(Address);
+			PeersMutex.unlock();
+			return Peer;
+		}
+		PeersMutex.unlock();
+		return nullptr;
 	}
 }

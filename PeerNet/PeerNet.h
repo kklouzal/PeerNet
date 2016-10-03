@@ -31,7 +31,6 @@ namespace PeerNet
 	};
 	class NetPeer;
 	class NetPacket;
-	NetPacket* CreateNewPacket(PacketType pType);
 }
 #include "NetPacket.h"
 #include "NetSocket.h"
@@ -44,4 +43,7 @@ namespace PeerNet
 
 	NetSocket* CreateSocket(const std::string StrIP, const std::string StrPort);
 	void DeleteSocket(NetSocket*const Socket);
+
+	void AddPeer(std::string FormattedAddress, std::shared_ptr<NetPeer> Peer);
+	std::shared_ptr<NetPeer> GetPeer(const std::string Address);
 }

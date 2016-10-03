@@ -44,10 +44,6 @@ namespace PeerNet
 		RIORESULT g_send_Results[128];
 
 
-
-		std::mutex PeersMutex;
-		std::unordered_map<std::string, const std::shared_ptr<NetPeer>> Peers;
-
 		char *uncompressed_data;
 
 		std::unordered_map<NetPacket*, NetPeer*const> q_OutgoingPackets;
@@ -60,8 +56,6 @@ namespace PeerNet
 		void IncomingFunction();
 		std::thread OutgoingThread;
 		std::thread IncomingThread;
-
-		NetPeer * const GetPeer(const std::string Address);
 
 	public:
 		NetSocket(const std::string StrIP, const std::string StrPort);

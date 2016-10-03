@@ -8,8 +8,6 @@ int main()
 {
 	std::string ConsoleInput;
 	printf("[Example Peer]\nHelp commands->\n");
-	printf("\tinit - Initialize PeerNet\n");
-	printf("\tdeinit - Deinitialize PeerNet\n");
 	printf("\tquit - Exit application\n");
 	printf("\topen - Create new socket from IP and PORT\n");
 	printf("\tclose - Delete the last created socket\n");
@@ -23,17 +21,20 @@ int main()
 	
 	printf("\n");
 
+	//	Create Socket
+	//	Create Peer -> Connect to someone
+	//	Add Socket to Peer -> This socket will be used for communication
+	//	
+
+
 	PeerNet::NetSocket* Socket = nullptr;
 	std::shared_ptr<PeerNet::NetPeer> Peer;
+
+	PeerNet::Initialize();
 	while (std::getline(std::cin, ConsoleInput))
 	{
-		if (ConsoleInput == "init")	{
-			PeerNet::Initialize();
-		}
-		else if (ConsoleInput == "deinit") {
-			PeerNet::Deinitialize();
-		}
 		if (ConsoleInput == "quit")	{
+			PeerNet::Deinitialize();
 			break;
 		}
 		else if (ConsoleInput == "open") {
@@ -45,6 +46,7 @@ int main()
 				printf("Port: ");
 				std::string InputPort;
 				std::getline(std::cin, InputPort);
+				if (InputIP.empty() || InputPort.empty()) { printf("Invalid Arguments\n"); continue; }
 				Socket = PeerNet::CreateSocket(InputIP.c_str(), InputPort.c_str());
 			}
 		}
@@ -66,7 +68,7 @@ int main()
 				printf("Port: ");
 				std::string InputPort;
 				std::getline(std::cin, InputPort);
-				printf("here2\n");
+				if (InputIP.empty() || InputPort.empty()) { printf("Invalid Arguments\n"); continue; }
 				Peer = Socket->DiscoverPeer(InputIP.c_str(), InputPort.c_str());
 			}
 		}
@@ -82,7 +84,7 @@ int main()
 		{
 			if (Peer != nullptr)
 			{
-				auto NewPacket = PeerNet::CreateNewPacket(PeerNet::PacketType::PN_Reliable);
+				auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Reliable);
 				NewPacket->WriteData<std::string>("I'm about to be serialized and I'm reliable!!");
 				Peer->SendPacket(NewPacket);
 			}
@@ -91,7 +93,7 @@ int main()
 		{
 			if (Peer != nullptr)
 			{
-				auto NewPacket = PeerNet::CreateNewPacket(PeerNet::PacketType::PN_Unreliable);
+				auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Unreliable);
 				NewPacket->WriteData<std::string>("I'm about to be serialized and I'm unreliable..");
 				Peer->SendPacket(NewPacket);
 			}
@@ -100,7 +102,7 @@ int main()
 		{
 			if (Peer != nullptr)
 			{
-				auto NewPacket = PeerNet::CreateNewPacket((PeerNet::PacketType)1001);
+				auto NewPacket = Peer->CreateNewPacket((PeerNet::PacketType)1001);
 				NewPacket->WriteData<std::string>("I'm about to be serialized and I'm unreliable..");
 				Peer->SendPacket(NewPacket);
 			}
@@ -112,7 +114,7 @@ int main()
 				unsigned int i = 0;
 				while (i < 1000)
 				{
-					auto NewPacket = PeerNet::CreateNewPacket(PeerNet::PacketType::PN_Unreliable);
+					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Unreliable);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm unreliable..");
 					Peer->SendPacket(NewPacket);
 					i++;
@@ -126,7 +128,7 @@ int main()
 				unsigned int i = 0;
 				while (i < 1000)
 				{
-					auto NewPacket = PeerNet::CreateNewPacket(PeerNet::PacketType::PN_Reliable);
+					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Reliable);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm reliable!!");
 					Peer->SendPacket(NewPacket);
 					i++;
@@ -140,7 +142,7 @@ int main()
 				unsigned int i = 0;
 				while (i < 100000)
 				{
-					auto NewPacket = PeerNet::CreateNewPacket(PeerNet::PacketType::PN_Reliable);
+					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Reliable);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm reliable!!");
 					Peer->SendPacket(NewPacket);
 					i++;
