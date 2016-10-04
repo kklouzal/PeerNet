@@ -36,7 +36,7 @@ namespace PeerNet
 		{
 			if (IsReliable()) {
 				CreationTime = std::chrono::high_resolution_clock::now();
-				NextSendTime = CreationTime + std::chrono::milliseconds(300);
+				NextSendTime = CreationTime;
 			}
 			BinaryIn->operator()(PacketID);
 			BinaryIn->operator()(TypeID);
@@ -79,11 +79,23 @@ namespace PeerNet
 		// Returns true if packet needs resend
 		// Waits 300ms between send attempts
 		const bool NeedsResend() {
-			if (std::chrono::high_resolution_clock::now() > NextSendTime)
+			if (SendAttempts < 5)
 			{
-				NextSendTime += std::chrono::milliseconds(450);
-				return true;
+				auto Now = std::chrono::high_resolution_clock::now();
+				if ((SendAttempts == 0) || (Now > NextSendTime))
+				{
+					++SendAttempts;
+					NextSendTime = Now + std::chrono::milliseconds(300);
+					return true;
+				}
 			}
+			return false;
+		}
+
+		const bool NeedsDelete() const {
+			//	Reliable delivery failed
+			if (SendAttempts >= 5) { return true; }
+			//	Still waiting on an acknowledgement of delivery
 			return false;
 		}
 
@@ -96,12 +108,6 @@ namespace PeerNet
 
 		//	Return our underlying destination NetPeer
 		NetPeer*const GetPeer() const { return MyPeer; }
-
-		//	A pathetic attempt at some crude statistics
-		void Acknowledge(std::chrono::time_point<std::chrono::high_resolution_clock> Ack)
-		{
-			printf("Reliable ACK# %i %.3fms\n", PacketID, (std::chrono::duration<double>(Ack - CreationTime).count() * 1000));
-		}
 
 	};
 

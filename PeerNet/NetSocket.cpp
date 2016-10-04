@@ -41,19 +41,19 @@ namespace PeerNet
 				if (CompressResult > 0) {
 
 					//	Construct a NetPacket from the data
-					NetPacket *NewPacket(new NetPacket(std::string(uncompressed_data, CompressResult)));
+					NetPacket *IncomingPacket(new NetPacket(std::string(uncompressed_data, CompressResult)));
 
 					//	Get which peer sent this data
 					const std::string SenderIP(inet_ntoa(((SOCKADDR_INET*)&p_addr_dBuffer[pBuffer->pAddrBuff->Offset])->Ipv4.sin_addr));
 					const std::string SenderPort(std::to_string(ntohs(((SOCKADDR_INET*)&p_addr_dBuffer[pBuffer->pAddrBuff->Offset])->Ipv4.sin_port)));
 					auto ThisPeer = GetPeer(SenderIP + ":" + SenderPort);
 
-					switch (NewPacket->GetType()) {
+					switch (IncomingPacket->GetType()) {
 
 					//	Acknowledgements are passed to the NetPeer for further handling
 					case PacketType::PN_ACK:
 						if (ThisPeer != nullptr) {
-							ThisPeer->ReceivePacket_ACK(NewPacket);
+							ThisPeer->ReceivePacket_ACK(IncomingPacket);
 						}
 						#ifdef _DEBUG
 						else { printf("Recv ACK Undiscovered Sender"); }
@@ -73,8 +73,8 @@ namespace PeerNet
 					//	Reliable packets always ACK, however peers only process the most recently received ones
 					case PacketType::PN_Reliable:
 						if (ThisPeer != nullptr) {
-							AddOutgoingPacket(ThisPeer.get(), new NetPacket(NewPacket->GetPacketID(), PacketType::PN_ACK, this, ThisPeer.get()));
-							ThisPeer->ReceivePacket_Reliable(NewPacket);
+							AddOutgoingPacket(ThisPeer.get(), new NetPacket(IncomingPacket->GetPacketID(), PacketType::PN_ACK, this, ThisPeer.get()));
+							ThisPeer->ReceivePacket_Reliable(IncomingPacket);
 						}
 						#ifdef _DEBUG
 						else { printf("Recv Reliable Undiscovered Sender"); }
@@ -84,7 +84,7 @@ namespace PeerNet
 					//	Unreliable packets are given to peers reguardless the condition
 					case PacketType::PN_Unreliable:
 						if (ThisPeer != nullptr) {
-							ThisPeer->ReceivePacket_Unreliable(NewPacket);
+							ThisPeer->ReceivePacket_Unreliable(IncomingPacket);
 						}
 						#ifdef _DEBUG
 						else { printf("Recv Undiscovered Sender"); }
@@ -100,10 +100,10 @@ namespace PeerNet
 						}
 						else {
 							//	We're receiving an acknowledgement for a request we created
-							AddOutgoingPacket(ThisPeer.get(), new NetPacket(NewPacket->GetPacketID(), PacketType::PN_ACK, this, ThisPeer.get()));	//	Send Acknowledgement
+							AddOutgoingPacket(ThisPeer.get(), new NetPacket(IncomingPacket->GetPacketID(), PacketType::PN_ACK, this, ThisPeer.get()));	//	Send Acknowledgement
 							ThisPeer->SetAcknowledged();	//	Set this peer as being acknowledged
 							//	Acknowledge this packet
-							ThisPeer->ReceivePacket_ACK(NewPacket);
+							ThisPeer->ReceivePacket_ACK(IncomingPacket);
 						}
 						break;
 
@@ -112,7 +112,7 @@ namespace PeerNet
 					#endif
 					}
 
-					delete NewPacket;
+					delete IncomingPacket;
 				}
 				#ifdef _DEBUG
 				else { printf("Packet Decompression Failed\n"); }
@@ -156,40 +156,19 @@ namespace PeerNet
 				//	Check and see if this is a reliable packet
 				if (OutgoingPair.second->IsReliable())
 				{
-					//	Check if we've received an ACK for this packet
-					//	If this NetPacket's ID is less or equal to the LastSuccessfulACK we sent to this NetPacket's NetPeer
-					//	Destroy the packet since we have acknowledgement of it's delivery
-					if (OutgoingPair.first <= OutgoingPair.second->GetPeer()->GetLastReliableAck())
+					if (!OutgoingPair.second->NeedsResend())
 					{
-						if (OutgoingPair.first == OutgoingPair.second->GetPeer()->GetLastReliableAck())
+						if (!OutgoingPair.second->GetPeer()->SendPacket_Reliable(OutgoingPair.second))
 						{
-							OutgoingPair.second->Acknowledge(OutgoingPair.second->GetPeer()->GetLastAckTime());
-						}
-						delete OutgoingPair.second;
-						q_OPackets.erase(OutgoingPair.first);
-						break;
-					}
-					else
-					{
-						//	We haven't got an acknowledgement for this reliable packet yet,
-						//	See if we can try to send it again.
-						if (OutgoingPair.second->SendAttempts < 5)
-						{
-							//	If it's not time for us to send again then jump to the next packet
-							if (OutgoingPair.second->SendAttempts > 0 && !OutgoingPair.second->NeedsResend()) { continue; }
-							OutgoingPair.second->SendAttempts++;
-						}
-						else
-						{
-							if (OutgoingPair.second->GetType() == PacketType::PN_Discovery)
-							{
-								//	Failed discovery, cleanup peer
-								//Pair.second
-							}
+							//	Cleanup the packet
 							delete OutgoingPair.second;
+							//	Erase it from the outgoing containers
 							q_OPackets.erase(OutgoingPair.first);
+							//	Break the loop since our iterators are now invalid
 							break;
 						}
+						//	We don't need to resend or delete, continue loop to the next packet
+						continue;
 					}
 				}
 				pBuffer->Length = LZ4_compress_default(OutgoingPair.second->GetData().c_str(), &p_send_dBuffer[pBuffer->Offset], OutgoingPair.second->GetData().size(), PacketSize);

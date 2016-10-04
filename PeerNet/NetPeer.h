@@ -94,6 +94,20 @@ namespace PeerNet
 			#endif
 		}
 
+		//	Final step before a reliable packet is sent or resent
+		const bool SendPacket_Reliable(NetPacket* Packet)
+		{
+			//	We've received an aacknowledgement for this packet already
+			if (Packet->GetPacketID() <= LastReceivedReliableACK)
+			{
+				//	A pathetic attempt at some performance counting
+				if (Packet->GetPacketID() == LastReceivedReliableACK)
+					{ printf("Reliable ACK %i %.3fms\n", Packet->GetPacketID(), (std::chrono::duration<double>(LastAckTime - Packet->GetCreationTime()).count() * 1000)); }
+				return false;
+			}
+			return !Packet->NeedsDelete();
+		}
+
 		//	ToDo: Process an ordered packet someone has sent us
 
 		//	Called when we have acknowledgement of the discovery process completing
@@ -106,9 +120,7 @@ namespace PeerNet
 		}
 
 		const bool IsAcknowledged() const { return Acknowledged; }
-		const unsigned long GetLastReliableAck() const { return LastReceivedReliableACK; }
 		const std::string GetFormattedAddress() const { return FormattedAddress; }
-		const std::chrono::time_point<std::chrono::high_resolution_clock> GetLastAckTime() const { return LastAckTime; }
 	};
 
 }

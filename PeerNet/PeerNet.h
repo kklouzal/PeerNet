@@ -31,8 +31,8 @@ namespace PeerNet
 		PN_Unreliable = 3,
 		PN_Discovery = 4,
 	};
-	class NetPacket;
 	class NetPeer;
+	class NetPacket;
 }
 #include "NetSocket.h"
 #include "NetPacket.h"
