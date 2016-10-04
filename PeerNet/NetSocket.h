@@ -44,7 +44,7 @@ namespace PeerNet
 
 		char *uncompressed_data;
 
-		std::queue<NetPacket*> q_OutgoingPackets;
+		std::unordered_map<unsigned long, NetPacket*> q_OutgoingPackets;
 		std::mutex OutgoingMutex;
 
 		std::condition_variable OutgoingCondition;

@@ -43,6 +43,7 @@ namespace PeerNet
 	{
 		// Loop through our current sockets
 		// Check if were using this IP and Port yet
+		//	ToDo: Broken with hostnames
 		const std::string FormattedAddress(StrIP + std::string(":") + StrPort);
 		bool SocketAvailable = true;
 		for (auto Socket : NetSockets) {
@@ -52,15 +53,21 @@ namespace PeerNet
 			}
 		}
 		if (SocketAvailable) {
-
 			NetSocket* NewNetSocket = new NetSocket(StrIP, StrPort);
 			if (NewNetSocket) {
 				//	Add it to the list
-				NetSockets.push_front(std::make_pair(FormattedAddress,NewNetSocket));
+				NetSockets.push_front(std::make_pair(NewNetSocket->GetFormattedAddress(),NewNetSocket));
+				#ifdef _DEBUG
+				printf("NetSocket::CreateSocket - Socket Created - %s\n", FormattedAddress.c_str());
+				#endif
 				return NewNetSocket;
 			}
 		}
-		printf("PeerNet Socket %s Already Exists\n", FormattedAddress.c_str());
+		#ifdef _DEBUG
+		printf("NetSocket::CreateSocket - Socket Unavailable - %s\n", FormattedAddress.c_str());
+		#else
+		printf("Already Listening On %s\n", FormattedAddress.c_str());
+		#endif
 		return NULL;
 	}
 
@@ -77,22 +84,22 @@ namespace PeerNet
 	}
 
 	//	Add a new peer
-	void AddPeer(std::string FormattedAddress, std::shared_ptr<NetPeer> Peer)
+	void AddPeer(std::shared_ptr<NetPeer> Peer)
 	{
 		//	Grab a lock on our Peers
 		PeersMutex.lock();
 		//	Create a new NetPeer into the Peers variable 
-		Peers.emplace(FormattedAddress, Peer);
+		Peers.emplace(Peer->GetFormattedAddress(), Peer);
 		PeersMutex.unlock();
 	}
 
 	//	Retrieve a NetPeer* from it's formatted address
-	std::shared_ptr<NetPeer> GetPeer(const std::string Address)
+	std::shared_ptr<NetPeer> GetPeer(const std::string FormattedAddress)
 	{
 		PeersMutex.lock();
-		if (Peers.count(Address.c_str()))
+		if (Peers.count(FormattedAddress))
 		{
-			auto Peer = Peers.at(Address);
+			auto Peer = Peers.at(FormattedAddress);
 			PeersMutex.unlock();
 			return Peer;
 		}

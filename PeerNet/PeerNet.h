@@ -17,7 +17,7 @@
 #include <mutex>
 #include <deque>
 #include <forward_list>
-//#include <unordered_map>
+#include <unordered_map>
 #include <queue>
 
 // Helper Classes
@@ -46,6 +46,6 @@ namespace PeerNet
 	NetSocket* CreateSocket(const std::string StrIP, const std::string StrPort);
 	void DeleteSocket(NetSocket*const Socket);
 
-	void AddPeer(std::string FormattedAddress, std::shared_ptr<NetPeer> Peer);
-	std::shared_ptr<NetPeer> GetPeer(const std::string Address);
+	void AddPeer(std::shared_ptr<NetPeer> Peer);
+	std::shared_ptr<NetPeer> GetPeer(const std::string FormattedAddress);
 }

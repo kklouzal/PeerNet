@@ -7,29 +7,20 @@ namespace PeerNet
 	{
 		std::mutex IncomingMutex;
 		std::deque<NetPacket*> q_IncomingPackets;
+		std::queue <std::unordered_map<unsigned long, NetPacket*>> q_AcksReceived;
 		bool Acknowledged;
 
-		unsigned long LastSuccessfulACK = 0;
 		std::chrono::time_point<std::chrono::high_resolution_clock> LastAckTime;
 
 		std::string FormattedAddress;
 
 	public:
 		addrinfo* Result;
-
 		NetSocket* const MySocket;
-
+		unsigned long LastReceivedUnreliable = 0;
 		unsigned long LastReceivedReliable = 0;
-
+		unsigned long LastReceivedReliableACK = 0;
 		unsigned long NextPacketID = 1;
-
-		const unsigned long GetLastAck() const { return LastSuccessfulACK; }
-		const std::chrono::time_point<std::chrono::high_resolution_clock> GetLastAckTime() const { return LastAckTime; }
-		void ProcessACK(NetPacket*const Packet)
-		{
-			LastSuccessfulACK = Packet->GetPacketID();
-			LastAckTime = Packet->GetCreationTime();
-		}
 
 		NetPeer(const std::string IP, const std::string Port, NetSocket*const Socket) : Result(), MySocket(Socket), q_IncomingPackets(), Acknowledged(false)
 		{
@@ -56,34 +47,68 @@ namespace PeerNet
 				//return &(((struct sockaddr_in6*)sa)->sin6_addr);
 			}
 
+			#ifdef _DEBUG
 			printf("Discovery Send - %s\n", FormattedAddress.c_str());
+			#else
+			printf("Find Peer - %s\n", FormattedAddress.c_str());
+			#endif
 		}
 
-		~NetPeer()
-		{
-			freeaddrinfo(Result);
-		}
+		~NetPeer() { freeaddrinfo(Result); }
 
-		void AddPacket(NetPacket*const Packet)
-		{
-			IncomingMutex.lock();
-			q_IncomingPackets.push_back(Packet);
-			IncomingMutex.unlock();
-		}
-
+		//	Construct and return a NetPacket to fill and send to this NetPeer
 		NetPacket* CreateNewPacket(PacketType pType)
 		{
 			return new NetPacket(NextPacketID++, pType, MySocket, this);
 		}
 
+		//	Process a received Acknowledgement for a packet we've sent out
+		void ReceivePacket_ACK(NetPacket* Packet)
+		{
+			LastReceivedReliableACK = Packet->GetPacketID();
+			LastAckTime = Packet->GetCreationTime();
+			#ifdef _DEBUG
+			printf("Recv Ack #%u\n", Packet->GetPacketID());
+			#endif
+		}
+
+		//	Process a reliable packet someone has sent us
+		void ReceivePacket_Reliable(NetPacket* Packet)
+		{
+			//	Only accept the most recent received reliable packets
+			if (Packet->GetPacketID() <= LastReceivedReliable) { return; }
+			LastReceivedReliable = Packet->GetPacketID();
+			#ifdef _DEBUG
+			printf("Recv Reliable #%u\n", Packet->GetPacketID());
+			#endif
+		}
+
+		//	Process an unreliable packet someone has sent us
+		void ReceivePacket_Unreliable(NetPacket* Packet)
+		{
+			//	Only accept the most recent received unreliable packets
+			if (Packet->GetPacketID() <= LastReceivedUnreliable) { return; }
+			LastReceivedUnreliable = Packet->GetPacketID();
+			#ifdef _DEBUG
+			printf("Recv Unreliable #%u\n", Packet->GetPacketID());
+			#endif
+		}
+
+		//	ToDo: Process an ordered packet someone has sent us
+
+		//	Called when we have acknowledgement of the discovery process completing
 		void SetAcknowledged()
 		{
+			#ifdef _DEBUG
 			printf("Discovery Ack - %s\n", FormattedAddress.c_str());
+			#endif
 			Acknowledged = true;
 		}
 
 		const bool IsAcknowledged() const { return Acknowledged; }
+		const unsigned long GetLastReliableAck() const { return LastReceivedReliableACK; }
 		const std::string GetFormattedAddress() const { return FormattedAddress; }
+		const std::chrono::time_point<std::chrono::high_resolution_clock> GetLastAckTime() const { return LastAckTime; }
 	};
 
 }

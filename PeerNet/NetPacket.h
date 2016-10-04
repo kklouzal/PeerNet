@@ -81,7 +81,7 @@ namespace PeerNet
 		const bool NeedsResend() {
 			if (std::chrono::high_resolution_clock::now() > NextSendTime)
 			{
-				NextSendTime += std::chrono::milliseconds(350);
+				NextSendTime += std::chrono::milliseconds(450);
 				return true;
 			}
 			return false;
