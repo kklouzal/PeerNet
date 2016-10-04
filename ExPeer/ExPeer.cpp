@@ -86,7 +86,7 @@ int main()
 			{
 				auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Reliable);
 				NewPacket->WriteData<std::string>("I'm about to be serialized and I'm reliable!!");
-				Peer->SendPacket(NewPacket);
+				NewPacket->Send();
 			}
 		}
 		else if (ConsoleInput == "u")
@@ -95,7 +95,7 @@ int main()
 			{
 				auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Unreliable);
 				NewPacket->WriteData<std::string>("I'm about to be serialized and I'm unreliable..");
-				Peer->SendPacket(NewPacket);
+				NewPacket->Send();
 			}
 		}
 		else if (ConsoleInput == "n")
@@ -104,7 +104,7 @@ int main()
 			{
 				auto NewPacket = Peer->CreateNewPacket((PeerNet::PacketType)1001);
 				NewPacket->WriteData<std::string>("I'm about to be serialized and I'm unreliable..");
-				Peer->SendPacket(NewPacket);
+				NewPacket->Send();
 			}
 		}
 		else if (ConsoleInput == "ul")
@@ -116,7 +116,7 @@ int main()
 				{
 					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Unreliable);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm unreliable..");
-					Peer->SendPacket(NewPacket);
+					NewPacket->Send();
 					i++;
 				}
 			}
@@ -130,7 +130,7 @@ int main()
 				{
 					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Reliable);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm reliable!!");
-					Peer->SendPacket(NewPacket);
+					NewPacket->Send();
 					i++;
 				}
 			}
@@ -144,7 +144,7 @@ int main()
 				{
 					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Reliable);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm reliable!!");
-					Peer->SendPacket(NewPacket);
+					NewPacket->Send();
 					i++;
 				}
 			}

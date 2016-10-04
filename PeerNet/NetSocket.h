@@ -22,9 +22,7 @@ namespace PeerNet
 
 		RIO_EXTENSION_FUNCTION_TABLE g_rio;
 		SOCKET Socket;
-		const std::string IP;
-		const std::string Port;
-		const std::string FormattedAddress;
+		std::string FormattedAddress;
 		const DWORD PendingRecvs;
 		const DWORD PendingSends;
 		const DWORD PacketSize;
@@ -46,7 +44,7 @@ namespace PeerNet
 
 		char *uncompressed_data;
 
-		std::unordered_map<NetPacket*, NetPeer*const> q_OutgoingPackets;
+		std::queue<NetPacket*> q_OutgoingPackets;
 		std::mutex OutgoingMutex;
 
 		std::condition_variable OutgoingCondition;
@@ -61,10 +59,7 @@ namespace PeerNet
 		NetSocket(const std::string StrIP, const std::string StrPort);
 		~NetSocket();
 
-		//bool IsAddress(const char* StrIP, const char* StrPort);
 		std::shared_ptr<NetPeer> DiscoverPeer(const std::string StrIP, const std::string StrPort);
-
-		//const std::deque<NetPeer*> GetPeers();
 
 		void AddOutgoingPacket(NetPeer*const Peer, NetPacket*const Packet);
 		const std::string GetFormattedAddress() const;

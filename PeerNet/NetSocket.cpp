@@ -7,7 +7,7 @@ namespace PeerNet
 	// Put as much workload as you can into this single function
 	void NetSocket::IncomingFunction()
 	{
-		printf("PeerNet NetSocket Incoming Thread %s:%s Starting\n", IP.c_str(), Port.c_str());
+		printf("PeerNet NetSocket Incoming Thread %s Starting\n", FormattedAddress.c_str());
 		INT NotifyResult = 0;
 		DWORD BytesCompleted = 0;
 		ULONG_PTR CompletionKey = 0;
@@ -49,12 +49,70 @@ namespace PeerNet
 					switch (NewPacket->GetType())
 					{
 
+						//	Acknowledgements are passed to the NetPeer for further handling
+						case PacketType::PN_ACK:
+							if (ThisPeer != nullptr)
+							{
+								printf("Recv ACK #%u\n", NewPacket->GetPacketID());
+								//	Set the LastSuccessfulACK of this NetPacket's Source NetPeer to the ID of this ACK
+								ThisPeer->ProcessACK(NewPacket);
+							}
+							else {
+								printf("Recv ACK Undiscovered Sender");
+							}
+							break;
+
+						case PacketType::PN_Ordered:
+							if (ThisPeer != nullptr)
+							{
+
+							}
+							else {
+								printf("Recv Ordered Undiscovered Sender");
+							}
+							break;
+
+						//	Reliable packets immediatly send off an acknowledgement then passed to the NetPeer for further handling
+						//	The peer will peridocially loop through all the packets they need processed
+						//	Checking to see if the packet needs to be processed in an ordered fashion
+						//	Or if we need only look at the most recent for that type we've received
+						//
+						//	ToDo: Have the socket split these two types into different queues
+						//		And handle the heavy lifting during this case
+						case PacketType::PN_Reliable:
+							if (ThisPeer != nullptr)
+							{
+								//	Get the LastReceivedReliable of this NetPacket's Source NetPeer
+								//	If this NetPacket's ID is less or equal to the LastReceivedReliable then disguard the NetPacket
+								if (NewPacket->GetPacketID() <= ThisPeer->LastReceivedReliable) { break; }
+								ThisPeer->LastReceivedReliable = NewPacket->GetPacketID();
+								printf("Recv Reliable\n");
+								//ThisPeer->AddPacket(NewPacket);
+								// Send ACK
+								AddOutgoingPacket(ThisPeer.get(), new NetPacket(NewPacket->GetPacketID(), PacketType::PN_ACK, this, ThisPeer.get()));
+							}
+							else {
+								printf("Recv Reliable Undiscovered Sender");
+							}
+							break;
+
+						//	Unreliable packets are given to the NetPeer for further handling
+						case PacketType::PN_Unreliable:
+							if (ThisPeer != nullptr)
+							{
+								printf("Recv Unreliable\n");
+								//ThisPeer->AddPacket(NewPacket);
+							}
+							else {
+								printf("Recv Undiscovered Sender");
+							}
+							break;
+
 					//	Client Discovery Protocol:
 					//	Send Discovery Packet to Host
 					//	Host sends Discovery Packet back to Peer
 					//	Peer sets self acknowledged
 					case PacketType::PN_Discovery:
-					{
 						if (ThisPeer == nullptr)
 						{
 							//	We're receiving a request for the first time.
@@ -65,58 +123,13 @@ namespace PeerNet
 						}
 						else {
 							//	We're receiving an acknowledgement of a request we created
-							printf("Acknowledge Peer\n");
 							ThisPeer->SetAcknowledged();
 							// Send ACK
-							AddOutgoingPacket(ThisPeer.get(), new NetPacket(NewPacket->GetPacketID(), PacketType::PN_ACK));
+							AddOutgoingPacket(ThisPeer.get(), new NetPacket(NewPacket->GetPacketID(), PacketType::PN_ACK, this, ThisPeer.get()));
 							//	Acknowledge this packet
-							ThisPeer->LastSuccessfulACK = NewPacket->GetPacketID();
+							ThisPeer->ProcessACK(NewPacket);
 						}
-					}
-					break;
-
-					case PacketType::PN_ACK:
-					{
-						if (ThisPeer != nullptr)
-						{
-							printf("Recv ACK #%u\n", NewPacket->GetPacketID());
-							//	Set the LastSuccessfulACK of this NetPacket's Source NetPeer to the ID of this ACK
-							ThisPeer->LastSuccessfulACK = NewPacket->GetPacketID();
-						}
-						else {
-							printf("Recv ACK Undiscovered Sender");
-						}
-					}
-					break;
-
-					case PacketType::PN_Unreliable:
-					{
-						if (ThisPeer != nullptr)
-						{
-							printf("Recv Unreliable\n");
-							//ThisPeer->AddPacket(NewPacket);
-						}
-						else {
-							printf("Recv Undiscovered Sender");
-						}
-					}
-					break;
-
-					case PacketType::PN_Reliable:
-					{
-						if (ThisPeer != nullptr)
-						{
-							//	Get the LastReceivedReliable of this NetPacket's Source NetPeer
-							//	If this NetPacket's ID is less or equal to the LastReceivedReliable then disguard the NetPacket
-							if (NewPacket->GetPacketID() <= ThisPeer->LastReceivedReliable) { break; }
-							ThisPeer->LastReceivedReliable = NewPacket->GetPacketID();
-							printf("Recv Reliable\n");
-							//ThisPeer->AddPacket(NewPacket);
-							// Send ACK
-							AddOutgoingPacket(ThisPeer.get(), new NetPacket(NewPacket->GetPacketID(), PacketType::PN_ACK));
-						}
-					}
-					break;
+						break;
 
 					default:
 						printf("Received Unknown Packet Type\n");
@@ -129,7 +142,7 @@ namespace PeerNet
 				if (!g_rio.RIOReceiveEx(g_requestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, 0, pBuffer)) { printf("RIO Receive2 Failed\n"); }
 			}
 		}
-		printf("PeerNet NetSocket Incoming Thread %s:%s Stopping\n", IP.c_str(), Port.c_str());
+		printf("PeerNet NetSocket Incoming Thread %s Stopping\n", FormattedAddress.c_str());
 	}
 
 
@@ -137,8 +150,8 @@ namespace PeerNet
 	//	Put as much workload as you can into this single function
 	void NetSocket::OutgoingFunction()
 	{
-		printf("PeerNet NetSocket Outgoing Thread %s:%s Starting\n", IP.c_str(), Port.c_str());
-		std::unordered_map<NetPacket*, NetPeer*const> q_OPackets;
+		printf("PeerNet NetSocket Outgoing Thread %s Starting\n", FormattedAddress.c_str());
+		std::queue<NetPacket*> q_OPackets;
 		PRIO_BUF_EXT pBuffer = 0;
 
 		// This is our Outgoing Threads main loop
@@ -155,53 +168,57 @@ namespace PeerNet
 			pBuffer = SendBuffs.front();
 			SendBuffs.pop_front();
 			// Loop through all the current outgoing packets
-			for (auto Pair: q_OPackets)
+			while (!q_OPackets.empty())
 			{
 				//	Check and see if this is a reliable packet
-				if (Pair.first->IsReliable())
+				if (q_OPackets.front()->IsReliable())
 				{
 					//	Check if we've received an ACK for this packet
 					//	If this NetPacket's ID is less or equal to the LastSuccessfulACK we sent to this NetPacket's NetPeer
 					//	Destroy the packet since we have acknowledgement of it's delivery
-					if (Pair.first->GetPacketID() <= Pair.second->LastSuccessfulACK)
+					if (q_OPackets.front()->GetPacketID() <= q_OPackets.front()->GetPeer()->GetLastAck())
 					{
-						q_OPackets.erase(Pair.first);
-						delete Pair.first;
-						break;
+						if (q_OPackets.front()->GetPacketID() == q_OPackets.front()->GetPeer()->GetLastAck())
+						{
+							q_OPackets.front()->Acknowledge(q_OPackets.front()->GetPeer()->GetLastAckTime());
+						}
+						delete q_OPackets.front();
+						q_OPackets.pop();
+						continue;//
 					}
 					else
 					{
 						//	We haven't got an acknowledgement for this reliable packet yet,
 						//	See if we can try to send it again.
 						//Pair.second->LastReceivedReliablePacketID = Pair.first->GetPacketID();
-						if (Pair.first->SendAttempts == 0)
+						if (q_OPackets.front()->SendAttempts == 0)
 						{
-							Pair.first->SendAttempts++;
+							q_OPackets.front()->SendAttempts++;
 						}
-						else if (Pair.first->SendAttempts < 5)
+						else if (q_OPackets.front()->SendAttempts < 5)
 						{
 							//	If it's not time for us to send again then jump to the next packet
-							if (!Pair.first->NeedsResend()) { continue; }
-							Pair.first->SendAttempts++;
+							if (!q_OPackets.front()->NeedsResend()) { continue; }
+							q_OPackets.front()->SendAttempts++;
 						}
 						else
 						{
-							if (Pair.first->GetType() == PacketType::PN_Discovery)
+							if (q_OPackets.front()->GetType() == PacketType::PN_Discovery)
 							{
 								//	Failed discovery, cleanup peer
 								//Pair.second
 							}
-							q_OPackets.erase(Pair.first);
-							delete Pair.first;
-							break;
+							delete q_OPackets.front();
+							q_OPackets.pop();
+							continue;//
 						}
 					}
 				}
-				pBuffer->Length = LZ4_compress_default(Pair.first->GetData().c_str(), &p_send_dBuffer[pBuffer->Offset], Pair.first->GetData().size(), PacketSize);
+				pBuffer->Length = LZ4_compress_default(q_OPackets.front()->GetData().c_str(), &p_send_dBuffer[pBuffer->Offset], q_OPackets.front()->GetData().size(), PacketSize);
 
 				if (pBuffer->Length > 0)
 				{
-					memcpy(&p_addr_dBuffer[pBuffer->pAddrBuff->Offset], Pair.second->Result->ai_addr, AddrSize);
+					memcpy(&p_addr_dBuffer[pBuffer->pAddrBuff->Offset], q_OPackets.front()->GetPeer()->Result->ai_addr, AddrSize);
 					g_rio.RIOSendEx(g_requestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, 0, pBuffer);
 					//	Immediatly dequeue this send; probably only need 1 send packet this way
 					g_rio.RIONotify(g_send_cQueue);
@@ -210,32 +227,29 @@ namespace PeerNet
 					g_rio.RIODequeueCompletion(g_send_cQueue, g_send_Results, PendingSends);
 				}
 				else { printf("Failed Compression!\n"); }
-				
+
 				// If this packet wasnt reliable, release the packets memory and remove it from the unordered_map
-				if (!Pair.first->IsReliable())
+				if (!q_OPackets.front()->IsReliable())
 				{
-					q_OPackets.erase(Pair.first);
-					delete Pair.first;
-					break;
+					delete q_OPackets.front();
+					q_OPackets.pop();
+					continue;//
 				}
 			}
 			SendBuffs.push_back(pBuffer);
 		}
-		printf("PeerNet NetSocket Outgoing Thread %s:%s Stopping\n", IP.c_str(), Port.c_str());
+		printf("PeerNet NetSocket Outgoing Thread %s Stopping\n", FormattedAddress.c_str());
 	}
 
 	//	DiscoverPeer - Essentially a Connect function
 	std::shared_ptr<NetPeer> NetSocket::DiscoverPeer(const std::string StrIP, const std::string StrPort)
 	{
-		std::string FormattedAddress(StrIP + std::string(":") + StrPort);
-
 		auto Peer = GetPeer(FormattedAddress);
 		if (Peer == nullptr)
 		{
-			printf("Discover Peer! - %s\n", FormattedAddress.c_str());
 			//	Create a new NetPeer into the Peers variable 
 			Peer = std::make_shared<NetPeer>(StrIP, StrPort, this);
-			AddPeer(FormattedAddress, Peer);
+			AddPeer(Peer->GetFormattedAddress(), Peer);
 			//	Send a discovery request to this newly created NetPeer
 			AddOutgoingPacket(Peer.get(), Peer.get()->CreateNewPacket(PacketType::PN_Discovery));
 			//	Finally return our newly created NetPeer
@@ -247,7 +261,7 @@ namespace PeerNet
 	void NetSocket::AddOutgoingPacket(NetPeer*const Peer, NetPacket*const Packet)
 	{
 		std::unique_lock<std::mutex> OutgoingLock(OutgoingMutex);
-		q_OutgoingPackets.insert(std::make_pair(Packet, Peer));
+		q_OutgoingPackets.push(Packet);
 		OutgoingLock.unlock();
 		OutgoingCondition.notify_one(); // Wake our Outgoing Thread if it's sleeping
 	}
@@ -260,7 +274,6 @@ namespace PeerNet
 
 	//	Constructor
 	NetSocket::NetSocket(const std::string StrIP, const std::string StrPort) :
-		IP(StrIP), Port(StrPort), FormattedAddress(IP + std::string(":") + Port),
 		PendingRecvs(1024), PendingSends(128), PacketSize(1472), AddrSize(sizeof(SOCKADDR_INET)),
 		p_addr_dBuffer(new char[AddrSize*(PendingRecvs + PendingSends)]),
 		p_recv_dBuffer(new char[PacketSize*PendingRecvs]),
@@ -282,7 +295,19 @@ namespace PeerNet
 		Hint.ai_flags = AI_PASSIVE;
 
 		//	Resolve the servers addrinfo
-		if (getaddrinfo(IP.c_str(), Port.c_str(), &Hint, &Result) != 0) { printf("GetAddrInfo Failed(%i)\n", WSAGetLastError()); }
+		if (getaddrinfo(StrIP.c_str(), StrPort.c_str(), &Hint, &Result) != 0) { printf("GetAddrInfo Failed(%i)\n", WSAGetLastError()); }
+
+		//	Resolve our IP and create the formatted address
+		if (Result->ai_family == AF_INET)
+		{
+			char*const ResolvedIP = new char[16];
+			inet_ntop(AF_INET, &(((sockaddr_in*)((sockaddr*)Result->ai_addr))->sin_addr), ResolvedIP, 16);
+			FormattedAddress = ResolvedIP + std::string(":") + StrPort;
+			delete[] ResolvedIP;
+		}
+		else {
+			//return &(((struct sockaddr_in6*)sa)->sin6_addr);
+		}
 
 		//	Create a socket with our addrinfo
 		Socket = WSASocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, NULL, WSA_FLAG_REGISTERED_IO);
@@ -378,16 +403,13 @@ namespace PeerNet
 			AddrOffset += AddrSize;
 		}
 
-		// Reserve our maximum outgoing packet count
-		q_OutgoingPackets.reserve(1024);
-
 		//	Create our threads
 		OutgoingThread = std::thread(std::thread(&NetSocket::OutgoingFunction, this));
 		IncomingThread = std::thread(std::thread(&NetSocket::IncomingFunction, this));
 		//	Set Priority
 		//GetCurrentThread();
 		SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
-		/*Peers.reserve(128);*/ printf("PeerNet NetSocket %s:%s Created\n", IP.c_str(), Port.c_str());
+		/*Peers.reserve(128);*/ printf("PeerNet NetSocket %s Created\n", FormattedAddress.c_str());
 	}
 
 	//	Destructor
@@ -420,6 +442,6 @@ namespace PeerNet
 		delete p_recv_dBuffer;
 		delete p_send_dBuffer;
 
-		printf("PeerNet NetSocket %s:%s Destroyed\n", IP.c_str(), Port.c_str());
+		printf("PeerNet NetSocket %s Destroyed\n", FormattedAddress.c_str());
 	}
 }

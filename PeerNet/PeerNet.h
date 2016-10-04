@@ -17,23 +17,25 @@
 #include <mutex>
 #include <deque>
 #include <forward_list>
-#include <unordered_map>
+//#include <unordered_map>
+#include <queue>
 
 // Helper Classes
 namespace PeerNet
 {
 	enum PacketType
 	{
-		PN_Discovery = 0,
-		PN_ACK = 1,
+		PN_ACK = 0,
+		PN_Ordered = 1,
 		PN_Reliable = 2,
 		PN_Unreliable = 3,
+		PN_Discovery = 4,
 	};
-	class NetPeer;
 	class NetPacket;
+	class NetPeer;
 }
-#include "NetPacket.h"
 #include "NetSocket.h"
+#include "NetPacket.h"
 #include "NetPeer.h"
 
 namespace PeerNet
