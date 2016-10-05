@@ -5,11 +5,6 @@ namespace PeerNet
 
 	class NetPeer
 	{
-		std::mutex IncomingMutex;
-		std::deque<NetPacket*> q_IncomingPackets;
-		std::queue <std::unordered_map<unsigned long, NetPacket*>> q_AcksReceived;
-		bool Acknowledged;
-
 		std::chrono::time_point<std::chrono::high_resolution_clock> LastAckTime;
 
 		std::string FormattedAddress;
@@ -18,11 +13,20 @@ namespace PeerNet
 		addrinfo* Result;
 		NetSocket* const MySocket;
 		unsigned long LastReceivedUnreliable = 0;
+
 		unsigned long LastReceivedReliable = 0;
 		unsigned long LastReceivedReliableACK = 0;
-		unsigned long NextPacketID = 1;
 
-		NetPeer(const std::string IP, const std::string Port, NetSocket*const Socket) : Result(), MySocket(Socket), q_IncomingPackets(), Acknowledged(false)
+		unsigned long NextExpectedOrderedID = 1;
+		unsigned long NextExpectedOrderedACK = 1;
+		std::unordered_map<unsigned long, NetPacket*> q_OrderedPackets;
+		std::unordered_map<unsigned long, NetPacket*> q_OrderedAcks;
+
+		unsigned long NextUnreliablePacketID = 1;
+		unsigned long NextReliablePacketID = 1;
+		unsigned long NextOrderedPacketID = 1;
+
+		NetPeer(const std::string IP, const std::string Port, NetSocket*const Socket) : Result(), MySocket(Socket), q_OrderedPackets(), q_OrderedAcks()
 		{
 			addrinfo Hint;
 			ZeroMemory(&Hint, sizeof(Hint));
@@ -47,62 +51,203 @@ namespace PeerNet
 				//return &(((struct sockaddr_in6*)sa)->sin6_addr);
 			}
 
-			#ifdef _DEBUG
-			printf("Discovery Send - %s\n", FormattedAddress.c_str());
-			#else
-			printf("Find Peer - %s\n", FormattedAddress.c_str());
-			#endif
+			//	Send out our discovery request
+			MySocket->AddOutgoingPacket(this, CreateNewPacket(PacketType::PN_Discovery));
+			printf("Create Peer - %s\n", FormattedAddress.c_str());
 		}
 
 		~NetPeer() { freeaddrinfo(Result); }
 
 		//	Construct and return a NetPacket to fill and send to this NetPeer
-		NetPacket* CreateNewPacket(PacketType pType)
+		//	ToDo: PacketID will clash on socket if same socket is used to send packets for two different peers and each peer chooses the same PacketID
+		NetPacket* CreateNewPacket(PacketType pType) {
+			if (pType == PacketType::PN_Ordered)
+			{
+				return new NetPacket(NextOrderedPacketID++, pType, MySocket, this);
+			}
+			else if (pType == PacketType::PN_Reliable)
+			{
+				return new NetPacket(NextReliablePacketID++, pType, MySocket, this);
+			}
+			else {
+				return new NetPacket(NextUnreliablePacketID++, pType, MySocket, this);
+			}
+}
+
+		//	Called from a NetSocket's Receive Thread
+		void ReceivePacket(NetPacket* IncomingPacket)
 		{
-			return new NetPacket(NextPacketID++, pType, MySocket, this);
+			switch (IncomingPacket->GetType()) {
+
+				//
+				//
+				//
+				//	PN_OrderedACK
+				//	Acknowledgements are passed to the NetPeer for further handling
+			case PacketType::PN_OrderedACK:
+				if (IncomingPacket->GetPacketID() < NextExpectedOrderedACK) { delete IncomingPacket; return; }
+
+				//	is packet id > expected id? store in map, key is packet id.
+				if (IncomingPacket->GetPacketID() > NextExpectedOrderedACK) { q_OrderedAcks.insert(std::make_pair(IncomingPacket->GetPacketID(), IncomingPacket)); return; }
+
+				//	is packet id == expected id? process packet. delete. increment expected id.
+				if (IncomingPacket->GetPacketID() == NextExpectedOrderedACK++) {
+#ifdef _DEBUG_PACKETS_ACKS
+					printf("Ordered Ack 1 - %u\n", IncomingPacket->GetPacketID());
+#endif
+					delete IncomingPacket;
+					while (true)
+					{
+						if (!q_OrderedAcks.empty())
+						{
+							if (!q_OrderedAcks.count(NextExpectedOrderedACK)) { return; }
+#ifdef _DEBUG_PACKETS_ACKS
+							printf("Ordered Ack 2 - %u\n", q_OrderedAcks.at(NextExpectedOrderedACK)->GetPacketID());
+#endif
+							delete q_OrderedAcks.at(NextExpectedOrderedACK);
+							q_OrderedAcks.erase(NextExpectedOrderedACK);
+							++NextExpectedOrderedACK;
+						} else { return; }
+					}
+				}
+				break;
+
+				//
+				//
+				//
+				//	PN_ReliableACK
+			//	Acknowledgements are passed to the NetPeer for further handling
+			case PacketType::PN_ReliableACK:
+				if (IncomingPacket->GetPacketID() <= LastReceivedReliable) { break; }
+				LastReceivedReliableACK = IncomingPacket->GetPacketID();
+				LastAckTime = IncomingPacket->GetCreationTime();
+#ifdef _DEBUG_PACKETS_ACKS
+				printf("Reliable Ack - %u\n", IncomingPacket->GetPacketID());
+#endif
+				delete IncomingPacket;
+				break;
+
+				//
+				//
+				//
+				//	PN_Ordered
+			//	Ordered packets wait and pass received packets numerically to peers
+			case PacketType::PN_Ordered:
+				{
+					MySocket->AddOutgoingPacket(this, new NetPacket(IncomingPacket->GetPacketID(), PacketType::PN_OrderedACK, MySocket, this));
+
+					//	is packet id less than expected id? delete. it's already acked
+					if (IncomingPacket->GetPacketID() < NextExpectedOrderedID) { delete IncomingPacket; return; }
+
+					//	is packet id > expected id? store in map, key is packet id.
+					if (IncomingPacket->GetPacketID() > NextExpectedOrderedID) { q_OrderedPackets.insert(std::make_pair(IncomingPacket->GetPacketID(), IncomingPacket)); return; }
+
+					//	is packet id == expected id? process packet. delete. increment expected id.
+					if (IncomingPacket->GetPacketID() == NextExpectedOrderedID++) {
+						//
+						//	Process your reliable packet here
+						//
+#ifdef _DEBUG_PACKETS
+						printf("Recv Ordered Packet - %u\n", IncomingPacket->GetPacketID());
+#endif
+						delete IncomingPacket;
+						while (true)
+						{
+							if (!q_OrderedPackets.empty())
+							{
+								auto got = q_OrderedPackets.find(NextExpectedOrderedID);
+								if (got == q_OrderedPackets.end()) { return; }
+								//
+								//	Process your reliable packet here
+								//
+								//	got->second
+								//
+#ifdef _DEBUG_PACKETS
+								printf("Recv Ordered Packet - %u\n", got->second->GetPacketID());
+#endif
+								NextExpectedOrderedID++;
+								delete got->second;
+								q_OrderedPackets.erase(got);
+							} else { return; }
+						}
+					}
+				}
+				break;
+
+				//
+				//
+				//
+				//	PN_Reliable
+			//	Reliable packets always ACK immediatly
+			case PacketType::PN_Reliable:
+				MySocket->AddOutgoingPacket(this, new NetPacket(IncomingPacket->GetPacketID(), PacketType::PN_ReliableACK, MySocket, this));
+				//	Only accept the most recent received reliable packets
+				if (IncomingPacket->GetPacketID() <= LastReceivedReliable) { break; }
+				LastReceivedReliable = IncomingPacket->GetPacketID();
+#ifdef _DEBUG_PACKETS
+				printf("Recv Reliable - %u\n", IncomingPacket->GetPacketID());
+#endif
+				delete IncomingPacket;
+				break;
+
+				//
+				//
+				//
+				//	PN_Unreliable
+			//	Unreliable packets are given to peers reguardless the condition
+			case PacketType::PN_Unreliable:
+				//	Only accept the most recent received unreliable packets
+				if (IncomingPacket->GetPacketID() <= LastReceivedUnreliable) { break; }
+				LastReceivedUnreliable = IncomingPacket->GetPacketID();
+#ifdef _DEBUG_PACKETS
+				printf("Recv Unreliable - %u\n", IncomingPacket->GetPacketID());
+#endif
+				delete IncomingPacket;
+				break;
+
+				//
+				//
+				//
+				//	PN_Discovery
+			//	Special case packet implementing the discovery protocol
+			case PacketType::PN_Discovery:
+				//	We're receiving an acknowledgement for a request we created
+				MySocket->AddOutgoingPacket(this, new NetPacket(IncomingPacket->GetPacketID(), PacketType::PN_ReliableACK, MySocket, this));	//	Send Acknowledgement
+				delete IncomingPacket;
+				break;
+
+			default:
+#ifdef _DEBUG_PACKETS
+				printf("Recv Unknown Packet Type\n");
+#endif
+				delete IncomingPacket;
+			}
+
 		}
 
-		//	Process a received Acknowledgement for a packet we've sent out
-		void ReceivePacket_ACK(NetPacket* Packet)
+		//	Final step before an ordered packet is sent or resent
+		const bool SendPacket_Ordered(NetPacket* Packet) const
 		{
-			LastReceivedReliableACK = Packet->GetPacketID();
-			LastAckTime = Packet->GetCreationTime();
-			#ifdef _DEBUG
-			printf("Recv Ack #%u\n", Packet->GetPacketID());
-			#endif
-		}
-
-		//	Process a reliable packet someone has sent us
-		void ReceivePacket_Reliable(NetPacket* Packet)
-		{
-			//	Only accept the most recent received reliable packets
-			if (Packet->GetPacketID() <= LastReceivedReliable) { return; }
-			LastReceivedReliable = Packet->GetPacketID();
-			#ifdef _DEBUG
-			printf("Recv Reliable #%u\n", Packet->GetPacketID());
-			#endif
-		}
-
-		//	Process an unreliable packet someone has sent us
-		void ReceivePacket_Unreliable(NetPacket* Packet)
-		{
-			//	Only accept the most recent received unreliable packets
-			if (Packet->GetPacketID() <= LastReceivedUnreliable) { return; }
-			LastReceivedUnreliable = Packet->GetPacketID();
-			#ifdef _DEBUG
-			printf("Recv Unreliable #%u\n", Packet->GetPacketID());
-			#endif
+#ifdef _DEBUG_PACKETS
+			printf("Send Ordered Packet - %u\n", Packet->GetPacketID());
+#endif
+			//	We've received an aacknowledgement for this packet already
+			if (Packet->GetPacketID() < NextExpectedOrderedACK)
+			{
+				return false;
+			}
+			return !Packet->NeedsDelete();
 		}
 
 		//	Final step before a reliable packet is sent or resent
-		const bool SendPacket_Reliable(NetPacket* Packet)
+		const bool SendPacket_Reliable(NetPacket* Packet) const
 		{
 			//	We've received an aacknowledgement for this packet already
 			if (Packet->GetPacketID() <= LastReceivedReliableACK)
 			{
 				//	A pathetic attempt at some performance counting
 				if (Packet->GetPacketID() == LastReceivedReliableACK)
-					{ printf("Reliable ACK %i %.3fms\n", Packet->GetPacketID(), (std::chrono::duration<double>(LastAckTime - Packet->GetCreationTime()).count() * 1000)); }
+					{ printf("\tReliable - %i -\t %.3fms\n", Packet->GetPacketID(), (std::chrono::duration<double>(LastAckTime - Packet->GetCreationTime()).count() * 1000)); }
 				return false;
 			}
 			return !Packet->NeedsDelete();
@@ -110,16 +255,6 @@ namespace PeerNet
 
 		//	ToDo: Process an ordered packet someone has sent us
 
-		//	Called when we have acknowledgement of the discovery process completing
-		void SetAcknowledged()
-		{
-			#ifdef _DEBUG
-			printf("Discovery Ack - %s\n", FormattedAddress.c_str());
-			#endif
-			Acknowledged = true;
-		}
-
-		const bool IsAcknowledged() const { return Acknowledged; }
 		const std::string GetFormattedAddress() const { return FormattedAddress; }
 	};
 

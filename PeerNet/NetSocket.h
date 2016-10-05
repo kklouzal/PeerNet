@@ -3,6 +3,7 @@
 
 namespace PeerNet
 {
+
 	struct RIO_BUF_EXT : public RIO_BUF
 	{
 		PRIO_BUF pAddrBuff;
@@ -38,13 +39,15 @@ namespace PeerNet
 		RIO_CQ g_send_cQueue;
 		RIO_RQ g_requestQueue;
 
-		RIORESULT g_recv_Results[1024];
+		RIORESULT g_recv_Results[128];
 		RIORESULT g_send_Results[128];
 
 
 		char *uncompressed_data;
 
-		std::unordered_map<unsigned long, NetPacket*> q_OutgoingPackets;
+		std::map<unsigned long, NetPacket*> q_OutgoingUnreliable;
+		std::map<unsigned long, NetPacket*> q_OutgoingOrdered;
+		std::map<unsigned long, NetPacket*> q_OutgoingReliable;
 		std::mutex OutgoingMutex;
 
 		std::condition_variable OutgoingCondition;
@@ -55,6 +58,8 @@ namespace PeerNet
 		std::thread OutgoingThread;
 		std::thread IncomingThread;
 
+		void NetSocket::CompressAndSendPacket(PRIO_BUF_EXT pBuffer, const NetPacket* const Packet);
+
 	public:
 		NetSocket(const std::string StrIP, const std::string StrPort);
 		~NetSocket();
@@ -64,4 +69,6 @@ namespace PeerNet
 		void AddOutgoingPacket(NetPeer*const Peer, NetPacket*const Packet);
 		const std::string GetFormattedAddress() const;
 	};
+
+	std::shared_ptr<NetPeer> RetrievePeer(const std::string FormattedAddress, NetSocket*const Socket);
 }

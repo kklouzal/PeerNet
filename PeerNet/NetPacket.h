@@ -11,7 +11,8 @@ namespace PeerNet
 		std::chrono::time_point<std::chrono::high_resolution_clock> NextSendTime;
 
 		unsigned int PacketID;
-		unsigned short TypeID;
+		PeerNet::PacketType TypeID;
+
 		std::stringstream DataStream;
 		cereal::PortableBinaryOutputArchive* BinaryIn;
 		cereal::PortableBinaryInputArchive* BinaryOut;
@@ -26,11 +27,11 @@ namespace PeerNet
 		{
 			BinaryOut->operator()(PacketID);
 			BinaryOut->operator()(TypeID);
-			if (TypeID == PacketType::PN_ACK) { CreationTime = std::chrono::high_resolution_clock::now(); }
+			if (TypeID == PacketType::PN_ReliableACK || TypeID == PacketType::PN_OrderedACK) { CreationTime = std::chrono::high_resolution_clock::now(); }
 		}
 
 		// This constructor is for handling Send Packets ONLY
-		NetPacket(const unsigned long pID, const unsigned short pType, NetSocket* const Socket, NetPeer* const Peer)
+		NetPacket(const unsigned long pID, PeerNet::PacketType pType, NetSocket* const Socket, NetPeer* const Peer)
 			: PacketID(pID), TypeID(pType), DataStream(std::ios::in | std::ios::out | std::ios::binary), BinaryIn(new cereal::PortableBinaryOutputArchive(DataStream)),
 			BinaryOut(nullptr), SendAttempts(0), MySocket(Socket), MyPeer(Peer)
 		{
@@ -74,7 +75,7 @@ namespace PeerNet
 		const std::chrono::time_point<std::chrono::high_resolution_clock> GetCreationTime() const { return CreationTime; }
 
 		// Is this a reliable packet
-		const bool IsReliable() const {	return ((TypeID == PacketType::PN_Discovery) || (TypeID == PacketType::PN_Reliable)); }
+		const bool IsReliable() const {	return ((TypeID == PacketType::PN_Ordered) || (TypeID == PacketType::PN_Discovery) || (TypeID == PacketType::PN_Reliable)); }
 
 		// Returns true if packet needs resend
 		// Waits 300ms between send attempts
@@ -101,10 +102,7 @@ namespace PeerNet
 
 		//	Send your finialized packet
 		//	Do not ever touch the packet again after calling this
-		void Send()
-		{
-			MySocket->AddOutgoingPacket(MyPeer, this);
-		}
+		void Send() { MySocket->AddOutgoingPacket(MyPeer, this); }
 
 		//	Return our underlying destination NetPeer
 		NetPeer*const GetPeer() const { return MyPeer; }

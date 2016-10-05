@@ -18,18 +18,26 @@
 #include <deque>
 #include <forward_list>
 #include <unordered_map>
+#include <map>
 #include <queue>
 
-// Helper Classes
+//#define _DEBUG_COMPRESSION
+//#define _DEBUG_THREADS
+#define _DEBUG_PACKETS
+#define _DEBUG_DISCOVERY
+#define _DEBUG_PACKETS_ACKS
+
+// Core Classes
 namespace PeerNet
 {
-	enum PacketType
+	enum PacketType : unsigned char
 	{
-		PN_ACK = 0,
-		PN_Ordered = 1,
-		PN_Reliable = 2,
-		PN_Unreliable = 3,
-		PN_Discovery = 4,
+		PN_OrderedACK = 0,
+		PN_ReliableACK = 1,
+		PN_Ordered = 2,
+		PN_Reliable = 3,
+		PN_Unreliable = 4,
+		PN_Discovery = 5
 	};
 	class NetPeer;
 	class NetPacket;
@@ -45,7 +53,4 @@ namespace PeerNet
 
 	NetSocket* CreateSocket(const std::string StrIP, const std::string StrPort);
 	void DeleteSocket(NetSocket*const Socket);
-
-	void AddPeer(std::shared_ptr<NetPeer> Peer);
-	std::shared_ptr<NetPeer> GetPeer(const std::string FormattedAddress);
 }

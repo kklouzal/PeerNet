@@ -3,13 +3,53 @@
 
 namespace PeerNet
 {
+	// Hidden Implementation Namespace
+	// Only Visible In This File
+	namespace
+	{
+		std::mutex PeersMutex;
+		std::unordered_map<std::string, const std::shared_ptr<NetPeer>> Peers;
+	}
+
+	//	Retrieve a NetPeer* from it's formatted address or create a new one
+	std::shared_ptr<NetPeer> RetrievePeer(const std::string FormattedAddress, NetSocket* Socket)
+	{
+		PeersMutex.lock();
+		if (Peers.count(FormattedAddress))
+		{
+			auto Peer = Peers.at(FormattedAddress);
+			PeersMutex.unlock();
+			return Peer;
+		}
+		else {
+			size_t pos = 0;
+			std::string Delimiter = ":";
+			std::string StrPort = FormattedAddress;
+			std::string StrIP;
+			while ((pos = StrPort.find(Delimiter)) != std::string::npos) {
+				StrIP = StrPort.substr(0, pos);
+				StrPort.erase(0, pos + Delimiter.length());
+			}
+			auto Peer = std::make_shared<NetPeer>(StrIP, StrPort, Socket);
+			Peers.emplace(Peer->GetFormattedAddress(), Peer);
+			PeersMutex.unlock();
+			return Peer;
+		}
+	}
+
+	//
+	//
+	//
+	//
+	//
+	//
 	// This is a dedicated thread to receive packets for a single socket
 	// Put as much workload as you can into this single function
 	void NetSocket::IncomingFunction()
 	{
-		#ifdef _DEBUG
+#ifdef _DEBUG_THREADS
 		printf("PeerNet NetSocket Incoming Thread %s Starting\n", FormattedAddress.c_str());
-		#endif
+#endif
 		INT NotifyResult = 0;
 		DWORD BytesCompleted = 0;
 		ULONG_PTR CompletionKey = 0;
@@ -32,98 +72,32 @@ namespace PeerNet
 			//	Actually read the data from each received packet
 			for (CurResult = 0; CurResult < NumResults; ++CurResult)
 			{
+				//	Get the raw packet data into our buffer
 				pBuffer = reinterpret_cast<PRIO_BUF_EXT>(g_recv_Results[CurResult].RequestContext);
 
 				//	Try to decompress the received data
 				CompressResult = LZ4_decompress_safe(&p_recv_dBuffer[pBuffer->Offset], uncompressed_data, g_recv_Results[CurResult].BytesTransferred, PacketSize);
-				//printf("Decompressed: %i->%i\n", g_recv_Results[i].BytesTransferred, retVal);
+#ifdef _DEBUG_COMPRESSION
+				printf("Decompressed: %i->%i\n", g_recv_Results[CurResult].BytesTransferred, CompressResult);
+#endif
 
 				if (CompressResult > 0) {
-
-					//	Construct a NetPacket from the data
-					NetPacket *IncomingPacket(new NetPacket(std::string(uncompressed_data, CompressResult)));
-
+					
 					//	Get which peer sent this data
 					const std::string SenderIP(inet_ntoa(((SOCKADDR_INET*)&p_addr_dBuffer[pBuffer->pAddrBuff->Offset])->Ipv4.sin_addr));
 					const std::string SenderPort(std::to_string(ntohs(((SOCKADDR_INET*)&p_addr_dBuffer[pBuffer->pAddrBuff->Offset])->Ipv4.sin_port)));
-					auto ThisPeer = GetPeer(SenderIP + ":" + SenderPort);
-
-					switch (IncomingPacket->GetType()) {
-
-					//	Acknowledgements are passed to the NetPeer for further handling
-					case PacketType::PN_ACK:
-						if (ThisPeer != nullptr) {
-							ThisPeer->ReceivePacket_ACK(IncomingPacket);
-						}
-						#ifdef _DEBUG
-						else { printf("Recv ACK Undiscovered Sender"); }
-						#endif
-						break;
-
-					//	Ordered packets wait and pass received packets numerically to peers
-					case PacketType::PN_Ordered:
-						if (ThisPeer != nullptr) {
-
-						}
-						#ifdef _DEBUG
-						else { printf("Recv Ordered Undiscovered Sender"); }
-						#endif
-						break;
-
-					//	Reliable packets always ACK, however peers only process the most recently received ones
-					case PacketType::PN_Reliable:
-						if (ThisPeer != nullptr) {
-							AddOutgoingPacket(ThisPeer.get(), new NetPacket(IncomingPacket->GetPacketID(), PacketType::PN_ACK, this, ThisPeer.get()));
-							ThisPeer->ReceivePacket_Reliable(IncomingPacket);
-						}
-						#ifdef _DEBUG
-						else { printf("Recv Reliable Undiscovered Sender"); }
-						#endif
-						break;
-
-					//	Unreliable packets are given to peers reguardless the condition
-					case PacketType::PN_Unreliable:
-						if (ThisPeer != nullptr) {
-							ThisPeer->ReceivePacket_Unreliable(IncomingPacket);
-						}
-						#ifdef _DEBUG
-						else { printf("Recv Undiscovered Sender"); }
-						#endif
-						break;
-
-					//	Special case packet implementing the discovery protocol
-					case PacketType::PN_Discovery:
-						if (ThisPeer == nullptr) {
-							//	We're receiving a request for the first time.
-							//	ToDo: NetPeers need a way of announcing themselves after initial creation
-							DiscoverPeer(SenderIP.c_str(), SenderPort.c_str());
-						}
-						else {
-							//	We're receiving an acknowledgement for a request we created
-							AddOutgoingPacket(ThisPeer.get(), new NetPacket(IncomingPacket->GetPacketID(), PacketType::PN_ACK, this, ThisPeer.get()));	//	Send Acknowledgement
-							ThisPeer->SetAcknowledged();	//	Set this peer as being acknowledged
-							//	Acknowledge this packet
-							ThisPeer->ReceivePacket_ACK(IncomingPacket);
-						}
-						break;
-
-					#ifdef _DEBUG
-					default: printf("Received Unknown Packet Type\n");
-					#endif
-					}
-
-					delete IncomingPacket;
+					RetrievePeer(SenderIP + std::string(":") + SenderPort, this)->ReceivePacket(new NetPacket(std::string(uncompressed_data, CompressResult)));
 				}
-				#ifdef _DEBUG
+#ifdef _DEBUG_COMPRESSION
 				else { printf("Packet Decompression Failed\n"); }
-				#endif
+#endif
 				//	Push another read request into the queue
 				if (!g_rio.RIOReceiveEx(g_requestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, 0, pBuffer)) { printf("RIO Receive2 Failed\n"); }
 			}
 		}
-		#ifdef _DEBUG
+#ifdef _DEBUG_THREADS
 		printf("PeerNet NetSocket Incoming Thread %s Stopping\n", FormattedAddress.c_str());
-		#endif
+#endif
 	}
 
 
@@ -131,109 +105,153 @@ namespace PeerNet
 	//	Put as much workload as you can into this single function
 	void NetSocket::OutgoingFunction()
 	{
-		#ifdef _DEBUG
+#ifdef _DEBUG_THREADS
 		printf("PeerNet NetSocket Outgoing Thread %s Starting\n", FormattedAddress.c_str());
-		#endif
-		std::unordered_map<unsigned long, NetPacket*> q_OPackets;
+#endif
+		std::map<unsigned long, NetPacket*> q_Unreliable;
+		std::map<unsigned long, NetPacket*> q_Ordered;
+		std::map<unsigned long, NetPacket*> q_Reliable;
 		PRIO_BUF_EXT pBuffer = 0;
 
 		// This is our Outgoing Threads main loop
 		while (Initialized)
 		{
 			//	Let this thread sleep until we have outgoing packets to process.
-			//	Swap all the current outgoing packets into a new unordered_map so we can quickly iterate over them
-			//	Any reliable packets left over from the last loop will be swapped back into the main unordered_map
 			std::unique_lock<std::mutex> OutgoingLock(OutgoingMutex);
-			OutgoingCondition.wait(OutgoingLock, [&]() { return (!q_OPackets.empty() || !q_OutgoingPackets.empty() || !Initialized); });
-			q_OutgoingPackets.swap(q_OPackets);
+			OutgoingCondition.wait(OutgoingLock, [&]() {
+				if (!Initialized) { return true; }
+				if (!q_OutgoingUnreliable.empty()) { q_Unreliable.swap(q_OutgoingUnreliable); }
+				if (!q_OutgoingOrdered.empty()) { q_Ordered.swap(q_OutgoingOrdered); }
+				if (!q_OutgoingReliable.empty()) { q_Reliable.swap(q_OutgoingReliable); }
+
+				return !q_Unreliable.empty() || !q_Ordered.empty() || !q_Reliable.empty();
+			});
 			OutgoingLock.unlock();
 
+			//	Grab a send buffer
 			pBuffer = SendBuffs.front();
 			SendBuffs.pop_front();
-			// Loop through all the current outgoing packets
-			for (auto OutgoingPair : q_OPackets)
+
+			//
+			//	Loop through all current outgoing packets
+			for (auto OutgoingPair : q_Unreliable)
 			{
-				//	Check and see if this is a reliable packet
-				if (OutgoingPair.second->IsReliable())
-				{
-					if (!OutgoingPair.second->NeedsResend())
-					{
-						if (!OutgoingPair.second->GetPeer()->SendPacket_Reliable(OutgoingPair.second))
-						{
-							//	Cleanup the packet
-							delete OutgoingPair.second;
-							//	Erase it from the outgoing containers
-							q_OPackets.erase(OutgoingPair.first);
-							//	Break the loop since our iterators are now invalid
-							break;
-						}
-						//	We don't need to resend or delete, continue loop to the next packet
-						continue;
-					}
-				}
-				pBuffer->Length = LZ4_compress_default(OutgoingPair.second->GetData().c_str(), &p_send_dBuffer[pBuffer->Offset], OutgoingPair.second->GetData().size(), PacketSize);
-
-				if (pBuffer->Length > 0) {
-					memcpy(&p_addr_dBuffer[pBuffer->pAddrBuff->Offset], OutgoingPair.second->GetPeer()->Result->ai_addr, AddrSize);
-					g_rio.RIOSendEx(g_requestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, 0, pBuffer);
-					//	Immediatly dequeue this send; probably only need 1 send packet this way
-					g_rio.RIONotify(g_send_cQueue);
-					GetQueuedCompletionStatus(g_send_IOCP, &pBuffer->numberOfBytes, &pBuffer->completionKey, &send_overlapped, INFINITE);
-					//if (GetLastError() == ERROR_ABANDONED_WAIT_0) { return; } }
-					g_rio.RIODequeueCompletion(g_send_cQueue, g_send_Results, PendingSends);
-				}
-				#ifdef _DEBUG
-				else { printf("Failed Compression!\n"); }
-				#endif
-
-				// If this packet wasnt reliable, release the packets memory and remove it from the unordered_map
-				if (!OutgoingPair.second->IsReliable()) {
-					delete OutgoingPair.second;
-					q_OPackets.erase(OutgoingPair.first);
-					break;
-				}
+				CompressAndSendPacket(pBuffer, OutgoingPair.second);
+				//	Release this ack's memory
+				delete OutgoingPair.second;
 			}
+
+
+			//
+			// Loop through all the current ordered packets
+			for (auto OutgoingPair : q_Ordered)
+			{
+				if (!OutgoingPair.second->NeedsResend())
+				{
+					if (!OutgoingPair.second->GetPeer()->SendPacket_Ordered(OutgoingPair.second))
+					{
+						//	Cleanup the packet
+						delete OutgoingPair.second;
+						//	Erase it from the outgoing containers
+						q_Ordered.erase(OutgoingPair.first);
+						//	Break the loop since our iterators are now invalid
+						break;
+					}
+					//	We don't need to resend or delete, continue loop to the next packet
+					continue;
+				}
+				//
+				//	If all else passes, compress and send the packet!
+				CompressAndSendPacket(pBuffer, OutgoingPair.second);
+			}
+
+			//
+			// Loop through all the current reliable packets
+			for (auto OutgoingPair : q_Reliable)
+			{
+				if (!OutgoingPair.second->NeedsResend())
+				{
+					if (!OutgoingPair.second->GetPeer()->SendPacket_Reliable(OutgoingPair.second))
+					{
+						//	Cleanup the packet
+						delete OutgoingPair.second;
+						//	Erase it from the outgoing containers
+						q_Reliable.erase(OutgoingPair.first);
+						//	Break the loop since our iterators are now invalid
+						break;
+					}
+					//	We don't need to resend or delete, continue loop to the next packet
+					continue;
+				}
+				//
+				//	If all else passes, compress and send the packet!
+				CompressAndSendPacket(pBuffer, OutgoingPair.second);
+			}
+
+			//	Clear the queue so we only get new packets during the next swap
+			q_Unreliable.clear();
+			//	Return our send buffer
 			SendBuffs.push_back(pBuffer);
 		}
-		#ifdef _DEBUG
+#ifdef _DEBUG_THREADS
 		printf("PeerNet NetSocket Outgoing Thread %s Stopping\n", FormattedAddress.c_str());
-		#endif
+#endif
 	}
 
-	//	DiscoverPeer - Essentially a Connect function
-	std::shared_ptr<NetPeer> NetSocket::DiscoverPeer(const std::string StrIP, const std::string StrPort)
+	void NetSocket::CompressAndSendPacket(PRIO_BUF_EXT pBuffer, const NetPacket* const Packet)
 	{
-		auto Peer = GetPeer(StrIP + std::string(":") + StrPort);
-		if (Peer == nullptr)
-		{
-			//	Create a new NetPeer into the Peers variable 
-			Peer = std::make_shared<NetPeer>(StrIP, StrPort, this);
-			AddPeer(Peer);
-			//	Send a discovery request to this newly created NetPeer
-			AddOutgoingPacket(Peer.get(), Peer.get()->CreateNewPacket(PacketType::PN_Discovery));
-			//	Finally return our newly created NetPeer
+		pBuffer->Length = LZ4_compress_default(Packet->GetData().c_str(), &p_send_dBuffer[pBuffer->Offset], Packet->GetData().size(), PacketSize);
+		if (pBuffer->Length > 0) {
+			memcpy(&p_addr_dBuffer[pBuffer->pAddrBuff->Offset], Packet->GetPeer()->Result->ai_addr, AddrSize);
+			g_rio.RIOSendEx(g_requestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, 0, pBuffer);
+			//	Immediatly dequeue this send; probably only need 1 send packet this way
+			g_rio.RIONotify(g_send_cQueue);
+			GetQueuedCompletionStatus(g_send_IOCP, &pBuffer->numberOfBytes, &pBuffer->completionKey, &send_overlapped, INFINITE);
+			//if (GetLastError() == ERROR_ABANDONED_WAIT_0) { return; } }
+			g_rio.RIODequeueCompletion(g_send_cQueue, g_send_Results, PendingSends);
+#ifdef _DEBUG_COMPRESSION
+			printf("Compressed: %i->%i\n", Packet->GetData().size(), pBuffer->Length);
+#endif
 		}
-		return Peer;
+#ifdef _DEBUG_COMPRESSION
+		else { printf("Packet Compression Failed - %i\n", pBuffer->Length); }
+#endif
 	}
 
 	//	Adds an outgoing packet into the send queue
 	void NetSocket::AddOutgoingPacket(NetPeer*const Peer, NetPacket*const Packet)
 	{
-		std::unique_lock<std::mutex> OutgoingLock(OutgoingMutex);
-		q_OutgoingPackets.insert(std::make_pair(Packet->GetPacketID(),Packet));
-		OutgoingLock.unlock();
-		OutgoingCondition.notify_one(); // Wake our Outgoing Thread if it's sleeping
+		if (Packet->GetType() == PacketType::PN_Ordered)
+		{
+			std::unique_lock<std::mutex> OutgoingLock(OutgoingMutex);
+			q_OutgoingOrdered.insert(std::make_pair(Packet->GetPacketID(), Packet));
+			OutgoingLock.unlock();
+			OutgoingCondition.notify_one(); // Wake our Outgoing Thread if it's sleeping
+
+		} else if (Packet->GetType() == PacketType::PN_Reliable || Packet->GetType() == PacketType::PN_Discovery) {
+			std::unique_lock<std::mutex> OutgoingLock(OutgoingMutex);
+			q_OutgoingReliable.insert(std::make_pair(Packet->GetPacketID(), Packet));
+			OutgoingLock.unlock();
+			OutgoingCondition.notify_one(); // Wake our Outgoing Thread if it's sleeping
+		} else {
+			std::unique_lock<std::mutex> OutgoingLock(OutgoingMutex);
+			q_OutgoingUnreliable.insert(std::make_pair(Packet->GetPacketID(), Packet));
+			OutgoingLock.unlock();
+			OutgoingCondition.notify_one(); // Wake our Outgoing Thread if it's sleeping
+		}
+	}
+
+	//	DiscoverPeer - Essentially a Connect function
+	std::shared_ptr<NetPeer> NetSocket::DiscoverPeer(const std::string StrIP, const std::string StrPort) {
+		return RetrievePeer(StrIP + std::string(":") + StrPort, this);
 	}
 
 	//	Retrieves the sockets formatted address
-	const std::string NetSocket::GetFormattedAddress() const
-	{
-		return FormattedAddress;
-	}
+	const std::string NetSocket::GetFormattedAddress() const { return FormattedAddress;	}
 
 	//	Constructor
 	NetSocket::NetSocket(const std::string StrIP, const std::string StrPort) :
-		PendingRecvs(1024), PendingSends(128), PacketSize(1472), AddrSize(sizeof(SOCKADDR_INET)),
+		PendingRecvs(128), PendingSends(128), PacketSize(1472), AddrSize(sizeof(SOCKADDR_INET)),
 		p_addr_dBuffer(new char[AddrSize*(PendingRecvs + PendingSends)]),
 		p_recv_dBuffer(new char[PacketSize*PendingRecvs]),
 		p_send_dBuffer(new char[PacketSize*PendingSends]),
@@ -241,7 +259,7 @@ namespace PeerNet
 		g_send_IOCP(CreateIoCompletionPort(INVALID_HANDLE_VALUE, 0, 0, 0)),
 		recv_overlapped(new OVERLAPPED), send_overlapped(new OVERLAPPED),
 		uncompressed_data(new char[1436]),
-		q_OutgoingPackets(), OutgoingMutex(), Initialized(true),
+		q_OutgoingReliable(), q_OutgoingUnreliable(), OutgoingMutex(), Initialized(true),
 		OutgoingCondition()
 	{
 		//	Describe our sockets protocol
@@ -368,12 +386,7 @@ namespace PeerNet
 		//	Set Priority
 		//GetCurrentThread();
 		SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
-		/*Peers.reserve(128);*/
-		#ifdef _DEBUG
-		printf("PeerNet NetSocket %s Created\n", FormattedAddress.c_str());
-		#else
 		printf("Listening On %s\n", FormattedAddress.c_str());
-		#endif
 	}
 
 	//	Destructor
@@ -406,10 +419,6 @@ namespace PeerNet
 		delete p_recv_dBuffer;
 		delete p_send_dBuffer;
 
-		#ifdef _DEBUG
-		printf("PeerNet NetSocket %s Destroyed\n", FormattedAddress.c_str());
-		#else
 		printf("Stopped Listening On %s\n", FormattedAddress.c_str());
-		#endif
 	}
 }

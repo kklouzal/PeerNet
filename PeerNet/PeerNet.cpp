@@ -9,9 +9,6 @@ namespace PeerNet
 	namespace
 	{
 		std::forward_list<std::pair<std::string,NetSocket*>> NetSockets;
-
-		std::mutex PeersMutex;
-		std::unordered_map<std::string, const std::shared_ptr<NetPeer>> Peers;
 	}
 
 	// Public Implementation Methods
@@ -57,17 +54,10 @@ namespace PeerNet
 			if (NewNetSocket) {
 				//	Add it to the list
 				NetSockets.push_front(std::make_pair(NewNetSocket->GetFormattedAddress(),NewNetSocket));
-				#ifdef _DEBUG
-				printf("NetSocket::CreateSocket - Socket Created - %s\n", FormattedAddress.c_str());
-				#endif
 				return NewNetSocket;
 			}
 		}
-		#ifdef _DEBUG
-		printf("NetSocket::CreateSocket - Socket Unavailable - %s\n", FormattedAddress.c_str());
-		#else
 		printf("Already Listening On %s\n", FormattedAddress.c_str());
-		#endif
 		return NULL;
 	}
 
@@ -81,29 +71,5 @@ namespace PeerNet
 			}
 			return false;
 		});
-	}
-
-	//	Add a new peer
-	void AddPeer(std::shared_ptr<NetPeer> Peer)
-	{
-		//	Grab a lock on our Peers
-		PeersMutex.lock();
-		//	Create a new NetPeer into the Peers variable 
-		Peers.emplace(Peer->GetFormattedAddress(), Peer);
-		PeersMutex.unlock();
-	}
-
-	//	Retrieve a NetPeer* from it's formatted address
-	std::shared_ptr<NetPeer> GetPeer(const std::string FormattedAddress)
-	{
-		PeersMutex.lock();
-		if (Peers.count(FormattedAddress))
-		{
-			auto Peer = Peers.at(FormattedAddress);
-			PeersMutex.unlock();
-			return Peer;
-		}
-		PeersMutex.unlock();
-		return nullptr;
 	}
 }
