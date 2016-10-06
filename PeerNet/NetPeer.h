@@ -91,24 +91,31 @@ namespace PeerNet
 				if (IncomingPacket->GetPacketID() > NextExpectedOrderedACK) { q_OrderedAcks.insert(std::make_pair(IncomingPacket->GetPacketID(), IncomingPacket)); return; }
 
 				//	is packet id == expected id? process packet. delete. increment expected id.
-				if (IncomingPacket->GetPacketID() == NextExpectedOrderedACK++) {
-#ifdef _DEBUG_PACKETS_ACKS
-					printf("Ordered Ack 1 - %u\n", IncomingPacket->GetPacketID());
+				++NextExpectedOrderedACK;
+				//
+				//	Process your reliable packet here
+				//
+#ifdef _DEBUG_PACKETS_ORDERED_ACK
+				printf("Recv Ordered Ack 1 - %u\n", IncomingPacket->GetPacketID());
 #endif
-					delete IncomingPacket;
-					while (true)
-					{
-						if (!q_OrderedAcks.empty())
-						{
-							if (!q_OrderedAcks.count(NextExpectedOrderedACK)) { return; }
-#ifdef _DEBUG_PACKETS_ACKS
-							printf("Ordered Ack 2 - %u\n", q_OrderedAcks.at(NextExpectedOrderedACK)->GetPacketID());
+				delete IncomingPacket;
+				while (!q_OrderedAcks.empty())
+				{
+					auto got = q_OrderedAcks.find(NextExpectedOrderedACK);	//	See if we've already received our next expected packet.
+					if (got == q_OrderedAcks.end()) { return; }	//	Not found; break loop.
+					++NextExpectedOrderedACK;	//	Found; Increment our counter.
+												//
+												//	Process your reliable packet here
+												//
+												//	got->second
+												//
+#ifdef _DEBUG_PACKETS_ORDERED_ACK
+					printf("Recv Ordered Ack 2 - %u\n", got->second->GetPacketID());
 #endif
-							delete q_OrderedAcks.at(NextExpectedOrderedACK);
-							q_OrderedAcks.erase(NextExpectedOrderedACK);
-							++NextExpectedOrderedACK;
-						} else { return; }
-					}
+					//	We're finished with this packet; clean it up.
+					delete got->second;
+					q_OrderedAcks.erase(got);
+					//	Continue the loop until we run out of matches or our queue winds up empty.
 				}
 				break;
 
@@ -118,10 +125,10 @@ namespace PeerNet
 				//	PN_ReliableACK
 			//	Acknowledgements are passed to the NetPeer for further handling
 			case PacketType::PN_ReliableACK:
-				if (IncomingPacket->GetPacketID() <= LastReceivedReliable) { break; }
+				if (IncomingPacket->GetPacketID() <= LastReceivedReliable) { delete IncomingPacket; break; }
 				LastReceivedReliableACK = IncomingPacket->GetPacketID();
 				LastAckTime = IncomingPacket->GetCreationTime();
-#ifdef _DEBUG_PACKETS_ACKS
+#ifdef _DEBUG_PACKETS_RELIABLE_ACK
 				printf("Reliable Ack - %u\n", IncomingPacket->GetPacketID());
 #endif
 				delete IncomingPacket;
@@ -143,33 +150,31 @@ namespace PeerNet
 					if (IncomingPacket->GetPacketID() > NextExpectedOrderedID) { q_OrderedPackets.insert(std::make_pair(IncomingPacket->GetPacketID(), IncomingPacket)); return; }
 
 					//	is packet id == expected id? process packet. delete. increment expected id.
-					if (IncomingPacket->GetPacketID() == NextExpectedOrderedID++) {
+					++NextExpectedOrderedID;
+					//
+					//	Process your reliable packet here
+					//
+#ifdef _DEBUG_PACKETS_ORDERED
+					printf("Recv Ordered Packet - %u\n", IncomingPacket->GetPacketID());
+#endif
+					delete IncomingPacket;
+					while (!q_OrderedPackets.empty())
+					{
+						auto got = q_OrderedPackets.find(NextExpectedOrderedID);	//	See if we've already received our next expected packet.
+						if (got == q_OrderedPackets.end()) { return; }	//	Not found; break loop.
+						++NextExpectedOrderedID;	//	Found; Increment our counter.
 						//
 						//	Process your reliable packet here
 						//
-#ifdef _DEBUG_PACKETS
-						printf("Recv Ordered Packet - %u\n", IncomingPacket->GetPacketID());
+						//	got->second
+						//
+#ifdef _DEBUG_PACKETS_ORDERED
+						printf("Recv Ordered Packet - %u\n", got->second->GetPacketID());
 #endif
-						delete IncomingPacket;
-						while (true)
-						{
-							if (!q_OrderedPackets.empty())
-							{
-								auto got = q_OrderedPackets.find(NextExpectedOrderedID);
-								if (got == q_OrderedPackets.end()) { return; }
-								//
-								//	Process your reliable packet here
-								//
-								//	got->second
-								//
-#ifdef _DEBUG_PACKETS
-								printf("Recv Ordered Packet - %u\n", got->second->GetPacketID());
-#endif
-								NextExpectedOrderedID++;
-								delete got->second;
-								q_OrderedPackets.erase(got);
-							} else { return; }
-						}
+						//	We're finished with this packet; clean it up.
+						delete got->second;
+						q_OrderedPackets.erase(got);
+						//	Continue the loop until we run out of matches or our queue winds up empty.
 					}
 				}
 				break;
@@ -182,9 +187,9 @@ namespace PeerNet
 			case PacketType::PN_Reliable:
 				MySocket->AddOutgoingPacket(this, new NetPacket(IncomingPacket->GetPacketID(), PacketType::PN_ReliableACK, MySocket, this));
 				//	Only accept the most recent received reliable packets
-				if (IncomingPacket->GetPacketID() <= LastReceivedReliable) { break; }
+				if (IncomingPacket->GetPacketID() <= LastReceivedReliable) { delete IncomingPacket; break; }
 				LastReceivedReliable = IncomingPacket->GetPacketID();
-#ifdef _DEBUG_PACKETS
+#ifdef _DEBUG_PACKETS_RELIABLE
 				printf("Recv Reliable - %u\n", IncomingPacket->GetPacketID());
 #endif
 				delete IncomingPacket;
@@ -197,9 +202,9 @@ namespace PeerNet
 			//	Unreliable packets are given to peers reguardless the condition
 			case PacketType::PN_Unreliable:
 				//	Only accept the most recent received unreliable packets
-				if (IncomingPacket->GetPacketID() <= LastReceivedUnreliable) { break; }
+				if (IncomingPacket->GetPacketID() <= LastReceivedUnreliable) { delete IncomingPacket; break; }
 				LastReceivedUnreliable = IncomingPacket->GetPacketID();
-#ifdef _DEBUG_PACKETS
+#ifdef _DEBUG_PACKETS_UNRELIABLE
 				printf("Recv Unreliable - %u\n", IncomingPacket->GetPacketID());
 #endif
 				delete IncomingPacket;
@@ -217,9 +222,7 @@ namespace PeerNet
 				break;
 
 			default:
-#ifdef _DEBUG_PACKETS
 				printf("Recv Unknown Packet Type\n");
-#endif
 				delete IncomingPacket;
 			}
 
@@ -228,10 +231,10 @@ namespace PeerNet
 		//	Final step before an ordered packet is sent or resent
 		const bool SendPacket_Ordered(NetPacket* Packet) const
 		{
-#ifdef _DEBUG_PACKETS
+#ifdef _DEBUG_PACKETS_ORDERED
 			printf("Send Ordered Packet - %u\n", Packet->GetPacketID());
 #endif
-			//	We've received an aacknowledgement for this packet already
+			//	We've received an acknowledgement for this packet already
 			if (Packet->GetPacketID() < NextExpectedOrderedACK)
 			{
 				return false;

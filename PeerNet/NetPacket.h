@@ -37,7 +37,7 @@ namespace PeerNet
 		{
 			if (IsReliable()) {
 				CreationTime = std::chrono::high_resolution_clock::now();
-				NextSendTime = CreationTime;
+				NextSendTime = CreationTime + std::chrono::milliseconds(1800);
 			}
 			BinaryIn->operator()(PacketID);
 			BinaryIn->operator()(TypeID);
@@ -78,19 +78,17 @@ namespace PeerNet
 		const bool IsReliable() const {	return ((TypeID == PacketType::PN_Ordered) || (TypeID == PacketType::PN_Discovery) || (TypeID == PacketType::PN_Reliable)); }
 
 		// Returns true if packet needs resend
-		// Waits 300ms between send attempts
+		// Waits 900ms between send attempts
 		const bool NeedsResend() {
-			if (SendAttempts < 5)
-			{
-				auto Now = std::chrono::high_resolution_clock::now();
-				if ((SendAttempts == 0) || (Now > NextSendTime))
-				{
-					++SendAttempts;
-					NextSendTime = Now + std::chrono::milliseconds(300);
-					return true;
-				}
-			}
-			return false;
+			if (SendAttempts == 0) { ++SendAttempts; return true; }			//	First time being sent; pass through; NextSendTime already set during constructor.
+			else if (SendAttempts > 5) { return false; }	//	Maximum sends reached; return false
+			
+			auto Now = std::chrono::high_resolution_clock::now();	//	This a performance heavy function; call it only when needed.
+			if (Now < NextSendTime) { return false; }		//	Not enough time has elapsed since previous send attempt; return false
+
+			NextSendTime = Now + std::chrono::milliseconds(900);
+			++SendAttempts;
+			return true;
 		}
 
 		const bool NeedsDelete() const {

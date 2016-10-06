@@ -86,6 +86,7 @@ namespace PeerNet
 					//	Get which peer sent this data
 					const std::string SenderIP(inet_ntoa(((SOCKADDR_INET*)&p_addr_dBuffer[pBuffer->pAddrBuff->Offset])->Ipv4.sin_addr));
 					const std::string SenderPort(std::to_string(ntohs(((SOCKADDR_INET*)&p_addr_dBuffer[pBuffer->pAddrBuff->Offset])->Ipv4.sin_port)));
+					//	Determine which peer this packet belongs to and immediatly pass it to them for processing.
 					RetrievePeer(SenderIP + std::string(":") + SenderPort, this)->ReceivePacket(new NetPacket(std::string(uncompressed_data, CompressResult)));
 				}
 #ifdef _DEBUG_COMPRESSION
@@ -133,7 +134,7 @@ namespace PeerNet
 			SendBuffs.pop_front();
 
 			//
-			//	Loop through all current outgoing packets
+			//	Loop through all current outgoing unreliable packets
 			for (auto OutgoingPair : q_Unreliable)
 			{
 				CompressAndSendPacket(pBuffer, OutgoingPair.second);
@@ -146,27 +147,23 @@ namespace PeerNet
 			// Loop through all the current ordered packets
 			for (auto OutgoingPair : q_Ordered)
 			{
-				if (!OutgoingPair.second->NeedsResend())
-				{
-					if (!OutgoingPair.second->GetPeer()->SendPacket_Ordered(OutgoingPair.second))
-					{
-						//	Cleanup the packet
-						delete OutgoingPair.second;
-						//	Erase it from the outgoing containers
-						q_Ordered.erase(OutgoingPair.first);
-						//	Break the loop since our iterators are now invalid
-						break;
-					}
-					//	We don't need to resend or delete, continue loop to the next packet
-					continue;
-				}
-				//
-				//	If all else passes, compress and send the packet!
-				CompressAndSendPacket(pBuffer, OutgoingPair.second);
+				//	Immediatly resend the packet if it needs; continue the loop;
+				if (OutgoingPair.second->NeedsResend()) { CompressAndSendPacket(pBuffer, OutgoingPair.second); continue; }
+
+				//	If the NetPeer says this packet is still valid; continue the loop;
+				if (OutgoingPair.second->GetPeer()->SendPacket_Ordered(OutgoingPair.second)) { continue; }
+
+				//	Otherwise cleanup the packet
+				delete OutgoingPair.second;
+				//	Erase it from the outgoing containers
+				q_Ordered.erase(OutgoingPair.first);
+				//	Break the loop since our iterators are now invalid
+				break;
 			}
 
 			//
 			// Loop through all the current reliable packets
+
 			for (auto OutgoingPair : q_Reliable)
 			{
 				if (!OutgoingPair.second->NeedsResend())
