@@ -109,9 +109,9 @@ namespace PeerNet
 #ifdef _DEBUG_THREADS
 		printf("PeerNet NetSocket Outgoing Thread %s Starting\n", FormattedAddress.c_str());
 #endif
-		std::map<unsigned long, NetPacket*> q_Unreliable;
-		std::map<unsigned long, NetPacket*> q_Ordered;
-		std::map<unsigned long, NetPacket*> q_Reliable;
+		std::map<unsigned long, NetPacket*const> q_Unreliable;
+		std::map<unsigned long, NetPacket*const> q_Ordered;
+		std::map<unsigned long, NetPacket*const> q_Reliable;
 		PRIO_BUF_EXT pBuffer = 0;
 
 		// This is our Outgoing Threads main loop
@@ -120,12 +120,19 @@ namespace PeerNet
 			//	Let this thread sleep until we have outgoing packets to process.
 			std::unique_lock<std::mutex> OutgoingLock(OutgoingMutex);
 			OutgoingCondition.wait(OutgoingLock, [&]() {
-				if (!Initialized) { return true; }
-				if (!q_OutgoingUnreliable.empty()) { q_Unreliable.swap(q_OutgoingUnreliable); }
-				if (!q_OutgoingOrdered.empty()) { q_Ordered.swap(q_OutgoingOrdered); }
-				if (!q_OutgoingReliable.empty()) { q_Reliable.swap(q_OutgoingReliable); }
-
-				return !q_Unreliable.empty() || !q_Ordered.empty() || !q_Reliable.empty();
+				q_Unreliable.swap(q_OutgoingUnreliable);
+				bool DontWait = false;
+				if (!q_Ordered.empty() || !q_OutgoingOrdered.empty()) {
+					q_Ordered.insert(q_OutgoingOrdered.begin(), q_OutgoingOrdered.end());
+					q_OutgoingOrdered.clear();
+					DontWait = true;
+				}
+				if (!q_Reliable.empty() || !q_OutgoingReliable.empty()) {
+					q_Reliable.insert(q_OutgoingReliable.begin(), q_OutgoingReliable.end());
+					q_OutgoingReliable.clear();
+					DontWait = true;
+				}
+				return !q_Unreliable.empty() || DontWait || !Initialized;
 			});
 			OutgoingLock.unlock();
 
@@ -141,54 +148,89 @@ namespace PeerNet
 				//	Release this ack's memory
 				delete OutgoingPair.second;
 			}
+			//	Return our send buffer
+			SendBuffs.push_back(pBuffer);
 
+			/**/
 
+			//	Grab a send buffer
+			pBuffer = SendBuffs.front();
+			SendBuffs.pop_front();
 			//
 			// Loop through all the current ordered packets
 			for (auto OutgoingPair : q_Ordered)
 			{
+				//	First time being sent; immediatly send; increment send counter; continue loop;
+				if (OutgoingPair.second->SendAttempts == 0) { CompressAndSendPacket(pBuffer, OutgoingPair.second); ++OutgoingPair.second->SendAttempts; continue; }
+
+				auto got = OutgoingPair.second->GetPeer()->q_OrderedAcks.find(OutgoingPair.first);
+				//	Matching ACK exists
+				if (got != OutgoingPair.second->GetPeer()->q_OrderedAcks.end()) {
+					//	We've received an ACK however there are still packets with lower id's left to process; continue the loop;
+					if (OutgoingPair.first >= OutgoingPair.second->GetPeer()->NextExpectedOrderedACK) {	continue; }
+					//	This packet and ACK can be deleted
+					printf("\tOrdered - %i -\t %.3fms\n", OutgoingPair.first, std::chrono::duration<double, std::milli>(got->second->GetCreationTime() - OutgoingPair.second->GetCreationTime()).count());
+					//	Cleanup the ACK
+					delete got->second;
+					OutgoingPair.second->GetPeer()->q_OrderedAcks.erase(got);
+					//	Cleanup the packet
+					delete OutgoingPair.second;
+					//	Erase it from the outgoing containers
+					q_Ordered.erase(OutgoingPair.first);
+					//	Break the loop since our iterators are now invalid
+					break;
+				}
+
+				//
+				//	No matching ACK
+
+				//	Delete the packet if it's reached its max sends
+				if (OutgoingPair.second->NeedsDelete())
+				{
+					//
+					//	ToDo: Handle failed ordered send here
+					//
+
+					//	cleanup the packet
+					delete OutgoingPair.second;
+					//	Erase it from the outgoing containers
+					q_Ordered.erase(OutgoingPair.first);
+					//	Break the loop since our iterators are now invalid
+					break;
+				}
+				//	Otherwise send it if it needs resent.
+				if (OutgoingPair.second->NeedsResend()) { CompressAndSendPacket(pBuffer, OutgoingPair.second); continue; }
+			}
+			//	Return our send buffer
+			SendBuffs.push_back(pBuffer);
+
+			/**/
+
+			//	Grab a send buffer
+			pBuffer = SendBuffs.front();
+			SendBuffs.pop_front();
+			//
+			//
+			// Loop through all the current reliable packets
+			for (auto OutgoingPair : q_Reliable)
+			{
+				if (OutgoingPair.second->SendAttempts == 0) { CompressAndSendPacket(pBuffer, OutgoingPair.second); ++OutgoingPair.second->SendAttempts; continue; }
 				//	Immediatly resend the packet if it needs; continue the loop;
 				if (OutgoingPair.second->NeedsResend()) { CompressAndSendPacket(pBuffer, OutgoingPair.second); continue; }
-
 				//	If the NetPeer says this packet is still valid; continue the loop;
-				if (OutgoingPair.second->GetPeer()->SendPacket_Ordered(OutgoingPair.second)) { continue; }
-
+				if (OutgoingPair.second->GetPeer()->SendPacket_Reliable(OutgoingPair.second)) { continue; }
 				//	Otherwise cleanup the packet
 				delete OutgoingPair.second;
 				//	Erase it from the outgoing containers
-				q_Ordered.erase(OutgoingPair.first);
+				q_Reliable.erase(OutgoingPair.first);
 				//	Break the loop since our iterators are now invalid
 				break;
 			}
-
-			//
-			// Loop through all the current reliable packets
-
-			for (auto OutgoingPair : q_Reliable)
-			{
-				if (!OutgoingPair.second->NeedsResend())
-				{
-					if (!OutgoingPair.second->GetPeer()->SendPacket_Reliable(OutgoingPair.second))
-					{
-						//	Cleanup the packet
-						delete OutgoingPair.second;
-						//	Erase it from the outgoing containers
-						q_Reliable.erase(OutgoingPair.first);
-						//	Break the loop since our iterators are now invalid
-						break;
-					}
-					//	We don't need to resend or delete, continue loop to the next packet
-					continue;
-				}
-				//
-				//	If all else passes, compress and send the packet!
-				CompressAndSendPacket(pBuffer, OutgoingPair.second);
-			}
+			//	Return our send buffer
+			SendBuffs.push_back(pBuffer);
 
 			//	Clear the queue so we only get new packets during the next swap
 			q_Unreliable.clear();
-			//	Return our send buffer
-			SendBuffs.push_back(pBuffer);
 		}
 #ifdef _DEBUG_THREADS
 		printf("PeerNet NetSocket Outgoing Thread %s Stopping\n", FormattedAddress.c_str());
@@ -204,8 +246,6 @@ namespace PeerNet
 			//	Immediatly dequeue this send; probably only need 1 send packet this way
 			g_rio.RIONotify(g_send_cQueue);
 			GetQueuedCompletionStatus(g_send_IOCP, &pBuffer->numberOfBytes, &pBuffer->completionKey, &send_overlapped, INFINITE);
-			//if (GetLastError() == ERROR_ABANDONED_WAIT_0) { return; } }
-			g_rio.RIODequeueCompletion(g_send_cQueue, g_send_Results, PendingSends);
 #ifdef _DEBUG_COMPRESSION
 			printf("Compressed: %i->%i\n", Packet->GetData().size(), pBuffer->Length);
 #endif
@@ -213,10 +253,12 @@ namespace PeerNet
 #ifdef _DEBUG_COMPRESSION
 		else { printf("Packet Compression Failed - %i\n", pBuffer->Length); }
 #endif
+		//if (GetLastError() == ERROR_ABANDONED_WAIT_0) { return; } }
+		g_rio.RIODequeueCompletion(g_send_cQueue, g_send_Results, PendingSends);
 	}
 
 	//	Adds an outgoing packet into the send queue
-	void NetSocket::AddOutgoingPacket(NetPeer*const Peer, NetPacket*const Packet)
+	void NetSocket::AddOutgoingPacket(NetPacket*const Packet)
 	{
 		if (Packet->GetType() == PacketType::PN_Ordered)
 		{

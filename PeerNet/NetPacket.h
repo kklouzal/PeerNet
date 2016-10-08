@@ -4,7 +4,7 @@ namespace PeerNet
 {
 	class NetPacket
 	{
-		NetSocket* const MySocket;	//	Socket we'll use for communication
+		//NetSocket* const MySocket;	//	Socket we'll use for communication
 		NetPeer* const MyPeer;		//	The destination peer for this packet
 
 		std::chrono::time_point<std::chrono::high_resolution_clock> CreationTime;
@@ -23,24 +23,24 @@ namespace PeerNet
 		// This constructor is for handling Receive Packets ONLY
 		NetPacket(const std::string Data)
 			: DataStream(Data, std::ios::in | std::ios::out | std::ios::binary), BinaryIn(nullptr),
-			BinaryOut(new cereal::PortableBinaryInputArchive(DataStream)), SendAttempts(0), MySocket(nullptr), MyPeer(nullptr)
+			BinaryOut(new cereal::PortableBinaryInputArchive(DataStream)), SendAttempts(0), MyPeer(nullptr)
 		{
+			if (TypeID == PacketType::PN_ReliableACK || TypeID == PacketType::PN_OrderedACK) { CreationTime = std::chrono::high_resolution_clock::now(); }
 			BinaryOut->operator()(PacketID);
 			BinaryOut->operator()(TypeID);
-			if (TypeID == PacketType::PN_ReliableACK || TypeID == PacketType::PN_OrderedACK) { CreationTime = std::chrono::high_resolution_clock::now(); }
 		}
 
 		// This constructor is for handling Send Packets ONLY
-		NetPacket(const unsigned long pID, PeerNet::PacketType pType, NetSocket* const Socket, NetPeer* const Peer)
+		NetPacket(const unsigned long pID, PeerNet::PacketType pType, NetPeer* const Peer)
 			: PacketID(pID), TypeID(pType), DataStream(std::ios::in | std::ios::out | std::ios::binary), BinaryIn(new cereal::PortableBinaryOutputArchive(DataStream)),
-			BinaryOut(nullptr), SendAttempts(0), MySocket(Socket), MyPeer(Peer)
+			BinaryOut(nullptr), SendAttempts(0), MyPeer(Peer)
 		{
+			BinaryIn->operator()(PacketID);
+			BinaryIn->operator()(TypeID);
 			if (IsReliable()) {
 				CreationTime = std::chrono::high_resolution_clock::now();
 				NextSendTime = CreationTime + std::chrono::milliseconds(1800);
 			}
-			BinaryIn->operator()(PacketID);
-			BinaryIn->operator()(TypeID);
 		}
 
 		//	Default Destructor
@@ -80,8 +80,7 @@ namespace PeerNet
 		// Returns true if packet needs resend
 		// Waits 900ms between send attempts
 		const bool NeedsResend() {
-			if (SendAttempts == 0) { ++SendAttempts; return true; }			//	First time being sent; pass through; NextSendTime already set during constructor.
-			else if (SendAttempts > 5) { return false; }	//	Maximum sends reached; return false
+			if (SendAttempts > 5) { return false; }	//	Maximum sends reached; return false
 			
 			auto Now = std::chrono::high_resolution_clock::now();	//	This a performance heavy function; call it only when needed.
 			if (Now < NextSendTime) { return false; }		//	Not enough time has elapsed since previous send attempt; return false
@@ -91,16 +90,9 @@ namespace PeerNet
 			return true;
 		}
 
-		const bool NeedsDelete() const {
-			//	Reliable delivery failed
-			if (SendAttempts >= 5) { return true; }
-			//	Still waiting on an acknowledgement of delivery
-			return false;
-		}
+		//	Reliable delivery failed
+		const bool NeedsDelete() const { return (SendAttempts >= 5); }
 
-		//	Send your finialized packet
-		//	Do not ever touch the packet again after calling this
-		void Send() { MySocket->AddOutgoingPacket(MyPeer, this); }
 
 		//	Return our underlying destination NetPeer
 		NetPeer*const GetPeer() const { return MyPeer; }

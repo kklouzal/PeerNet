@@ -28,13 +28,13 @@ namespace PeerNet
 		const DWORD PendingSends;
 		const DWORD PacketSize;
 		const DWORD AddrSize;
-		PCHAR p_addr_dBuffer;
-		PCHAR p_recv_dBuffer;
-		PCHAR p_send_dBuffer;
-		HANDLE g_recv_IOCP;
-		HANDLE g_send_IOCP;
-		OVERLAPPED *recv_overlapped;
-		OVERLAPPED *send_overlapped;
+		PCHAR const p_addr_dBuffer;
+		PCHAR const p_recv_dBuffer;
+		PCHAR const p_send_dBuffer;
+		const HANDLE g_recv_IOCP;
+		const HANDLE g_send_IOCP;
+		OVERLAPPED* recv_overlapped;
+		OVERLAPPED* send_overlapped;
 		RIO_CQ g_recv_cQueue;
 		RIO_CQ g_send_cQueue;
 		RIO_RQ g_requestQueue;
@@ -43,11 +43,11 @@ namespace PeerNet
 		RIORESULT g_send_Results[128];
 
 
-		char *uncompressed_data;
+		char*const uncompressed_data;
 
-		std::map<unsigned long, NetPacket*> q_OutgoingUnreliable;
-		std::map<unsigned long, NetPacket*> q_OutgoingOrdered;
-		std::map<unsigned long, NetPacket*> q_OutgoingReliable;
+		std::map<unsigned long, NetPacket*const> q_OutgoingUnreliable;
+		std::map<unsigned long, NetPacket*const> q_OutgoingOrdered;
+		std::map<unsigned long, NetPacket*const> q_OutgoingReliable;
 		std::mutex OutgoingMutex;
 
 		std::condition_variable OutgoingCondition;
@@ -66,7 +66,7 @@ namespace PeerNet
 
 		std::shared_ptr<NetPeer> DiscoverPeer(const std::string StrIP, const std::string StrPort);
 
-		void AddOutgoingPacket(NetPeer*const Peer, NetPacket*const Packet);
+		void AddOutgoingPacket(NetPacket*const Packet);
 		const std::string GetFormattedAddress() const;
 	};
 

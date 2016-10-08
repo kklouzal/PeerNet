@@ -43,10 +43,10 @@ namespace PeerNet
 		PN_Discovery = 5
 	};
 	class NetPeer;
-	class NetPacket;
+	class NetSocket;
 }
-#include "NetSocket.h"
 #include "NetPacket.h"
+#include "NetSocket.h"
 #include "NetPeer.h"
 
 namespace PeerNet
