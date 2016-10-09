@@ -25,9 +25,9 @@ namespace PeerNet
 			: DataStream(Data, std::ios::in | std::ios::out | std::ios::binary), BinaryIn(nullptr),
 			BinaryOut(new cereal::PortableBinaryInputArchive(DataStream)), SendAttempts(0), MyPeer(nullptr)
 		{
-			if (TypeID == PacketType::PN_ReliableACK || TypeID == PacketType::PN_OrderedACK) { CreationTime = std::chrono::high_resolution_clock::now(); }
 			BinaryOut->operator()(PacketID);
 			BinaryOut->operator()(TypeID);
+			if (TypeID == PacketType::PN_ReliableACK || TypeID == PacketType::PN_OrderedACK) { CreationTime = std::chrono::high_resolution_clock::now(); }
 		}
 
 		// This constructor is for handling Send Packets ONLY
