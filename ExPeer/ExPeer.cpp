@@ -119,6 +119,20 @@ int main()
 				}
 			}
 		}
+		else if (ConsoleInput == "tp")	//	Test Thread Pooling
+		{
+			//	IOCP Thread Pool with a User Defined Completion Function
+			ThreadPoolIOCP* TPool = new ThreadPoolIOCP([](const DWORD numberOfBytes, const ULONG_PTR completionKey, const OVERLAPPED*const pOverlapped) {
+				//printf("Bytes %i Key: %i\n", numberOfBytes, completionKey);
+			});
+			printf("Posting 10,000,000 Completions..");
+			for (unsigned int i = 1; i < 10000000; i++)
+			{
+				TPool->PostCompletion(i);
+			}
+			printf(".Done!\n");
+			delete TPool;
+		}
 	}
 	std::system("PAUSE");
 	return 0;

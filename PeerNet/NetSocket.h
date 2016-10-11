@@ -1,5 +1,5 @@
 #pragma once
-
+#include "ThreadPool.hpp"
 
 namespace PeerNet
 {

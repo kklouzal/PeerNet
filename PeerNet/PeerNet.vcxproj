@@ -24,6 +24,7 @@
     <ClInclude Include="NetPeer.h" />
     <ClInclude Include="NetSocket.h" />
     <ClInclude Include="PeerNet.h" />
+    <ClInclude Include="ThreadPool.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="lz4.c" />
