@@ -51,11 +51,11 @@ namespace PeerNet
 		}
 
 		// Write data into the packet
-		template <class T> void WriteData(T Data) {	BinaryIn->operator()(Data);	}
+		template <class T> void WriteData(T Data) const { BinaryIn->operator()(Data); }
 
 		// Read data from the packet
 		// MUST be read in the same order it was written
-		template <class T> T ReadData()
+		template <class T> T ReadData() const
 		{
 			T Temp;
 			BinaryOut->operator()(Temp);
