@@ -3,6 +3,7 @@
 // This file will be included in their .cpp files
 
 // Winsock2 Headers
+#define WIN32_LEAN_AND_MEAN
 #include <WS2tcpip.h>
 #include <WinSock2.h>
 #include <MSWSock.h>
@@ -45,6 +46,8 @@ namespace PeerNet
 	class NetPeer;
 	class NetSocket;
 }
+
+#include "NetAddress.hpp"
 #include "NetPacket.h"
 #include "NetSocket.h"
 #include "NetPeer.h"
@@ -53,7 +56,4 @@ namespace PeerNet
 {
 	void Initialize();
 	void Deinitialize();
-
-	NetSocket* CreateSocket(const std::string StrIP, const std::string StrPort);
-	void DeleteSocket(NetSocket*const Socket);
 }

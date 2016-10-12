@@ -5,11 +5,10 @@ namespace PeerNet
 
 	class NetPeer
 	{
-		std::string FormattedAddress;
+		const NetAddress*const Address;
+		NetSocket*const Socket;
 
 	public:
-		addrinfo* Result;
-		NetSocket* const MySocket;
 		unsigned long LastReceivedUnreliable = 0;
 
 		unsigned long LatestReceivedReliable = 0;
@@ -25,37 +24,13 @@ namespace PeerNet
 		unsigned long NextReliablePacketID = 1;
 		unsigned long NextOrderedPacketID = 1;
 
-		NetPeer(const std::string IP, const std::string Port, NetSocket*const Socket) : Result(), MySocket(Socket), q_OrderedPackets(), q_OrderedAcks()
+		NetPeer(const std::string StrIP, const std::string StrPort, NetSocket*const DefaultSocket)
+			: Address(new NetAddress(StrIP, StrPort)), Socket(DefaultSocket), q_OrderedPackets(), q_OrderedAcks()
 		{
-			addrinfo Hint;
-			ZeroMemory(&Hint, sizeof(Hint));
-			Hint.ai_family = AF_INET;
-			Hint.ai_socktype = SOCK_DGRAM;
-			Hint.ai_protocol = IPPROTO_UDP;
-			Hint.ai_flags = AI_PASSIVE;
-
-			// Resolve the servers addrinfo
-			if (getaddrinfo(IP.c_str(), Port.c_str(), &Hint, &Result) != 0) {
-				printf("GetAddrInfo Failed(%i)\n", WSAGetLastError());
-			}
-
-			if (Result->ai_family == AF_INET)
-			{
-				char*const ResolvedIP = new char[16];
-				inet_ntop(AF_INET, &(((sockaddr_in*)((sockaddr*)Result->ai_addr))->sin_addr), ResolvedIP, 16);
-				FormattedAddress = ResolvedIP + std::string(":") + Port;
-				delete[] ResolvedIP;
-			}
-			else {
-				//return &(((struct sockaddr_in6*)sa)->sin6_addr);
-			}
-
 			//	Send out our discovery request
-			MySocket->AddOutgoingPacket(CreateNewPacket(PacketType::PN_Discovery));
-			printf("Create Peer - %s\n", FormattedAddress.c_str());
+			Socket->AddOutgoingPacket(CreateNewPacket(PacketType::PN_Discovery));
+			printf("Create Peer - %s\n", Address->FormattedAddress());
 		}
-
-		~NetPeer() { freeaddrinfo(Result); }
 
 		//	Construct and return a NetPacket to fill and send to this NetPeer
 		//	ToDo: PacketID will clash on socket if same socket is used to send packets for two different peers and each peer chooses the same PacketID
@@ -136,7 +111,7 @@ namespace PeerNet
 			//	Ordered packets wait and pass received packets numerically to peers
 			case PacketType::PN_Ordered:
 				{
-					MySocket->AddOutgoingPacket(new NetPacket(IncomingPacket->GetPacketID(), PacketType::PN_OrderedACK, this));
+					Socket->AddOutgoingPacket(new NetPacket(IncomingPacket->GetPacketID(), PacketType::PN_OrderedACK, this));
 
 					//	is packet id less than expected id? delete. it's already acked
 					if (IncomingPacket->GetPacketID() < NextExpectedOrderedID) { delete IncomingPacket; return; }
@@ -180,7 +155,7 @@ namespace PeerNet
 				//	PN_Reliable
 			//	Reliable packets always ACK immediatly
 			case PacketType::PN_Reliable:
-				MySocket->AddOutgoingPacket(new NetPacket(IncomingPacket->GetPacketID(), PacketType::PN_ReliableACK, this));
+				Socket->AddOutgoingPacket(new NetPacket(IncomingPacket->GetPacketID(), PacketType::PN_ReliableACK, this));
 				//	Only accept the most recent received reliable packets
 				if (IncomingPacket->GetPacketID() <= LatestReceivedReliable) { delete IncomingPacket; break; }
 				LatestReceivedReliable = IncomingPacket->GetPacketID();
@@ -212,7 +187,7 @@ namespace PeerNet
 			//	Special case packet implementing the discovery protocol
 			case PacketType::PN_Discovery:
 				//	We're receiving an acknowledgement for a request we created
-				MySocket->AddOutgoingPacket(new NetPacket(IncomingPacket->GetPacketID(), PacketType::PN_ReliableACK, this));	//	Send Acknowledgement
+				Socket->AddOutgoingPacket(new NetPacket(IncomingPacket->GetPacketID(), PacketType::PN_ReliableACK, this));	//	Send Acknowledgement
 				delete IncomingPacket;
 				break;
 
@@ -242,11 +217,12 @@ namespace PeerNet
 
 		//	ToDo: Process an ordered packet someone has sent us
 
-		const std::string GetFormattedAddress() const { return FormattedAddress; }
+		const std::string FormattedAddress() const { return Address->FormattedAddress(); }
+		const sockaddr*const SockAddr() const { return Address->SockAddr(); }
 
 		//	Send a packet
 		//	Do not ever touch the packet again after calling this
-		void SendPacket( NetPacket* Packet) { MySocket->AddOutgoingPacket(Packet); }
+		void SendPacket( NetPacket* Packet) { Socket->AddOutgoingPacket(Packet); }
 	};
 
 }

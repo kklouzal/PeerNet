@@ -1,6 +1,6 @@
 #pragma once
-#include <Windows.h>		// IOCP functions and HANDLE
-#define WIN32_LEAN_AND_MEAN
+//#define WIN32_LEAN_AND_MEAN
+//#include <Windows.h>		// IOCP functions and HANDLE
 #include <stack>			// std::stack
 #include <thread>			// std::thread
 #include <functional>		// std::function
@@ -11,22 +11,29 @@ using std::function;
 
 enum COMPLETION_KEY
 {
-	CK_STOP = 0				// used to break a threads main loop
+	CK_STOP			=	0,	//	used to break a threads main loop	(REQUIRED)
+	CK_RIO			=	1,	//	used for RIO completions			(REQUIRED)
+	CK_SEND			=	2,	//	used during send operation			(USER CUSTOM)
+	CK_RECEIVE		=	3,	//	used during receive operation		(USER CUSTOM)
+	CK_UNRELIABLE	=	4,	//	User sending an unreliable packet	(USER CUSTOM)
+	CK_RELIABLE		=	5,	//	User sending a reliable packet		(USER CUSTOM)
+	CK_ORDERED		=	6	//	User sending an unreliable packet	(USER CUSTOM)
 };
 
 class ThreadPoolIOCP
 {
+protected:
 	const function<void(const DWORD, const ULONG_PTR, const OVERLAPPED*const)> OnCompletion;
 	const HANDLE IOCompletionPort;
 	stack<thread> Threads;
-	const int MaxThreads;
+	const unsigned int MaxThreads;
 
 public:
 
 	//	Constructor
 	ThreadPoolIOCP(const function<void(const DWORD, const ULONG_PTR, const OVERLAPPED*const)> OnCompletionFunc) : OnCompletion(OnCompletionFunc),
 		IOCompletionPort(CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, NULL)),
-		MaxThreads(thread::hardware_concurrency()) {
+		MaxThreads(1/*thread::hardware_concurrency()*/) {
 		printf("Thread Pool Opening %i Threads\n", MaxThreads);
 		//	Create our threads
 		for (unsigned char i = 0; i < MaxThreads; i++)
@@ -41,6 +48,7 @@ public:
 				//	Run this threads main loop
 				while (true)
 				{
+					printf("IOCP GetQueuedCompletionStatus\n");
 					//	Grab the next available completion or block until one arrives
 					if (!GetQueuedCompletionStatus(IOCompletionPort, &numberOfBytes, &completionKey, &pOverlapped, INFINITE))
 					{
@@ -59,6 +67,13 @@ public:
 
 	//	Destructor
 	~ThreadPoolIOCP() {
+		//	Close the IO Completion Port
+		CloseHandle(IOCompletionPort);
+		printf("IOCP Thread Pool Closed\n");
+	}
+
+	void ShutdownThreads()
+	{
 		//	Post a CK_STOP for each created thread
 		for (unsigned char i = 0; i < MaxThreads; i++)
 		{
@@ -67,9 +82,6 @@ public:
 		}
 		//	Wait for each thread to exit
 		while (!Threads.empty()) { Threads.top().join(); Threads.pop(); }
-		//	Close the IO Completion Port
-		CloseHandle(IOCompletionPort);
-		printf("IOCP Thread Pool Closed\n");
 	}
 
 	void PostCompletion(const ULONG_PTR Key) const {
@@ -79,4 +91,16 @@ public:
 			//exit(0);	//	Terminate the application
 		}
 	}
+
+	template <typename T>
+	void PostCompletion(const ULONG_PTR Key, T OverlappedData) const {
+		if (!PostQueuedCompletionStatus(IOCompletionPort, NULL, Key, (LPOVERLAPPED)OverlappedData))
+		{
+			printf("PostQueuedCompletionStatus Error: %i\n", GetLastError());
+			//exit(0);	//	Terminate the application
+		}
+	}
+
+	const HANDLE IOCP() const {	return IOCompletionPort; }
+	const unsigned int HardwareConcurrency() const { return MaxThreads; }
 };

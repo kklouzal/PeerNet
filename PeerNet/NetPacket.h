@@ -4,7 +4,6 @@ namespace PeerNet
 {
 	class NetPacket
 	{
-		//NetSocket* const MySocket;	//	Socket we'll use for communication
 		NetPeer* const MyPeer;		//	The destination peer for this packet
 
 		std::chrono::time_point<std::chrono::high_resolution_clock> CreationTime;

@@ -30,12 +30,23 @@ int main()
 
 
 	PeerNet::NetSocket* Socket = nullptr;
-	std::shared_ptr<PeerNet::NetPeer> Peer;
+	PeerNet::NetPeer* Peer = nullptr;
 
 	PeerNet::Initialize();
 	while (std::getline(std::cin, ConsoleInput))
 	{
 		if (ConsoleInput == "quit")	{
+			//	1. Delete all your peers
+			if (Peer != nullptr)
+			{
+				delete Peer;
+			}
+			//	2. Delete all your sockets
+			if (Socket != nullptr)
+			{
+				delete Socket;
+			}
+			//	3. Shutdown PeerNet
 			PeerNet::Deinitialize();
 			break;
 		}
@@ -49,14 +60,14 @@ int main()
 				std::string InputPort;
 				std::getline(std::cin, InputPort);
 				if (InputIP.empty() || InputPort.empty()) { printf("Invalid Arguments\n"); continue; }
-				Socket = PeerNet::CreateSocket(InputIP, InputPort);
+				Socket = new PeerNet::NetSocket(InputIP, InputPort);
 			}
 		}
 		else if (ConsoleInput == "close")
 		{
 			if (Socket != nullptr)
 			{
-				PeerNet::DeleteSocket(Socket);
+				delete Socket;
 				Socket = nullptr;
 			}
 		}
@@ -71,14 +82,14 @@ int main()
 				std::string InputPort;
 				std::getline(std::cin, InputPort);
 				if (InputIP.empty() || InputPort.empty()) { printf("Invalid Arguments\n"); continue; }
-				Peer = Socket->DiscoverPeer(InputIP, InputPort);
+				Peer = PeerNet::RetrievePeer(InputIP + std::string(":") + InputPort, Socket);
 			}
 		}
 		else if (ConsoleInput == "forget")
 		{
 			if (Peer != nullptr)
 			{
-				Peer.reset(); // release our shared_ptr to Peer
+				delete Peer;
 				Peer = nullptr;
 			}
 		}
@@ -102,6 +113,7 @@ int main()
 			{
 				auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Reliable);
 				NewPacket->WriteData<std::string>("I'm about to be serialized and I'm reliable!!");
+				printf("Send Packet\n");
 				Peer->SendPacket(NewPacket);
 			}
 		}
@@ -118,20 +130,6 @@ int main()
 					i++;
 				}
 			}
-		}
-		else if (ConsoleInput == "tp")	//	Test Thread Pooling
-		{
-			//	IOCP Thread Pool with a User Defined Completion Function
-			ThreadPoolIOCP* TPool = new ThreadPoolIOCP([](const DWORD numberOfBytes, const ULONG_PTR completionKey, const OVERLAPPED*const pOverlapped) {
-				//printf("Bytes %i Key: %i\n", numberOfBytes, completionKey);
-			});
-			printf("Posting 10,000,000 Completions..");
-			for (unsigned int i = 1; i < 10000000; i++)
-			{
-				TPool->PostCompletion(i);
-			}
-			printf(".Done!\n");
-			delete TPool;
 		}
 	}
 	std::system("PAUSE");
