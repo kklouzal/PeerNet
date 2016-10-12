@@ -74,7 +74,7 @@ namespace PeerNet
 		const std::chrono::time_point<std::chrono::high_resolution_clock> GetCreationTime() const { return CreationTime; }
 
 		// Is this a reliable packet
-		const bool IsReliable() const {	return ((TypeID == PacketType::PN_Ordered) || (TypeID == PacketType::PN_Discovery) || (TypeID == PacketType::PN_Reliable)); }
+		const bool IsReliable() const {	return ((TypeID == PacketType::PN_Ordered) || (TypeID == PacketType::PN_Reliable)); }
 
 		// Returns true if packet needs resend
 		// Waits 900ms between send attempts

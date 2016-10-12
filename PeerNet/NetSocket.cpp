@@ -35,8 +35,20 @@ namespace PeerNet
 		}
 	}
 
+	//	Compresses and sends a packet
+	void NetSocket::CompressAndSendPacket(PRIO_BUF_EXT pBuffer, const NetPacket* const SendPacket)
+	{
+		pBuffer->Length = LZ4_compress_default(SendPacket->GetData().c_str(), &Data_Buffer[pBuffer->Offset], SendPacket->GetData().size(), PacketSize);
+		if (pBuffer->Length > 0) {
+			//printf("Compressed: %i->%i\n", SendPacket->GetData().size(), pBuffer->Length);
+			memcpy(&Address_Buffer[pBuffer->pAddrBuff->Offset], SendPacket->GetPeer()->SockAddr(), sizeof(SOCKADDR_INET));
+			g_rio.RIOSendEx(RequestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, NULL, pBuffer);
+		}
+		else { printf("Packet Compression Failed - %i\n", pBuffer->Length); }
+	}
+
 	NetSocket::NetSocket(const std::string StrIP, const std::string StrPort) : Address(new NetAddress(StrIP, StrPort)),
-		Address_Buffer(new char[sizeof(SOCKADDR_INET)*(MaxSends+MaxReceives)]), CompletionMutex(),
+		Address_Buffer(new char[sizeof(SOCKADDR_INET)*(MaxSends+MaxReceives)]),
 		Data_Buffer(new char[PacketSize*(MaxSends+MaxReceives)]), Overlapped(new OVERLAPPED()),
 		Socket(WSASocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, NULL, WSA_FLAG_REGISTERED_IO)),
 		ThreadPoolIOCP([&](const DWORD numberOfBytes, const ULONG_PTR completionKey, const OVERLAPPED*const pOverlapped)
@@ -48,27 +60,24 @@ namespace PeerNet
 		//
 
 		//	Need to lock access to Completion Queues? One queue per thread??
-		printf("\tNewCompletion\tFunction Key: %i", (int)completionKey);
+		//printf("\tNewCompletion\tIOCP Key: %i ", (int)completionKey);
 		switch (completionKey)
 		{
 			case CK_RIO:
 			{
-				//std::unique_lock<std::mutex> Locker(CompletionMutex);
 				const ULONG NumResults = g_rio.RIODequeueCompletion(CompletionQueue, CompletionResults, (MaxSends+MaxReceives));
 				if (RIO_CORRUPT_CQ == NumResults) { printf("RIO Corrupt Results - Deleting Socket\n"); return; }
-				printf(" NumResults %i ", NumResults);
 				//	Actually read the data from each received packet
 				for (ULONG CurResult = 0; CurResult < NumResults; CurResult++)
 				{
 					//	Get the raw packet data into our buffer
 					PRIO_BUF_EXT pBuffer = reinterpret_cast<PRIO_BUF_EXT>(CompletionResults[CurResult].RequestContext);
-					printf("RIO Key: %i", (int)pBuffer->completionKey);
 
 					switch (pBuffer->completionKey)
 					{
 						case CK_SEND:
 						{
-							printf("Send Complete\n");
+							//	Return our data buffer
 							Data_Buffers.push_back(pBuffer);
 						}
 						break;
@@ -79,7 +88,7 @@ namespace PeerNet
 							char*const Uncompressed_Data = new char[PacketSize];
 							const int CompressResult = LZ4_decompress_safe(&Data_Buffer[pBuffer->Offset], Uncompressed_Data, CompletionResults[CurResult].BytesTransferred, PacketSize);
 
-							printf("Decompressed: %i->%i\n", CompletionResults[CurResult].BytesTransferred, CompressResult);
+							//printf("Decompressed: %i->%i\n", CompletionResults[CurResult].BytesTransferred, CompressResult);
 
 							if (CompressResult > 0) {
 								//	Get which peer sent this data
@@ -87,11 +96,10 @@ namespace PeerNet
 								const std::string SenderPort(std::to_string(ntohs(((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset])->Ipv4.sin_port)));
 								//	Determine which peer this packet belongs to and immediatly pass it to them for processing.
 								RetrievePeer(SenderIP + std::string(":") + SenderPort, this)->ReceivePacket(new NetPacket(std::string(Uncompressed_Data, CompressResult)));
-							} else { printf("Packet Decompression Failed\n"); }
+							} else { printf("\tPacket Decompression Failed\n"); }
 							delete[] Uncompressed_Data;
 							//	Push another read request into the queue
 							if (!g_rio.RIOReceiveEx(RequestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, 0, pBuffer)) { printf("RIO Receive2 Failed\n"); }
-							if (g_rio.RIONotify(CompletionQueue) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
 						}
 						break;
 
@@ -99,28 +107,17 @@ namespace PeerNet
 						printf("Unhandled RIO Key: %i\n", (int)pBuffer->completionKey);
 					}
 				}
-				//Locker.unlock();
-				//printf("Unlock\n");
+				if (g_rio.RIONotify(CompletionQueue) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
 			}
 			break;
 
-			case CK_RELIABLE:
+			case CK_SEND:
 			{
 				//	Grab a data buffer
+				if (Data_Buffers.empty()) { break; }
 				PRIO_BUF_EXT pBuffer = Data_Buffers.front();
 				Data_Buffers.pop_front();
-				//
-				NetPacket* SendPacket = (NetPacket*)pOverlapped;
-				pBuffer->Length = LZ4_compress_default(SendPacket->GetData().c_str(), &Data_Buffer[pBuffer->Offset], SendPacket->GetData().size(), PacketSize);
-				if (pBuffer->Length > 0) {
-					printf(" Compressed: %i->%i\n", SendPacket->GetData().size(), pBuffer->Length);
-					memcpy(&Data_Buffer[pBuffer->pAddrBuff->Offset], SendPacket->GetPeer()->SockAddr(), sizeof(SOCKADDR_INET));
-					g_rio.RIOSendEx(RequestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, 0, pBuffer);
-					if (g_rio.RIONotify(CompletionQueue) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
-				} else { printf("Packet Compression Failed - %i\n", pBuffer->Length); }
-
-				//	Return our data buffer
-				Data_Buffers.push_back(pBuffer);
+				CompressAndSendPacket(pBuffer, (NetPacket*)pOverlapped);
 			}
 			break;
 		}
@@ -201,6 +198,7 @@ namespace PeerNet
 				Data_Buffers.push_back(pBuf);
 			}
 		}
+		if (g_rio.RIONotify(CompletionQueue) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
 
 		//	Set Priority
 		//GetCurrentThread();
@@ -239,32 +237,5 @@ namespace PeerNet
 		printf("Stopped Listening On %s\n", Address->FormattedAddress());
 		//	Cleanup our NetAddress
 		delete Address;
-	}
-
-	void NetSocket::AddOutgoingPacket(NetPacket*const Packet)
-	{
-		if (Packet->GetType() == PacketType::PN_Ordered)
-		{
-			this->PostCompletion<NetPacket*>(CK_ORDERED, Packet);
-			/*std::unique_lock<std::mutex> OutgoingLock(OutgoingMutex);
-			q_OutgoingOrdered.insert(std::make_pair(Packet->GetPacketID(), Packet));
-			OutgoingLock.unlock();
-			OutgoingCondition.notify_one(); // Wake our Outgoing Thread if it's sleeping*/
-
-		}
-		else if (Packet->GetType() == PacketType::PN_Reliable || Packet->GetType() == PacketType::PN_Discovery) {
-			this->PostCompletion<NetPacket*>(CK_RELIABLE, Packet);
-			/*std::unique_lock<std::mutex> OutgoingLock(OutgoingMutex);
-			q_OutgoingReliable.insert(std::make_pair(Packet->GetPacketID(), Packet));
-			OutgoingLock.unlock();
-			OutgoingCondition.notify_one(); // Wake our Outgoing Thread if it's sleeping*/
-		}
-		else {
-			this->PostCompletion<NetPacket*>(CK_UNRELIABLE, Packet);
-			/*std::unique_lock<std::mutex> OutgoingLock(OutgoingMutex);
-			q_OutgoingUnreliable.insert(std::make_pair(Packet->GetPacketID(), Packet));
-			OutgoingLock.unlock();
-			OutgoingCondition.notify_one(); // Wake our Outgoing Thread if it's sleeping*/
-		}
 	}
 }

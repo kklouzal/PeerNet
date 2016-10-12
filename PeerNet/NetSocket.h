@@ -26,8 +26,6 @@ namespace PeerNet
 		SOCKET Socket;
 		RIO_EXTENSION_FUNCTION_TABLE g_rio;
 
-		std::mutex CompletionMutex;
-
 		// Completion Queue
 		RIO_CQ CompletionQueue;
 		OVERLAPPED* Overlapped;
@@ -44,6 +42,7 @@ namespace PeerNet
 		std::deque<PRIO_BUF_EXT> Data_Buffers;
 
 	public:
+		void CompressAndSendPacket(PRIO_BUF_EXT pBuffer, const NetPacket * const SendPacket);
 		//	NetSocket Constructor
 		//
 		//	args	-	StrIP, StrPort	-	IP and Port this socket will bind to
@@ -53,7 +52,7 @@ namespace PeerNet
 		//	Initialize our Base Class (ThreadPoolIOCP) and use a lambda to specify each threads completion function
 		NetSocket(const std::string StrIP, const std::string StrPort);
 		~NetSocket();
-		void AddOutgoingPacket(NetPacket * const Packet);
+
 	};
 
 	//	Checks for an existing connected peer and returns it

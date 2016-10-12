@@ -6,7 +6,7 @@ class NetAddress
 	std::string Host;
 	std::string Port;
 	std::string Address;
-	addrinfo *Results;
+	addrinfo*	Results;
 public:
 	~NetAddress() { freeaddrinfo(Results); }
 

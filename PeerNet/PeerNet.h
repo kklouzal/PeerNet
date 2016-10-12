@@ -26,10 +26,10 @@
 //#define _DEBUG_THREADS
 #define _DEBUG_DISCOVERY
 #define _DEBUG_PACKETS_ORDERED
-//#define _DEBUG_PACKETS_RELIABLE
+#define _DEBUG_PACKETS_RELIABLE
 #define _DEBUG_PACKETS_UNRELIABLE
-//#define _DEBUG_PACKETS_RELIABLE_ACK
-//#define _DEBUG_PACKETS_ORDERED_ACK
+#define _DEBUG_PACKETS_RELIABLE_ACK
+#define _DEBUG_PACKETS_ORDERED_ACK
 
 // Core Classes
 namespace PeerNet
@@ -40,8 +40,7 @@ namespace PeerNet
 		PN_ReliableACK = 1,
 		PN_Ordered = 2,
 		PN_Reliable = 3,
-		PN_Unreliable = 4,
-		PN_Discovery = 5
+		PN_Unreliable = 4
 	};
 	class NetPeer;
 	class NetSocket;
