@@ -5,6 +5,7 @@ namespace PeerNet
 {
 	struct RIO_BUF_EXT : public RIO_BUF
 	{
+		NetPeer* Recipient;
 		PRIO_BUF pAddrBuff;
 
 		//	Values Filled Upon Call To GetQueuedCompletionStatus

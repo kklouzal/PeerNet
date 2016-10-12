@@ -12,11 +12,11 @@ namespace PeerNet
 		unsigned long LastReceivedUnreliable = 0;
 
 		unsigned long LatestReceivedReliable = 0;
-		unsigned long LatestReceivedReliableACK = 0;
 		std::unordered_map<unsigned long, NetPacket*const> ReliablePkts;
-		std::unordered_map<unsigned long, NetPacket*const> ReliableAcks;
 
 		unsigned long NextExpectedOrderedID = 1;
+		std::unordered_map<unsigned long, NetPacket*const> OrderedPkts_Receive;
+
 		unsigned long NextExpectedOrderedACK = 1;
 		std::unordered_map<unsigned long, NetPacket*const> OrderedPkts;
 		std::unordered_map<unsigned long, NetPacket*const> OrderedAcks;
@@ -31,7 +31,6 @@ namespace PeerNet
 		void SendPacket(NetPacket * Packet);
 		void ReceivePacket(NetPacket * IncomingPacket);
 
-		const bool SendPacket_Reliable(NetPacket * Packet);
 
 		const std::string FormattedAddress() const { return Address->FormattedAddress(); }
 		const sockaddr*const SockAddr() const { return Address->SockAddr(); }
