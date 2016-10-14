@@ -19,17 +19,11 @@ namespace PeerNet
 		if (pType == PacketType::PN_Ordered)
 		{
 			NetPacket* NewPacket = new NetPacket(NextOrderedPacketID++, pType, this);
-			/*std::unique_lock<std::mutex> ReliableLocker(ReliableMutex);
-			OrderedPkts.insert(std::make_pair(NewPacket->GetPacketID(), NewPacket));
-			ReliableLocker.unlock();*/
 			return NewPacket;
 		}
 		else if (pType == PacketType::PN_Reliable)
 		{
 			NetPacket* NewPacket = new NetPacket(NextReliablePacketID++, pType, this);
-			/*std::unique_lock<std::mutex> ReliableLocker(ReliableMutex);
-			ReliablePkts.insert(std::make_pair(NewPacket->GetPacketID(), NewPacket));
-			ReliableLocker.unlock();*/
 			return NewPacket;
 		}
 		return new NetPacket(NextUnreliablePacketID++, pType, this);

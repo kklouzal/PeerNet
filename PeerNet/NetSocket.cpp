@@ -36,7 +36,7 @@ namespace PeerNet
 	}
 
 	//	Compresses and sends a packet
-	void NetSocket::CompressAndSendPacket(PRIO_BUF_EXT pBuffer, const NetPacket* const SendPacket)
+	void NetSocket::CompressAndSendPacket(PRIO_BUF_EXT pBuffer, const NetPacket*const SendPacket)
 	{
 		pBuffer->Length = LZ4_compress_default(SendPacket->GetData().c_str(), &Data_Buffer[pBuffer->Offset], SendPacket->GetData().size(), PacketSize);
 		if (pBuffer->Length > 0) {
@@ -122,6 +122,12 @@ namespace PeerNet
 				Data_Buffers.pop();
 				DataLocker.unlock();
 				CompressAndSendPacket(pBuffer, reinterpret_cast<const NetPacket*>(pOverlapped));
+			}
+			break;
+
+			case CK_RETRY:
+			{
+				const NetPacket* Packet = reinterpret_cast<const NetPacket*>(pOverlapped);
 			}
 			break;
 		}

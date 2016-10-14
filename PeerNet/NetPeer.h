@@ -8,7 +8,6 @@ namespace PeerNet
 		const NetAddress*const Address;
 		NetSocket*const Socket;
 
-	public:
 		unsigned long LastReceivedUnreliable = 0;
 
 		unsigned long LatestReceivedReliable = 0;
@@ -28,6 +27,7 @@ namespace PeerNet
 		unsigned long NextUnreliablePacketID = 1;
 		unsigned long NextReliablePacketID = 1;
 		unsigned long NextOrderedPacketID = 1;
+	public:
 
 		NetPeer(const std::string StrIP, const std::string StrPort, NetSocket * const DefaultSocket);
 

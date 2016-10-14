@@ -1,4 +1,5 @@
 #pragma once
+#include "TimedEvent.hpp"
 
 namespace PeerNet
 {
@@ -91,7 +92,6 @@ namespace PeerNet
 
 		//	Reliable delivery failed
 		const bool NeedsDelete() const { return (SendAttempts >= 5); }
-
 
 		//	Return our underlying destination NetPeer
 		NetPeer*const GetPeer() const { return MyPeer; }
