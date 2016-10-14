@@ -3,6 +3,7 @@
 // This file will be included in their .cpp files
 
 // Winsock2 Headers
+#define WIN32_LEAN_AND_MEAN
 #include <WS2tcpip.h>
 #include <WinSock2.h>
 #include <MSWSock.h>
@@ -27,8 +28,8 @@
 #define _DEBUG_PACKETS_ORDERED
 //#define _DEBUG_PACKETS_RELIABLE
 #define _DEBUG_PACKETS_UNRELIABLE
-//#define _DEBUG_PACKETS_RELIABLE_ACK
-//#define _DEBUG_PACKETS_ORDERED_ACK
+#define _DEBUG_PACKETS_RELIABLE_ACK
+#define _DEBUG_PACKETS_ORDERED_ACK
 
 // Core Classes
 namespace PeerNet
@@ -39,12 +40,13 @@ namespace PeerNet
 		PN_ReliableACK = 1,
 		PN_Ordered = 2,
 		PN_Reliable = 3,
-		PN_Unreliable = 4,
-		PN_Discovery = 5
+		PN_Unreliable = 4
 	};
 	class NetPeer;
 	class NetSocket;
 }
+
+#include "NetAddress.hpp"
 #include "NetPacket.h"
 #include "NetSocket.h"
 #include "NetPeer.h"
@@ -53,7 +55,4 @@ namespace PeerNet
 {
 	void Initialize();
 	void Deinitialize();
-
-	NetSocket* CreateSocket(const std::string StrIP, const std::string StrPort);
-	void DeleteSocket(NetSocket*const Socket);
 }

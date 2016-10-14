@@ -1,10 +1,10 @@
 #pragma once
+#include "TimedEvent.hpp"
 
 namespace PeerNet
 {
 	class NetPacket
 	{
-		//NetSocket* const MySocket;	//	Socket we'll use for communication
 		NetPeer* const MyPeer;		//	The destination peer for this packet
 
 		std::chrono::time_point<std::chrono::high_resolution_clock> CreationTime;
@@ -51,11 +51,11 @@ namespace PeerNet
 		}
 
 		// Write data into the packet
-		template <class T> void WriteData(T Data) {	BinaryIn->operator()(Data);	}
+		template <class T> void WriteData(T Data) const { BinaryIn->operator()(Data); }
 
 		// Read data from the packet
 		// MUST be read in the same order it was written
-		template <class T> T ReadData()
+		template <class T> T ReadData() const
 		{
 			T Temp;
 			BinaryOut->operator()(Temp);
@@ -75,7 +75,7 @@ namespace PeerNet
 		const std::chrono::time_point<std::chrono::high_resolution_clock> GetCreationTime() const { return CreationTime; }
 
 		// Is this a reliable packet
-		const bool IsReliable() const {	return ((TypeID == PacketType::PN_Ordered) || (TypeID == PacketType::PN_Discovery) || (TypeID == PacketType::PN_Reliable)); }
+		const bool IsReliable() const {	return ((TypeID == PacketType::PN_Ordered) || (TypeID == PacketType::PN_Reliable)); }
 
 		// Returns true if packet needs resend
 		// Waits 900ms between send attempts
@@ -92,7 +92,6 @@ namespace PeerNet
 
 		//	Reliable delivery failed
 		const bool NeedsDelete() const { return (SendAttempts >= 5); }
-
 
 		//	Return our underlying destination NetPeer
 		NetPeer*const GetPeer() const { return MyPeer; }

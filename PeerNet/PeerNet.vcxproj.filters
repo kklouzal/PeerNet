@@ -17,20 +17,26 @@
     <ClInclude Include="NetPacket.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="NetSocket.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="NetPeer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="lz4.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ThreadPool.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NetAddress.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NetSocket.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TimedEvent.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="NetSocket.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="PeerNet.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -38,6 +44,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="lz4.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="NetSocket.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
