@@ -78,7 +78,9 @@ namespace PeerNet
 						case CK_SEND:
 						{
 							//	Return our data buffer
-							Data_Buffers.push_back(pBuffer);
+							std::unique_lock<std::mutex> DataLocker(DataMutex);
+							Data_Buffers.push(pBuffer);
+							DataLocker.unlock();
 						}
 						break;
 
@@ -114,9 +116,11 @@ namespace PeerNet
 			case CK_SEND:
 			{
 				//	Grab a data buffer
-				if (Data_Buffers.empty()) { break; }
-				PRIO_BUF_EXT pBuffer = Data_Buffers.front();
-				Data_Buffers.pop_front();
+				std::unique_lock<std::mutex> DataLocker(DataMutex);
+				if (Data_Buffers.empty()) { DataLocker.unlock(); break; }
+				PRIO_BUF_EXT pBuffer = Data_Buffers.top();
+				Data_Buffers.pop();
+				DataLocker.unlock();
 				CompressAndSendPacket(pBuffer, (NetPacket*)pOverlapped);
 			}
 			break;
@@ -195,7 +199,7 @@ namespace PeerNet
 			} else {
 				//	This buffer will be used for sends so add it to our queue
 				pBuf->completionKey = CK_SEND;
-				Data_Buffers.push_back(pBuf);
+				Data_Buffers.push(pBuf);
 			}
 		}
 		if (g_rio.RIONotify(CompletionQueue) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
@@ -226,10 +230,12 @@ namespace PeerNet
 		//delete[] uncompressed_data;
 		printf("Delete Overlapped and Buffers\n");
 		delete Overlapped;
-		for (auto Buff : Data_Buffers)
+		while (!Data_Buffers.empty())
 		{
+			PRIO_BUF_EXT Buff = Data_Buffers.top();
 			delete Buff->pAddrBuff;
 			delete Buff;
+			Data_Buffers.pop();
 		}
 		delete Address_Buffer;
 		delete Data_Buffer;

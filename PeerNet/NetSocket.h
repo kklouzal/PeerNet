@@ -20,8 +20,8 @@ namespace PeerNet
 		//	Maximum size of an individual packet in bytes
 		const DWORD PacketSize = 1472;
 		//	Maximum pending receive packets
-		const DWORD MaxReceives = 128;
-		const DWORD MaxSends = 128;
+		const DWORD MaxReceives = 1024;
+		const DWORD MaxSends = 1024;
 
 		const NetAddress*const Address;
 		SOCKET Socket;
@@ -31,7 +31,7 @@ namespace PeerNet
 		RIO_CQ CompletionQueue;
 		OVERLAPPED* Overlapped;
 		//	CompletionResults MUST ALWAYS be equal to MaxReceives + MaxSends
-		RIORESULT CompletionResults[256];
+		RIORESULT CompletionResults[2048];
 		// Send/Receive Request Queue
 		RIO_RQ RequestQueue;
 		//	Address Buffer
@@ -40,7 +40,8 @@ namespace PeerNet
 		//	Data Buffer
 		RIO_BUFFERID Data_BufferID;
 		PCHAR const Data_Buffer;
-		std::deque<PRIO_BUF_EXT> Data_Buffers;
+		std::stack<PRIO_BUF_EXT> Data_Buffers;
+		std::mutex DataMutex;
 
 	public:
 		void CompressAndSendPacket(PRIO_BUF_EXT pBuffer, const NetPacket * const SendPacket);

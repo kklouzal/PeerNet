@@ -5,7 +5,8 @@ namespace PeerNet
 	//
 	//	Default Constructor
 	NetPeer::NetPeer(const std::string StrIP, const std::string StrPort, NetSocket*const DefaultSocket)
-		: Address(new NetAddress(StrIP, StrPort)), Socket(DefaultSocket), OrderedPkts(), OrderedAcks(), ReliablePkts()
+		: Address(new NetAddress(StrIP, StrPort)), Socket(DefaultSocket),OrderedPkts(), OrderedAcks(),
+		ReliablePkts(), IN_OrderedPkts(), OrderedPktMutex(), IN_OrderedPktMutex(), OrderedAckMutex(), ReliablePktMutex()
 	{
 		//	Send out our discovery request
 		SendPacket(CreateNewPacket(PacketType::PN_Reliable));
@@ -18,13 +19,17 @@ namespace PeerNet
 		if (pType == PacketType::PN_Ordered)
 		{
 			NetPacket* NewPacket = new NetPacket(NextOrderedPacketID++, pType, this);
+			/*std::unique_lock<std::mutex> ReliableLocker(ReliableMutex);
 			OrderedPkts.insert(std::make_pair(NewPacket->GetPacketID(), NewPacket));
+			ReliableLocker.unlock();*/
 			return NewPacket;
 		}
 		else if (pType == PacketType::PN_Reliable)
 		{
 			NetPacket* NewPacket = new NetPacket(NextReliablePacketID++, pType, this);
+			/*std::unique_lock<std::mutex> ReliableLocker(ReliableMutex);
 			ReliablePkts.insert(std::make_pair(NewPacket->GetPacketID(), NewPacket));
+			ReliableLocker.unlock();*/
 			return NewPacket;
 		}
 		return new NetPacket(NextUnreliablePacketID++, pType, this);
@@ -35,10 +40,14 @@ namespace PeerNet
 	void NetPeer::SendPacket(NetPacket* Packet) {
 		if (Packet->GetType() == PacketType::PN_Ordered)
 		{
-			OrderedPkts.insert(std::make_pair(Packet->GetPacketID(), Packet));
+			OrderedPktMutex.lock();
+			OrderedPkts.emplace(Packet->GetPacketID(), Packet);
+			OrderedPktMutex.unlock();
 		}
 		else if (Packet->GetType() == PacketType::PN_Reliable) {
-			ReliablePkts.insert(std::make_pair(Packet->GetPacketID(), Packet));
+			ReliablePktMutex.lock();
+			ReliablePkts.emplace(Packet->GetPacketID(), Packet);
+			ReliablePktMutex.unlock();
 		}
 		Socket->PostCompletion<NetPacket*>(CK_SEND, Packet);
 	}
@@ -50,51 +59,55 @@ namespace PeerNet
 			//	PN_OrderedACK
 		case PacketType::PN_OrderedACK:
 		{
-			auto FoundACK1 = OrderedPkts.find(IncomingPacket->GetPacketID());	//	Check if our send packet still exists for this ack
-			if (FoundACK1 == OrderedPkts.end()) { delete IncomingPacket; break; }	//	Not found; delete ack; break;
-			if (IncomingPacket->GetPacketID() > NextExpectedOrderedACK) { OrderedAcks.insert(std::make_pair(IncomingPacket->GetPacketID(), IncomingPacket)); } //	Store the ACK
-
-			if (IncomingPacket->GetPacketID() == NextExpectedOrderedACK)
+			if (IncomingPacket->GetPacketID() < NextExpectedOrderedACK) { delete IncomingPacket; break; }
+			if (IncomingPacket->GetPacketID() > NextExpectedOrderedACK)
 			{
-				++NextExpectedOrderedACK;	//	Increment the counter so other threads can process newer packets quicker
-				//	ToDo: Call the send packet's callback function if one was provided; pass the ack as one of our parameters
-				//	Any processing needed on ACK or Send Packet needs to be done here
-#ifdef _DEBUG_PACKETS_ORDERED_ACK
-				printf("\tOrdered Ack 1 - %i -\t %.3fms\n", IncomingPacket->GetPacketID(),
-					(std::chrono::duration<double, std::milli>(FoundACK1->second->GetCreationTime() - IncomingPacket->GetCreationTime()).count()));
-#endif
-				//	End Processing
-				OrderedPkts.erase(FoundACK1);
-				delete IncomingPacket;
-				while (!OrderedAcks.empty())	//	Since we incremented our counter, loop through the container and find any packets that match the counters new value
-				{
-					auto FoundACK2 = OrderedAcks.find(NextExpectedOrderedACK);	//	See if we've already received our next expected ACK stored in the container
-					if (FoundACK2 == OrderedAcks.end()) { return; }	//	Not found; break loop.
-					auto FoundPacket = OrderedPkts.find(NextExpectedOrderedACK);	//	See if the corresponding Ordered Packet is stored in it's container
-					if (FoundPacket == OrderedPkts.end()) { delete FoundACK2->second; OrderedAcks.erase(FoundACK2); return; }	//	Not found; Remove ACK; break loop.
-					++NextExpectedOrderedACK;	//	Found both; Increment our counter.
-					//	ToDo: Call the send packet's callback function if one was provided; pass the ack as one of our parameters
-					//	Any processing needed on ACK or Send Packet needs to be done here
-												//	FoundPacket = SendPacket; FoundACK2 = ACK
-#ifdef _DEBUG_PACKETS_ORDERED_ACK
-					printf("\tOrdered Ack 2 - %i -\t %.3fms\n", IncomingPacket->GetPacketID(),
-						(std::chrono::duration<double, std::milli>(FoundACK2->second->GetCreationTime() - FoundPacket->second->GetCreationTime()).count()));
-#endif
-					//	End Processing
-					//	Cleanup ACK and release the Ordered Packet
-					delete FoundACK2->second;
-					OrderedAcks.erase(FoundACK2);
-					OrderedPkts.erase(FoundPacket);
-				}
+				OrderedAckMutex.lock(); OrderedAcks.emplace(IncomingPacket->GetPacketID(), IncomingPacket); OrderedAckMutex.unlock(); break;
 			}
+			//	This is the packet id we're looking for, increment counter and check container
+			//	Sanity Check: See if a packet with this ID already exists in our in_packet container
+			//		If so then delete IncomingPacket, check if packet in container gets processed
+			//		If not then instead you delete the packet in the container and process this one
+			OrderedPktMutex.lock();
+			auto Pkt = OrderedPkts.find(NextExpectedOrderedACK);					//	See if our ACK has a corresponding send packet
+			if (Pkt == OrderedPkts.end()) { OrderedPktMutex.unlock(); break; }		//	Not found; break loop.
+#ifdef _DEBUG_PACKETS_RELIABLE_ACK
+			printf("\tOrdered Ack 1 - %i -\t %.3fms\n", IncomingPacket->GetPacketID(),
+				(std::chrono::duration<double, std::milli>(Pkt->second->GetCreationTime() - IncomingPacket->GetCreationTime()).count()));
+#endif
+			OrderedPkts.erase(Pkt);				//	Found; remove the send packet from the outgoing container
+			OrderedPktMutex.unlock();			//
+			++NextExpectedOrderedACK;			//	Increment our counter
+			delete IncomingPacket;				//	Free the ACK's memory
+			OrderedAckMutex.lock();				//
+			while (!OrderedAcks.empty())		//	Check any queued up ACK's
+			{
+				auto Ack = OrderedAcks.find(NextExpectedOrderedACK);				//	See if we've already received our next expected packet.
+				if (Ack == OrderedAcks.end()) { OrderedAckMutex.unlock(); break; }	//	Not found; break loop.
+				OrderedPktMutex.lock();												//
+				auto Pkt2 = OrderedPkts.find(NextExpectedOrderedACK);				//	See if our ACK has a corresponding send packet
+				if (Pkt2 == OrderedPkts.end())										//	Not found; Cleanup ACK; break loop.
+				{ delete Ack->second; OrderedAcks.erase(Ack); OrderedPktMutex.unlock(); break; }
+#ifdef _DEBUG_PACKETS_RELIABLE_ACK
+				printf("\tOrdered Ack 2 - %i -\t %.3fms\n", Ack->second->GetPacketID(),
+					(std::chrono::duration<double, std::milli>(Pkt2->second->GetCreationTime() - Ack->second->GetCreationTime()).count()));
+#endif
+				OrderedPkts.erase(Pkt2);		//	Found; remove the send packet from the outgoing container
+				OrderedPktMutex.unlock();		//
+				++NextExpectedOrderedACK;		//	Increment counter.
+				delete Ack->second;				//	Cleanup this ACK
+				OrderedAcks.erase(Ack);			//	Continue until the next expected ACK is not found
+			}
+			OrderedAckMutex.unlock();
 		}
 		break;
 
 			//	PN_ReliableACK
 		case PacketType::PN_ReliableACK:
 		{
+			ReliablePktMutex.lock();
 			auto got = ReliablePkts.find(IncomingPacket->GetPacketID());	//	Check if our send packet still exists for this ack
-			if (got == ReliablePkts.end()) { delete IncomingPacket; break; }	//	Not found; delete ack; break;
+			if (got == ReliablePkts.end()) { ReliablePktMutex.unlock(); delete IncomingPacket; break; }	//	Not found; delete ack; break;
 			//	ToDo: Call the send packet's callback function if one was provided; pass the ack as one of our parameters
 			//	Any processing needed on ACK or Send Packet needs to be done here
 #ifdef _DEBUG_PACKETS_RELIABLE_ACK
@@ -102,45 +115,42 @@ namespace PeerNet
 				(std::chrono::duration<double, std::milli>(got->second->GetCreationTime() - IncomingPacket->GetCreationTime()).count()));
 #endif
 			ReliablePkts.erase(got);
+			ReliablePktMutex.unlock();
 			delete IncomingPacket;
 		}
 		break;
 
-		//	PN_Ordered
+		//	PN_Ordered -- Receive an ordered packet sent from another peer
 		case PacketType::PN_Ordered:
 		{
+			//	Immediatly ACK any received reliable packet
 			SendPacket(new NetPacket(IncomingPacket->GetPacketID(), PacketType::PN_OrderedACK, this));
-			//	is packet id less than expected id? delete. it's already acked
-			if (IncomingPacket->GetPacketID() < NextExpectedOrderedID) { delete IncomingPacket; return; }
-			//	is packet id > expected id? store in map, key is packet id.
-			if (IncomingPacket->GetPacketID() > NextExpectedOrderedID) { OrderedPkts_Receive.insert(std::make_pair(IncomingPacket->GetPacketID(), IncomingPacket)); return; }
-			//	is packet id == expected id? process packet. delete. increment expected id.
+
+			if (IncomingPacket->GetPacketID() < NextExpectedOrderedID) { delete IncomingPacket; break; }
+			if (IncomingPacket->GetPacketID() > NextExpectedOrderedID)
+			{ IN_OrderedPktMutex.lock(); IN_OrderedPkts.emplace(IncomingPacket->GetPacketID(), IncomingPacket); IN_OrderedPktMutex.unlock(); break;	}
+			//	This is the packet id we're looking for, increment counter and check container
+			//	Sanity Check: See if a packet with this ID already exists in our in_packet container
+			//		If so then delete IncomingPacket, check if packet in container gets processed
+			//		If not then instead you delete the packet in the container and process this one
 			++NextExpectedOrderedID;
-			//	Process your received ordered packet here
-			//
 #ifdef _DEBUG_PACKETS_ORDERED
-			printf("Recv Ordered Packet - %u\n", IncomingPacket->GetPacketID());
+			printf("Recv Ordered 1 - %u\n", IncomingPacket->GetPacketID());
 #endif
-			//	End Processing
 			delete IncomingPacket;
-			while (!OrderedPkts_Receive.empty())
+			IN_OrderedPktMutex.lock();
+			while (!IN_OrderedPkts.empty())
 			{
-				auto got = OrderedPkts_Receive.find(NextExpectedOrderedID);	//	See if we've already received our next expected packet.
-				if (got == OrderedPkts_Receive.end()) { return; }	//	Not found; break loop.
-				++NextExpectedOrderedID;	//	Found; Increment our counter.
-											//
-											//	Process your reliable packet here
-											//
-											//	got->second
-											//
+				auto got = IN_OrderedPkts.find(NextExpectedOrderedID);						//	See if we've already received our next expected packet.
+				if (got == IN_OrderedPkts.end()) { IN_OrderedPktMutex.unlock(); break; }	//	Not found; break loop.
+				++NextExpectedOrderedID;													//	Found; increment counter.
 #ifdef _DEBUG_PACKETS_ORDERED
-				printf("Recv Ordered Packet - %u\n", got->second->GetPacketID());
+				printf("Recv Ordered 2 - %u\n", IncomingPacket->GetPacketID());
 #endif
-				//	We're finished with this packet; clean it up.
 				delete got->second;
-				OrderedPkts_Receive.erase(got);
-				//	Continue the loop until we run out of matches or our queue winds up empty.
+				IN_OrderedPkts.erase(got);
 			}
+			IN_OrderedPktMutex.unlock();
 		}
 		break;
 
