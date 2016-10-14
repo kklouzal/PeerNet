@@ -83,7 +83,7 @@ public:
 
 	template <typename T>
 	void PostCompletion(const ULONG_PTR Key, T OverlappedData) const {
-		if (!PostQueuedCompletionStatus(IOCompletionPort, NULL, Key, (LPOVERLAPPED)OverlappedData))
+		if (!PostQueuedCompletionStatus(IOCompletionPort, NULL, Key, reinterpret_cast<LPOVERLAPPED>(OverlappedData))
 		{
 			printf("PostQueuedCompletionStatus Error: %i\n", GetLastError());
 			//exit(0);	//	Terminate the application

@@ -121,7 +121,7 @@ namespace PeerNet
 				PRIO_BUF_EXT pBuffer = Data_Buffers.top();
 				Data_Buffers.pop();
 				DataLocker.unlock();
-				CompressAndSendPacket(pBuffer, (NetPacket*)pOverlapped);
+				CompressAndSendPacket(pBuffer, reinterpret_cast<const NetPacket*>(pOverlapped));
 			}
 			break;
 		}

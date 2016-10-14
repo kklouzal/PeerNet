@@ -86,8 +86,8 @@ namespace PeerNet
 				if (Ack == OrderedAcks.end()) { OrderedAckMutex.unlock(); break; }	//	Not found; break loop.
 				OrderedPktMutex.lock();												//
 				auto Pkt2 = OrderedPkts.find(NextExpectedOrderedACK);				//	See if our ACK has a corresponding send packet
-				if (Pkt2 == OrderedPkts.end())										//	Not found; Cleanup ACK; break loop.
-				{ delete Ack->second; OrderedAcks.erase(Ack); OrderedPktMutex.unlock(); break; }
+				if (Pkt2 == OrderedPkts.end())										//	Not found; Increment Counter; Cleanup ACK; break loop.
+				{ ++NextExpectedOrderedACK; delete Ack->second; OrderedAcks.erase(Ack); OrderedPktMutex.unlock(); break; }
 #ifdef _DEBUG_PACKETS_RELIABLE_ACK
 				printf("\tOrdered Ack 2 - %i -\t %.3fms\n", Ack->second->GetPacketID(),
 					(std::chrono::duration<double, std::milli>(Pkt2->second->GetCreationTime() - Ack->second->GetCreationTime()).count()));
