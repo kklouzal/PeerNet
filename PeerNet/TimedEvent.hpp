@@ -21,6 +21,7 @@ public:
 	TimedEvent(const function<void()> OnTickFunc, const function<void()> OnExpireFunc, std::chrono::milliseconds Interval, const unsigned char iMaxTicks) :
 		OnTick(OnTickFunc), OnExpire(OnExpireFunc), IntervalTime(Interval), MaxTicks(iMaxTicks), CurTicks(0), Running(true),
 		TimedThread([&]() {
+		SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_BEGIN);
 		while (CurTicks < MaxTicks)
 		{
 			if (!Running) { return; }

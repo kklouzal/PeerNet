@@ -42,6 +42,9 @@ public:
 				ULONG_PTR completionKey = 0;
 				OVERLAPPED* pOverlapped = 0;
 
+				//	Set our scheduling priority
+				SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+
 				//	Run this threads main loop
 				while (true) {
 					//	Grab the next available completion or block until one arrives

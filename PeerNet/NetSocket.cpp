@@ -124,12 +124,6 @@ namespace PeerNet
 				CompressAndSendPacket(pBuffer, reinterpret_cast<const NetPacket*>(pOverlapped));
 			}
 			break;
-
-			case CK_RETRY:
-			{
-				const NetPacket* Packet = reinterpret_cast<const NetPacket*>(pOverlapped);
-			}
-			break;
 		}
 
 		//
