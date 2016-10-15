@@ -2,7 +2,6 @@
 
 namespace PeerNet
 {
-
 	class NetPeer
 	{
 		const NetAddress*const Address;

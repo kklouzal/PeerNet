@@ -98,7 +98,7 @@ int main()
 			if (Peer != nullptr)
 			{
 				unsigned int i = 0;
-				while (i < 64)
+				while (i < 1024)
 				{
 					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Ordered);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm ordered!!");
@@ -112,7 +112,7 @@ int main()
 			if (Peer != nullptr)
 			{
 				unsigned int i = 0;
-				while (i < 64)
+				while (i < 1024)
 				{
 					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Reliable);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm reliable!!");
@@ -126,7 +126,7 @@ int main()
 			if (Peer != nullptr)
 			{
 				unsigned int i = 0;
-				while (i < 64)
+				while (i < 1024)
 				{
 					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Unreliable);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm unreliable!!");

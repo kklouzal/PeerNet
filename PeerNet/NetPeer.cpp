@@ -51,13 +51,9 @@ namespace PeerNet
 			//	PN_OrderedACK
 		case PacketType::PN_OrderedACK:
 		{
-			printf("RCV ORDER ACK %u\n", IncomingPacket->GetPacketID());
 			if (IncomingPacket->GetPacketID() < NextExpectedOrderedACK) { delete IncomingPacket; break; }
 			if (IncomingPacket->GetPacketID() > NextExpectedOrderedACK)
-			{
-				printf("Store Ordered ACK %i - Need %i\n", IncomingPacket->GetPacketID(), NextExpectedOrderedACK);
-				OrderedAckMutex.lock(); OrderedAcks.emplace(IncomingPacket->GetPacketID(), IncomingPacket); OrderedAckMutex.unlock(); break;
-			}
+			{ OrderedAckMutex.lock(); OrderedAcks.emplace(IncomingPacket->GetPacketID(), IncomingPacket); OrderedAckMutex.unlock(); break; }
 			//	This is the packet id we're looking for, increment counter and check container
 			//	Sanity Check: See if a packet with this ID already exists in our in_packet container
 			//		If so then delete IncomingPacket, check if packet in container gets processed
@@ -76,7 +72,6 @@ namespace PeerNet
 			OrderedAckMutex.lock();				//
 			while (!OrderedAcks.empty())		//	Check any queued up ACK's
 			{
-				printf("Ordered ACKs\n");
 				auto Ack = OrderedAcks.find(NextExpectedOrderedACK);				//	See if we've already received our next expected packet.
 				if (Ack == OrderedAcks.end()) { OrderedAckMutex.unlock(); return; }	//	Not found; return loop.
 				OrderedPktMutex.lock();												//

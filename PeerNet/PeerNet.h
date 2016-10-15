@@ -14,22 +14,20 @@
 
 // STD Headers
 #include <chrono>
-#include <thread>
 #include <mutex>
-#include <deque>
-#include <forward_list>
 #include <unordered_map>
-#include <map>
-#include <queue>
 
 //#define _DEBUG_COMPRESSION
 //#define _DEBUG_THREADS
 #define _DEBUG_DISCOVERY
-#define _DEBUG_PACKETS_ORDERED
+//#define _DEBUG_PACKETS_ORDERED
 //#define _DEBUG_PACKETS_RELIABLE
 #define _DEBUG_PACKETS_UNRELIABLE
 #define _DEBUG_PACKETS_RELIABLE_ACK
 #define _DEBUG_PACKETS_ORDERED_ACK
+
+//	Performance Tuning
+#define _PERF_SPINLOCK	//	Higher CPU Usage for more responsive packet handling; lower latencies
 
 // Core Classes
 namespace PeerNet

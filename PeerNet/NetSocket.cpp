@@ -42,7 +42,11 @@ namespace PeerNet
 		if (pBuffer->Length > 0) {
 			//printf("Compressed: %i->%i\n", SendPacket->GetData().size(), pBuffer->Length);
 			memcpy(&Address_Buffer[pBuffer->pAddrBuff->Offset], SendPacket->GetPeer()->SockAddr(), sizeof(SOCKADDR_INET));
+#ifdef _PERF_SPINLOCK
+			while (!RioMutex.try_lock()) {}
+#else
 			RioMutex.lock();
+#endif
 			g_rio.RIOSendEx(RequestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, NULL, pBuffer);
 			RioMutex.unlock();
 		}
@@ -102,8 +106,12 @@ namespace PeerNet
 								RetrievePeer(SenderIP + std::string(":") + SenderPort, this)->ReceivePacket(new NetPacket(std::string(Uncompressed_Data, CompressResult)));
 							} else { printf("\tPacket Decompression Failed\n"); }
 							delete[] Uncompressed_Data;
-							//	Push another read request into the queue
+#ifdef _PERF_SPINLOCK
+							while (!RioMutex.try_lock()) {}
+#else
 							RioMutex.lock();
+#endif
+							//	Push another read request into the queue
 							if (!g_rio.RIOReceiveEx(RequestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, 0, pBuffer)) { printf("RIO Receive2 Failed\n"); }
 							RioMutex.unlock();
 						}
@@ -192,7 +200,6 @@ namespace PeerNet
 			ReceiveOffset += PacketSize;
 			AddressOffset += sizeof(SOCKADDR_INET);
 
-			//printf("Buffer Slice %i\n", (int)i);
 			if (i < MaxReceives)
 			{
 				pBuf->completionKey = CK_RECEIVE;
@@ -209,8 +216,6 @@ namespace PeerNet
 		if (g_rio.RIONotify(CompletionQueue) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
 
 		//	Set Priority
-		//GetCurrentThread();
-		//SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
 		printf("Listening On %s\n", Address->FormattedAddress());
 	}
 
