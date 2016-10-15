@@ -18,10 +18,9 @@ namespace PeerNet
 		std::mutex IN_OrderedPktMutex;
 
 		std::unordered_map<unsigned long, NetPacket*const> OrderedPkts;
-		std::mutex OrderedPktMutex;
+		std::mutex OrderedMutex;
 		unsigned long NextExpectedOrderedACK = 1;
 		std::unordered_map<unsigned long, NetPacket*const> OrderedAcks;
-		std::mutex OrderedAckMutex;
 
 		unsigned long NextUnreliablePacketID = 1;
 		unsigned long NextReliablePacketID = 1;

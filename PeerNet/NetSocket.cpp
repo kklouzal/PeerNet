@@ -71,8 +71,16 @@ namespace PeerNet
 		{
 			case CK_RIO:
 			{
-				const ULONG NumResults = g_rio.RIODequeueCompletion(CompletionQueue, CompletionResults, (MaxSends+MaxReceives));
-				if (RIO_CORRUPT_CQ == NumResults) { printf("RIO Corrupt Results - Deleting Socket\n"); return; }
+				RIORESULT CompletionResults[128];
+#ifdef _PERF_SPINLOCK
+				while (!RioMutex.try_lock()) {}
+#else
+				RioMutex.lock();
+#endif
+				const ULONG NumResults = g_rio.RIODequeueCompletion(CompletionQueue, CompletionResults, 128);
+				if (g_rio.RIONotify(CompletionQueue) != ERROR_SUCCESS) { RioMutex.unlock(); printf("\tRIO Notify Failed\n"); return; }
+				RioMutex.unlock();
+				if (RIO_CORRUPT_CQ == NumResults) { printf("RIO Corrupt Results\n"); return; }
 				//	Actually read the data from each received packet
 				for (ULONG CurResult = 0; CurResult < NumResults; CurResult++)
 				{
@@ -84,9 +92,9 @@ namespace PeerNet
 						case CK_SEND:
 						{
 							//	Return our data buffer
-							std::unique_lock<std::mutex> DataLocker(DataMutex);
+							DataMutex.lock();
 							Data_Buffers.push(pBuffer);
-							DataLocker.unlock();
+							DataMutex.unlock();
 						}
 						break;
 
@@ -121,18 +129,24 @@ namespace PeerNet
 						printf("Unhandled RIO Key: %i\n", (int)pBuffer->completionKey);
 					}
 				}
-				if (g_rio.RIONotify(CompletionQueue) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
+/*#ifdef _PERF_SPINLOCK
+				while (!RioMutex.try_lock()) {}
+#else
+				RioMutex.lock();
+#endif
+				if (g_rio.RIONotify(CompletionQueue) != ERROR_SUCCESS) { RioMutex.unlock(); printf("\tRIO Notify Failed\n"); return; }
+				RioMutex.unlock();*/
 			}
 			break;
 
 			case CK_SEND:
 			{
 				//	Grab a data buffer
-				std::unique_lock<std::mutex> DataLocker(DataMutex);
-				if (Data_Buffers.empty()) { DataLocker.unlock(); break; }
+				DataMutex.lock();
+				if (Data_Buffers.empty()) { DataMutex.unlock(); break; }
 				PRIO_BUF_EXT pBuffer = Data_Buffers.top();
 				Data_Buffers.pop();
-				DataLocker.unlock();
+				DataMutex.unlock();
 				CompressAndSendPacket(pBuffer, reinterpret_cast<const NetPacket*>(pOverlapped));
 			}
 			break;

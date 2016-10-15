@@ -32,8 +32,6 @@ namespace PeerNet
 		// Completion Queue
 		RIO_CQ CompletionQueue;
 		OVERLAPPED* Overlapped;
-		//	CompletionResults MUST ALWAYS be equal to MaxReceives + MaxSends
-		RIORESULT CompletionResults[2048];
 		// Send/Receive Request Queue
 		RIO_RQ RequestQueue;
 		//	Address Buffer
