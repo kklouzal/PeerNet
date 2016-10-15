@@ -29,15 +29,15 @@ namespace PeerNet
 		unsigned long NextOrderedPacketID = 1;
 	public:
 
-		NetPeer(const std::string StrIP, const std::string StrPort, NetSocket * const DefaultSocket);
+		NetPeer(const std::string StrIP, const std::string StrPort, NetSocket*const DefaultSocket);
 
-		NetPacket * CreateNewPacket(PacketType pType);
-		void SendPacket(NetPacket * Packet);
-		void ReceivePacket(NetPacket * IncomingPacket);
+		NetPacket*const CreateNewPacket(const PacketType pType);
+		void SendPacket(NetPacket*const Packet);
+		void ReceivePacket(NetPacket*const IncomingPacket);
 
 
-		const std::string FormattedAddress() const { return Address->FormattedAddress(); }
-		const sockaddr*const SockAddr() const { return Address->SockAddr(); }
+		const auto FormattedAddress() const { return Address->FormattedAddress(); }
+		const auto SockAddr() const { return Address->SockAddr(); }
 
 	};
 

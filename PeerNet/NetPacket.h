@@ -5,7 +5,7 @@ namespace PeerNet
 {
 	class NetPacket
 	{
-		NetPeer* const MyPeer;		//	The destination peer for this packet
+		NetPeer*const MyPeer;		//	The destination peer for this packet
 
 		std::chrono::time_point<std::chrono::high_resolution_clock> CreationTime;
 		std::chrono::time_point<std::chrono::high_resolution_clock> NextSendTime;
@@ -14,8 +14,10 @@ namespace PeerNet
 		PeerNet::PacketType TypeID;
 
 		std::stringstream DataStream;
-		cereal::PortableBinaryOutputArchive* BinaryIn;
-		cereal::PortableBinaryInputArchive* BinaryOut;
+		cereal::PortableBinaryOutputArchive*const BinaryIn;
+		cereal::PortableBinaryInputArchive*const BinaryOut;
+		// Is this a reliable packet
+		const auto IsReliable() const { return ((TypeID == PacketType::PN_Ordered) || (TypeID == PacketType::PN_Reliable)); }
 
 	public:
 		unsigned short SendAttempts;
@@ -31,7 +33,7 @@ namespace PeerNet
 		}
 
 		// This constructor is for handling Send Packets ONLY
-		NetPacket(const unsigned long pID, PeerNet::PacketType pType, NetPeer* const Peer)
+		NetPacket(const unsigned long pID, const PeerNet::PacketType pType, NetPeer*const Peer)
 			: PacketID(pID), TypeID(pType), DataStream(std::ios::in | std::ios::out | std::ios::binary), BinaryIn(new cereal::PortableBinaryOutputArchive(DataStream)),
 			BinaryOut(nullptr), SendAttempts(0), MyPeer(Peer)
 		{
@@ -51,11 +53,11 @@ namespace PeerNet
 		}
 
 		// Write data into the packet
-		template <class T> void WriteData(T Data) const { BinaryIn->operator()(Data); }
+		template <typename T> void WriteData(T Data) const { BinaryIn->operator()(Data); }
 
 		// Read data from the packet
 		// MUST be read in the same order it was written
-		template <class T> T ReadData() const
+		template <typename T> auto ReadData() const
 		{
 			T Temp;
 			BinaryOut->operator()(Temp);
@@ -63,23 +65,19 @@ namespace PeerNet
 		}
 
 		// Get the current, raw serialized, data from the packet
-		const std::string GetData() const {	return DataStream.rdbuf()->str(); }
-
+		const auto GetData() const			{ return DataStream.rdbuf()->str(); }
+		// Get the current, raw serialized, data size from the packet
+		const auto GetDataSize() const		{ return DataStream.rdbuf()->str().size(); }
 		// Get the packets type
-		const PacketType GetType() const { return (PacketType)TypeID; }
-
+		const auto GetType() const			{ return TypeID; }
 		// Get the packets ID
-		const unsigned long GetPacketID() const { return PacketID; }
-
+		const auto GetPacketID() const		{ return PacketID; }
 		//	Get the creation time
-		const std::chrono::time_point<std::chrono::high_resolution_clock> GetCreationTime() const { return CreationTime; }
-
-		// Is this a reliable packet
-		const bool IsReliable() const {	return ((TypeID == PacketType::PN_Ordered) || (TypeID == PacketType::PN_Reliable)); }
+		const auto GetCreationTime() const	{ return CreationTime; }
 
 		// Returns true if packet needs resend
 		// Waits 900ms between send attempts
-		const bool NeedsResend() {
+		const auto NeedsResend() {
 			if (SendAttempts > 5) { return false; }	//	Maximum sends reached; return false
 			
 			auto Now = std::chrono::high_resolution_clock::now();	//	This a performance heavy function; call it only when needed.
@@ -91,10 +89,10 @@ namespace PeerNet
 		}
 
 		//	Reliable delivery failed
-		const bool NeedsDelete() const { return (SendAttempts >= 5); }
+		const auto NeedsDelete() const { return (SendAttempts >= 5); }
 
 		//	Return our underlying destination NetPeer
-		NetPeer*const GetPeer() const { return MyPeer; }
+		auto GetPeer() const { return MyPeer; }
 
 	};
 

@@ -38,7 +38,7 @@ namespace PeerNet
 	//	Compresses and sends a packet
 	void NetSocket::CompressAndSendPacket(PRIO_BUF_EXT pBuffer, const NetPacket*const SendPacket)
 	{
-		pBuffer->Length = LZ4_compress_default(SendPacket->GetData().c_str(), &Data_Buffer[pBuffer->Offset], SendPacket->GetData().size(), PacketSize);
+		pBuffer->Length = LZ4_compress_default(SendPacket->GetData().c_str(), &Data_Buffer[pBuffer->Offset], SendPacket->GetDataSize(), PacketSize);
 		if (pBuffer->Length > 0) {
 			//printf("Compressed: %i->%i\n", SendPacket->GetData().size(), pBuffer->Length);
 			memcpy(&Address_Buffer[pBuffer->pAddrBuff->Offset], SendPacket->GetPeer()->SockAddr(), sizeof(SOCKADDR_INET));

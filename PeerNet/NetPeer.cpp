@@ -15,23 +15,21 @@ namespace PeerNet
 
 	//	Construct and return a NetPacket to fill and send to this NetPeer
 	//	ToDo: PacketID will clash on socket if same socket is used to send packets for two different peers and each peer chooses the same PacketID
-	NetPacket* NetPeer::CreateNewPacket(PacketType pType) {
+	NetPacket*const NetPeer::CreateNewPacket(const PacketType pType) {
 		if (pType == PacketType::PN_Ordered)
 		{
-			NetPacket* NewPacket = new NetPacket(NextOrderedPacketID++, pType, this);
-			return NewPacket;
+			return new NetPacket(NextOrderedPacketID++, pType, this);;
 		}
 		else if (pType == PacketType::PN_Reliable)
 		{
-			NetPacket* NewPacket = new NetPacket(NextReliablePacketID++, pType, this);
-			return NewPacket;
+			return new NetPacket(NextReliablePacketID++, pType, this);;
 		}
 		return new NetPacket(NextUnreliablePacketID++, pType, this);
 	}
 
 	//	Send a packet
 	//	External usage only and as a means to introduce a packet into a socket for transmission
-	void NetPeer::SendPacket(NetPacket* Packet) {
+	void NetPeer::SendPacket(NetPacket*const Packet) {
 		if (Packet->GetType() == PacketType::PN_Ordered)
 		{
 			OrderedPktMutex.lock();
@@ -47,7 +45,7 @@ namespace PeerNet
 	}
 	//
 	//	Called from a NetSocket's Receive Thread
-	void NetPeer::ReceivePacket(NetPacket* IncomingPacket)
+	void NetPeer::ReceivePacket(NetPacket*const IncomingPacket)
 	{
 		switch (IncomingPacket->GetType()) {
 			//	PN_OrderedACK
@@ -65,7 +63,7 @@ namespace PeerNet
 			OrderedPktMutex.lock();
 			auto Pkt = OrderedPkts.find(NextExpectedOrderedACK);					//	See if our ACK has a corresponding send packet
 			if (Pkt == OrderedPkts.end()) { OrderedPktMutex.unlock(); break; }		//	Not found; break loop.
-#ifdef _DEBUG_PACKETS_RELIABLE_ACK
+#ifdef _DEBUG_PACKETS_ORDERED_ACK
 			printf("\tOrdered Ack 1 - %i -\t %.3fms\n", IncomingPacket->GetPacketID(),
 				(std::chrono::duration<double, std::milli>(Pkt->second->GetCreationTime() - IncomingPacket->GetCreationTime()).count()));
 #endif
@@ -76,13 +74,14 @@ namespace PeerNet
 			OrderedAckMutex.lock();				//
 			while (!OrderedAcks.empty())		//	Check any queued up ACK's
 			{
+				printf("Ordered ACKs\n");
 				auto Ack = OrderedAcks.find(NextExpectedOrderedACK);				//	See if we've already received our next expected packet.
 				if (Ack == OrderedAcks.end()) { OrderedAckMutex.unlock(); break; }	//	Not found; break loop.
 				OrderedPktMutex.lock();												//
 				auto Pkt2 = OrderedPkts.find(NextExpectedOrderedACK);				//	See if our ACK has a corresponding send packet
 				if (Pkt2 == OrderedPkts.end())										//	Not found; Increment Counter; Cleanup ACK; break loop.
 				{ ++NextExpectedOrderedACK; delete Ack->second; OrderedAcks.erase(Ack); OrderedPktMutex.unlock(); break; }
-#ifdef _DEBUG_PACKETS_RELIABLE_ACK
+#ifdef _DEBUG_PACKETS_ORDERED_ACK
 				printf("\tOrdered Ack 2 - %i -\t %.3fms\n", Ack->second->GetPacketID(),
 					(std::chrono::duration<double, std::milli>(Pkt2->second->GetCreationTime() - Ack->second->GetCreationTime()).count()));
 #endif
@@ -135,9 +134,13 @@ namespace PeerNet
 			IN_OrderedPktMutex.lock();
 			while (!IN_OrderedPkts.empty())
 			{
+				printf("IN Ordered ");
 				auto got = IN_OrderedPkts.find(NextExpectedOrderedID);						//	See if we've already received our next expected packet.
+				printf("A ");
 				if (got == IN_OrderedPkts.end()) { IN_OrderedPktMutex.unlock(); break; }	//	Not found; break loop.
+				printf("B ");
 				++NextExpectedOrderedID;													//	Found; increment counter.
+				printf("C:%i\n", NextExpectedOrderedID);
 #ifdef _DEBUG_PACKETS_ORDERED
 				printf("Recv Ordered 2 - %u\n", IncomingPacket->GetPacketID());
 #endif

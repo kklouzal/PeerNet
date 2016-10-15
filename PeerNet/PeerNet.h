@@ -25,7 +25,7 @@
 //#define _DEBUG_COMPRESSION
 //#define _DEBUG_THREADS
 #define _DEBUG_DISCOVERY
-#define _DEBUG_PACKETS_ORDERED
+//#define _DEBUG_PACKETS_ORDERED
 //#define _DEBUG_PACKETS_RELIABLE
 #define _DEBUG_PACKETS_UNRELIABLE
 #define _DEBUG_PACKETS_RELIABLE_ACK
@@ -42,6 +42,7 @@ namespace PeerNet
 		PN_Reliable = 3,
 		PN_Unreliable = 4
 	};
+	class SocketRequest;
 	class NetPeer;
 	class NetSocket;
 }
@@ -53,6 +54,23 @@ namespace PeerNet
 
 namespace PeerNet
 {
+	//
+	//	Basically takes the place of a formal outgoing packet
+	class SocketRequest : public OVERLAPPED
+	{
+	public:
+		SocketRequest(NetPacket*const OutgoingPacket, NetPeer*const DestinationPeer) : Packet(OutgoingPacket), Destination(DestinationPeer) {}
+		NetPacket*const Packet;
+		NetPeer*const Destination;
+
+		auto GetData() const { return Packet->GetData(); }
+		auto GetDataSize() const { return Packet->GetDataSize(); }
+		auto GetSockAddr() const { return Destination->SockAddr(); }
+		auto GetCreationTime() const { return Packet->GetCreationTime(); }
+	};
+
+	//	Initialize PeerNet
 	void Initialize();
+	//	Deinitialize PeerNet
 	void Deinitialize();
 }
