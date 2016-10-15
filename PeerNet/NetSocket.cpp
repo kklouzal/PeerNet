@@ -42,7 +42,9 @@ namespace PeerNet
 		if (pBuffer->Length > 0) {
 			//printf("Compressed: %i->%i\n", SendPacket->GetData().size(), pBuffer->Length);
 			memcpy(&Address_Buffer[pBuffer->pAddrBuff->Offset], SendPacket->GetPeer()->SockAddr(), sizeof(SOCKADDR_INET));
+			RioMutex.lock();
 			g_rio.RIOSendEx(RequestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, NULL, pBuffer);
+			RioMutex.unlock();
 		}
 		else { printf("Packet Compression Failed - %i\n", pBuffer->Length); }
 	}
@@ -101,7 +103,9 @@ namespace PeerNet
 							} else { printf("\tPacket Decompression Failed\n"); }
 							delete[] Uncompressed_Data;
 							//	Push another read request into the queue
+							RioMutex.lock();
 							if (!g_rio.RIOReceiveEx(RequestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, 0, pBuffer)) { printf("RIO Receive2 Failed\n"); }
+							RioMutex.unlock();
 						}
 						break;
 

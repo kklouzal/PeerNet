@@ -27,6 +27,8 @@ namespace PeerNet
 		SOCKET Socket;
 		RIO_EXTENSION_FUNCTION_TABLE g_rio;
 
+		std::mutex RioMutex;
+
 		// Completion Queue
 		RIO_CQ CompletionQueue;
 		OVERLAPPED* Overlapped;
