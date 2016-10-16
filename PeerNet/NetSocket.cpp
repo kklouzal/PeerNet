@@ -35,24 +35,6 @@ namespace PeerNet
 		}
 	}
 
-	//	Compresses and sends a packet
-	void NetSocket::CompressAndSendPacket(PRIO_BUF_EXT pBuffer, const NetPacket*const SendPacket)
-	{
-		pBuffer->Length = LZ4_compress_default(SendPacket->GetData().c_str(), &Data_Buffer[pBuffer->Offset], SendPacket->GetDataSize(), PacketSize);
-		if (pBuffer->Length > 0) {
-			//printf("Compressed: %i->%i\n", SendPacket->GetData().size(), pBuffer->Length);
-			memcpy(&Address_Buffer[pBuffer->pAddrBuff->Offset], SendPacket->GetPeer()->SockAddr(), sizeof(SOCKADDR_INET));
-#ifdef _PERF_SPINLOCK
-			while (!RioMutex.try_lock()) {}
-#else
-			RioMutex.lock();
-#endif
-			g_rio.RIOSendEx(RequestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, NULL, pBuffer);
-			RioMutex.unlock();
-		}
-		else { printf("Packet Compression Failed - %i\n", pBuffer->Length); }
-	}
-
 	NetSocket::NetSocket(const std::string StrIP, const std::string StrPort) : Address(new NetAddress(StrIP, StrPort)),
 		Address_Buffer(new char[sizeof(SOCKADDR_INET)*(MaxSends+MaxReceives)]),
 		Data_Buffer(new char[PacketSize*(MaxSends+MaxReceives)]), Overlapped(new OVERLAPPED()),
@@ -71,13 +53,13 @@ namespace PeerNet
 		{
 			case CK_RIO:
 			{
-				RIORESULT CompletionResults[128];
+				RIORESULT CompletionResults[64];
 #ifdef _PERF_SPINLOCK
 				while (!RioMutex.try_lock()) {}
 #else
 				RioMutex.lock();
 #endif
-				const ULONG NumResults = g_rio.RIODequeueCompletion(CompletionQueue, CompletionResults, 128);
+				const ULONG NumResults = g_rio.RIODequeueCompletion(CompletionQueue, CompletionResults, 64);
 				if (g_rio.RIONotify(CompletionQueue) != ERROR_SUCCESS) { RioMutex.unlock(); printf("\tRIO Notify Failed\n"); return; }
 				RioMutex.unlock();
 				if (RIO_CORRUPT_CQ == NumResults) { printf("RIO Corrupt Results\n"); return; }
@@ -129,13 +111,6 @@ namespace PeerNet
 						printf("Unhandled RIO Key: %i\n", (int)pBuffer->completionKey);
 					}
 				}
-/*#ifdef _PERF_SPINLOCK
-				while (!RioMutex.try_lock()) {}
-#else
-				RioMutex.lock();
-#endif
-				if (g_rio.RIONotify(CompletionQueue) != ERROR_SUCCESS) { RioMutex.unlock(); printf("\tRIO Notify Failed\n"); return; }
-				RioMutex.unlock();*/
 			}
 			break;
 
@@ -147,7 +122,20 @@ namespace PeerNet
 				PRIO_BUF_EXT pBuffer = Data_Buffers.top();
 				Data_Buffers.pop();
 				DataMutex.unlock();
-				CompressAndSendPacket(pBuffer, reinterpret_cast<const NetPacket*>(pOverlapped));
+				const NetPacket*const SendPacket = reinterpret_cast<const NetPacket*const>(pOverlapped);
+				pBuffer->Length = LZ4_compress_default(SendPacket->GetData().c_str(), &Data_Buffer[pBuffer->Offset], SendPacket->GetDataSize(), PacketSize);
+				if (pBuffer->Length > 0) {
+					//printf("Compressed: %i->%i\n", SendPacket->GetData().size(), pBuffer->Length);
+					memcpy(&Address_Buffer[pBuffer->pAddrBuff->Offset], SendPacket->GetPeer()->SockAddr(), sizeof(SOCKADDR_INET));
+#ifdef _PERF_SPINLOCK
+					while (!RioMutex.try_lock()) {}
+#else
+					RioMutex.lock();
+#endif
+					g_rio.RIOSendEx(RequestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, NULL, pBuffer);
+					RioMutex.unlock();
+				}
+				else { printf("Packet Compression Failed - %i\n", pBuffer->Length); }
 			}
 			break;
 		}

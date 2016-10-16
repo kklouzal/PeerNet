@@ -61,9 +61,9 @@ namespace PeerNet
 			//		If not then instead you delete the packet in the container and process this one
 			auto Pkt = OrderedPkts.find(NextExpectedOrderedACK);					//	See if our ACK has a corresponding send packet
 			if (Pkt == OrderedPkts.end()) { OrderedMutex.unlock(); break; }		//	Not found; break loop.
+			AckOrdered(std::chrono::duration<double, std::milli>(IncomingPacket->GetCreationTime() - Pkt->second->GetCreationTime()).count());
 #ifdef _DEBUG_PACKETS_ORDERED_ACK
-			printf("\tOrdered Ack 1 - %i -\t %.3fms\n", IncomingPacket->GetPacketID(),
-				(std::chrono::duration<double, std::milli>(IncomingPacket->GetCreationTime()-Pkt->second->GetCreationTime()).count()));
+			printf("\tOrdered Ack 1 - %i -\t %.3fms\n", IncomingPacket->GetPacketID(), GetAvgRTT());
 #endif
 			OrderedPkts.erase(Pkt);				//	Found; remove the send packet from the outgoing container
 			++NextExpectedOrderedACK;			//	Increment our counter
@@ -75,9 +75,9 @@ namespace PeerNet
 				auto Pkt2 = OrderedPkts.find(NextExpectedOrderedACK);				//	See if our ACK has a corresponding send packet
 				if (Pkt2 == OrderedPkts.end())										//	Not found; Increment Counter; Cleanup ACK; return loop.
 				{ ++NextExpectedOrderedACK; delete Ack->second; OrderedAcks.erase(Ack); OrderedMutex.unlock(); return; }
+				AckOrdered(std::chrono::duration<double, std::milli>(Ack->second->GetCreationTime() - Pkt2->second->GetCreationTime()).count());
 #ifdef _DEBUG_PACKETS_ORDERED_ACK
-				printf("\tOrdered Ack 2 - %i -\t %.3fms\n", Ack->second->GetPacketID(),
-					(std::chrono::duration<double, std::milli>(Ack->second->GetCreationTime()-Pkt2->second->GetCreationTime()).count()));
+				printf("\tOrdered Ack 2 - %i - %.3fms\n", Ack->second->GetPacketID(), GetAvgRTT());
 #endif
 				OrderedPkts.erase(Pkt2);		//	Found; remove the send packet from the outgoing container
 				++NextExpectedOrderedACK;		//	Increment counter.
@@ -96,9 +96,9 @@ namespace PeerNet
 			if (got == ReliablePkts.end()) { ReliablePktMutex.unlock(); delete IncomingPacket; break; }	//	Not found; delete ack; break;
 			//	ToDo: Call the send packet's callback function if one was provided; pass the ack as one of our parameters
 			//	Any processing needed on ACK or Send Packet needs to be done here
+			AckReliable(std::chrono::duration<double, std::milli>(IncomingPacket->GetCreationTime() - got->second->GetCreationTime()).count());
 #ifdef _DEBUG_PACKETS_RELIABLE_ACK
-			printf("\tReliable Ack - %i -\t %.3fms\n", IncomingPacket->GetPacketID(),
-				(std::chrono::duration<double, std::milli>(IncomingPacket->GetCreationTime()-got->second->GetCreationTime()).count()));
+			printf("\tReliable Ack - %i - %.3fms\n", IncomingPacket->GetPacketID(), GetAvgRTT());
 #endif
 			ReliablePkts.erase(got);
 			ReliablePktMutex.unlock();

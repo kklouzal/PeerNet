@@ -43,7 +43,6 @@ namespace PeerNet
 		std::stack<PRIO_BUF_EXT> Data_Buffers;
 		std::mutex DataMutex;
 
-		void CompressAndSendPacket(PRIO_BUF_EXT pBuffer, const NetPacket*const SendPacket);
 	public:
 		//	NetSocket Constructor
 		//
