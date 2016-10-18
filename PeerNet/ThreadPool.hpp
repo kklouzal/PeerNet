@@ -4,10 +4,12 @@
 #include <stack>			// std::stack
 #include <thread>			// std::thread
 #include <functional>		// std::function
+#include <unordered_map>	// std::unordered_map
 
 using std::stack;
 using std::thread;
 using std::function;
+using std::unordered_map;
 
 enum COMPLETION_KEY
 {
@@ -17,27 +19,35 @@ enum COMPLETION_KEY
 	CK_RECEIVE		=	3	//	used during receive operation		(USER CUSTOM)
 };
 
+template <typename T>
 class ThreadPoolIOCP
 {
 protected:
-	const function<void(const DWORD, const ULONG_PTR, const OVERLAPPED*const)> OnCompletion;
 	const HANDLE IOCompletionPort;
+	const unsigned char MaxThreads;
+	unordered_map<unsigned char, T*const> Environments;
 	stack<thread> Threads;
-	const unsigned int MaxThreads;
 
+private:
+	virtual void OnCompletion(T*const ThreadEnv, const DWORD numberOfBytes, const ULONG_PTR completionKey, const OVERLAPPED*const pOverlapped) = 0;
 public:
+	T*const GetThreadEnv(const unsigned char ThreadNum) const { return Environments.at(ThreadNum); }
 
 	//	Constructor
-	ThreadPoolIOCP(const function<void(const DWORD, const ULONG_PTR, const OVERLAPPED*const)> OnCompletionFunc) : OnCompletion(OnCompletionFunc),
+	ThreadPoolIOCP() :
 		IOCompletionPort(CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, NULL)),
-		MaxThreads(thread::hardware_concurrency()) {
+		MaxThreads(thread::hardware_concurrency()), Environments(), Threads() {
 		printf("Thread Pool Opening %i Threads\n", MaxThreads);
 		//	Create our threads
 		for (unsigned char i = 0; i < MaxThreads; i++)
 		{
 			printf("Creating IOCP Thread %i\n", i);
 
+			Environments.insert(std::make_pair(i, new T()));
+			//Environments[i]->ThreadNumber = i;
+
 			Threads.emplace(thread([&]() {
+				T*const MyEnv = Environments[i];
 				DWORD numberOfBytes = 0;
 				ULONG_PTR completionKey = 0;
 				OVERLAPPED* pOverlapped = 0;
@@ -50,9 +60,9 @@ public:
 					//	Grab the next available completion or block until one arrives
 					GetQueuedCompletionStatus(IOCompletionPort, &numberOfBytes, &completionKey, &pOverlapped, INFINITE);
 					//	break our main loop on CK_STOP
-					if (completionKey == CK_STOP) { printf("Stop Completion Received\n"); break; }
+					if (completionKey == CK_STOP) { printf("Stop Completion Received\n"); delete MyEnv; return; }
 					//	Call user defined completion function
-					OnCompletion(numberOfBytes, completionKey, pOverlapped);
+					OnCompletion(MyEnv, numberOfBytes, completionKey, pOverlapped);
 				}}));
 		}
 	}

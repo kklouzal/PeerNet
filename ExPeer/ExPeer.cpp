@@ -20,6 +20,8 @@ int main()
 	printf("\to - Send unknown packets to the discovered peer\n");
 	printf("\tr - Send reliable packets to the discovered peer\n");
 	printf("\tu - Send unreliable packets to the discovered peer\n");
+	printf("\n");
+	printf("\trtt - Print the discovered peer's RTT's to the console\n");
 	
 	printf("\n");
 
@@ -134,6 +136,11 @@ int main()
 					i++;
 				}
 			}
+		}
+		else if (ConsoleInput == "rtt")
+		{
+			printf("\tReliable RTT:\t%.3fms\n", Peer->GetAvgReliableRTT());
+			printf("\tOrdered RTT:\t%.3fms\n", Peer->GetAvgOrderedRTT());
 		}
 	}
 	std::system("PAUSE");

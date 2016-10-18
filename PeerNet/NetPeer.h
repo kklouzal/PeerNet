@@ -41,7 +41,8 @@ namespace PeerNet
 			AvgReliableRTT += RTT / RollingRTT;
 		}
 
-		const double GetAvgRTT() const { return ((AvgReliableRTT+AvgOrderedRTT)/2); }
+		const double GetAvgOrderedRTT() const { return AvgOrderedRTT; }
+		const double GetAvgReliableRTT() const { return AvgReliableRTT; }
 
 		NetPeer(const std::string StrIP, const std::string StrPort, NetSocket*const DefaultSocket);
 

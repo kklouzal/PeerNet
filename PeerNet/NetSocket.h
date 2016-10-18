@@ -3,8 +3,13 @@
 
 namespace PeerNet
 {
+	class ThreadEnvironment;
+
 	struct RIO_BUF_EXT : public RIO_BUF
 	{
+		ThreadEnvironment* MyEnv;
+		unsigned char ThreadNumber;
+
 		NetPeer* Recipient;
 		PRIO_BUF pAddrBuff;
 
@@ -15,13 +20,43 @@ namespace PeerNet
 		//
 	}; typedef RIO_BUF_EXT* PRIO_BUF_EXT;
 
-	class NetSocket : public ThreadPoolIOCP
+	class ThreadEnvironment
+	{
+		std::queue<PRIO_BUF_EXT> Data_Buffers;
+		std::mutex BuffersMutex;
+	public:
+		RIORESULT CompletionResults[128];
+
+		ThreadEnvironment() : BuffersMutex(), Data_Buffers(), CompletionResults() {}
+
+		PRIO_BUF_EXT PopBuffer()
+		{
+			BuffersMutex.lock();
+			if (Data_Buffers.empty()) { printf("No Buffers Available..\n"); BuffersMutex.unlock(); return nullptr; }
+			PRIO_BUF_EXT Buffer = Data_Buffers.front();
+			Data_Buffers.pop();
+			//printf("Pop Buffer - Size %i\n", Data_Buffers.size());
+			BuffersMutex.unlock();
+			return Buffer;
+		}
+		void PushBuffer(PRIO_BUF_EXT Buffer)
+		{
+			BuffersMutex.lock();
+			Data_Buffers.push(Buffer);
+			//printf("Push Buffer - Size %i\n", Data_Buffers.size());
+			BuffersMutex.unlock();
+		}
+	};
+
+	class NetSocket : public ThreadPoolIOCP<ThreadEnvironment>
 	{
 		//	Maximum size of an individual packet in bytes
 		const DWORD PacketSize = 1472;
 		//	Maximum pending receive packets
 		const DWORD MaxReceives = 1024;
 		const DWORD MaxSends = 1024;
+
+		const DWORD SendsPerThread = MaxSends / MaxThreads;
 
 		const NetAddress*const Address;
 		SOCKET Socket;
@@ -40,8 +75,8 @@ namespace PeerNet
 		//	Data Buffer
 		RIO_BUFFERID Data_BufferID;
 		PCHAR const Data_Buffer;
-		std::stack<PRIO_BUF_EXT> Data_Buffers;
-		std::mutex DataMutex;
+
+		void OnCompletion(ThreadEnvironment*const Env, const DWORD numberOfBytes, const ULONG_PTR completionKey, const OVERLAPPED*const pOverlapped);
 
 	public:
 		//	NetSocket Constructor

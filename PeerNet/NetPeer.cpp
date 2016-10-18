@@ -8,8 +8,6 @@ namespace PeerNet
 		: Address(new NetAddress(StrIP, StrPort)), Socket(DefaultSocket),OrderedPkts(), OrderedAcks(),
 		ReliablePkts(), IN_OrderedPkts(), IN_OrderedPktMutex(), OrderedMutex(), ReliablePktMutex()
 	{
-		//	Send out our discovery request
-		SendPacket(CreateNewPacket(PacketType::PN_Reliable));
 		printf("Create Peer - %s\n", Address->FormattedAddress());
 	}
 
@@ -63,7 +61,7 @@ namespace PeerNet
 			if (Pkt == OrderedPkts.end()) { OrderedMutex.unlock(); break; }		//	Not found; break loop.
 			AckOrdered(std::chrono::duration<double, std::milli>(IncomingPacket->GetCreationTime() - Pkt->second->GetCreationTime()).count());
 #ifdef _DEBUG_PACKETS_ORDERED_ACK
-			printf("\tOrdered Ack 1 - %i -\t %.3fms\n", IncomingPacket->GetPacketID(), GetAvgRTT());
+			printf("\tOrdered Ack 1 - %i -\t %.3fms\n", IncomingPacket->GetPacketID(), GetAvgOrderedRTT());
 #endif
 			OrderedPkts.erase(Pkt);				//	Found; remove the send packet from the outgoing container
 			++NextExpectedOrderedACK;			//	Increment our counter
@@ -77,7 +75,7 @@ namespace PeerNet
 				{ ++NextExpectedOrderedACK; delete Ack->second; OrderedAcks.erase(Ack); OrderedMutex.unlock(); return; }
 				AckOrdered(std::chrono::duration<double, std::milli>(Ack->second->GetCreationTime() - Pkt2->second->GetCreationTime()).count());
 #ifdef _DEBUG_PACKETS_ORDERED_ACK
-				printf("\tOrdered Ack 2 - %i - %.3fms\n", Ack->second->GetPacketID(), GetAvgRTT());
+				printf("\tOrdered Ack 2 - %i - %.3fms\n", Ack->second->GetPacketID(), GetAvgOrderedRTT());
 #endif
 				OrderedPkts.erase(Pkt2);		//	Found; remove the send packet from the outgoing container
 				++NextExpectedOrderedACK;		//	Increment counter.
@@ -98,7 +96,7 @@ namespace PeerNet
 			//	Any processing needed on ACK or Send Packet needs to be done here
 			AckReliable(std::chrono::duration<double, std::milli>(IncomingPacket->GetCreationTime() - got->second->GetCreationTime()).count());
 #ifdef _DEBUG_PACKETS_RELIABLE_ACK
-			printf("\tReliable Ack - %i - %.3fms\n", IncomingPacket->GetPacketID(), GetAvgRTT());
+			printf("\tReliable Ack - %i - %.3fms\n", IncomingPacket->GetPacketID(), GetAvgReliableRTT());
 #endif
 			ReliablePkts.erase(got);
 			ReliablePktMutex.unlock();
