@@ -92,7 +92,7 @@ namespace PeerNet
 		const auto NeedsDelete() const { return (SendAttempts >= 5); }
 
 		//	Return our underlying destination NetPeer
-		auto GetPeer() const { return MyPeer; }
+		auto const GetPeer() const { return MyPeer; }
 
 	};
 

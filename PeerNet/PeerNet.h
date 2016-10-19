@@ -62,10 +62,10 @@ namespace PeerNet
 		NetPacket*const Packet;
 		NetPeer*const Destination;
 
-		auto GetData() const { return Packet->GetData(); }
-		auto GetDataSize() const { return Packet->GetDataSize(); }
-		auto GetSockAddr() const { return Destination->SockAddr(); }
-		auto GetCreationTime() const { return Packet->GetCreationTime(); }
+		const auto GetData() const { return Packet->GetData(); }
+		const auto GetDataSize() const { return Packet->GetDataSize(); }
+		const auto GetSockAddr() const { return Destination->SockAddr(); }
+		const auto GetCreationTime() const { return Packet->GetCreationTime(); }
 	};
 
 	//	Initialize PeerNet

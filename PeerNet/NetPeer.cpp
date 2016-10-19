@@ -11,19 +11,6 @@ namespace PeerNet
 		printf("Create Peer - %s\n", Address->FormattedAddress());
 	}
 
-	//	Construct and return a NetPacket to fill and send to this NetPeer
-	//	ToDo: PacketID will clash on socket if same socket is used to send packets for two different peers and each peer chooses the same PacketID
-	NetPacket*const NetPeer::CreateNewPacket(const PacketType pType) {
-		if (pType == PacketType::PN_Ordered)
-		{
-			return new NetPacket(NextOrderedPacketID++, pType, this);;
-		}
-		else if (pType == PacketType::PN_Reliable)
-		{
-			return new NetPacket(NextReliablePacketID++, pType, this);;
-		}
-		return new NetPacket(NextUnreliablePacketID++, pType, this);
-	}
 
 	//	Send a packet
 	//	External usage only and as a means to introduce a packet into a socket for transmission
@@ -39,7 +26,7 @@ namespace PeerNet
 			ReliablePkts.emplace(Packet->GetPacketID(), Packet);
 			ReliablePktMutex.unlock();
 		}
-		Socket->PostCompletion<NetPacket*>(CK_SEND, Packet);
+		Socket->PostCompletion<NetPacket*const>(CK_SEND, Packet);
 	}
 	//
 	//	Called from a NetSocket's Receive Thread

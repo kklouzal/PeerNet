@@ -31,19 +31,15 @@ namespace PeerNet
 
 		PRIO_BUF_EXT PopBuffer()
 		{
-			BuffersMutex.lock();
-			if (Data_Buffers.empty()) { printf("No Buffers Available..\n"); BuffersMutex.unlock(); return nullptr; }
+			if (Data_Buffers.empty()) { return nullptr; }
 			PRIO_BUF_EXT Buffer = Data_Buffers.front();
 			Data_Buffers.pop();
-			//printf("Pop Buffer - Size %i\n", Data_Buffers.size());
-			BuffersMutex.unlock();
 			return Buffer;
 		}
 		void PushBuffer(PRIO_BUF_EXT Buffer)
 		{
 			BuffersMutex.lock();
 			Data_Buffers.push(Buffer);
-			//printf("Push Buffer - Size %i\n", Data_Buffers.size());
 			BuffersMutex.unlock();
 		}
 	};
@@ -76,7 +72,7 @@ namespace PeerNet
 		RIO_BUFFERID Data_BufferID;
 		PCHAR const Data_Buffer;
 
-		void OnCompletion(ThreadEnvironment*const Env, const DWORD numberOfBytes, const ULONG_PTR completionKey, const OVERLAPPED*const pOverlapped);
+		void OnCompletion(ThreadEnvironment*const Env, const DWORD numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED*const pOverlapped);
 
 	public:
 		//	NetSocket Constructor

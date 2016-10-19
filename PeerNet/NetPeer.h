@@ -41,12 +41,24 @@ namespace PeerNet
 			AvgReliableRTT += RTT / RollingRTT;
 		}
 
-		const double GetAvgOrderedRTT() const { return AvgOrderedRTT; }
-		const double GetAvgReliableRTT() const { return AvgReliableRTT; }
+		const auto GetAvgOrderedRTT() const { return AvgOrderedRTT; }
+		const auto GetAvgReliableRTT() const { return AvgReliableRTT; }
 
 		NetPeer(const std::string StrIP, const std::string StrPort, NetSocket*const DefaultSocket);
 
-		NetPacket*const CreateNewPacket(const PacketType pType);
+		//	Construct and return a NetPacket to fill and send to this NetPeer
+		auto const NetPeer::CreateNewPacket(const PacketType pType) {
+			if (pType == PacketType::PN_Ordered)
+			{
+				return new NetPacket(NextOrderedPacketID++, pType, this);;
+			}
+			else if (pType == PacketType::PN_Reliable)
+			{
+				return new NetPacket(NextReliablePacketID++, pType, this);;
+			}
+			return new NetPacket(NextUnreliablePacketID++, pType, this);
+		}
+
 		void SendPacket(NetPacket*const Packet);
 		void ReceivePacket(NetPacket*const IncomingPacket);
 

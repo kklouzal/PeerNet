@@ -29,9 +29,9 @@ protected:
 	stack<thread> Threads;
 
 private:
-	virtual void OnCompletion(T*const ThreadEnv, const DWORD numberOfBytes, const ULONG_PTR completionKey, const OVERLAPPED*const pOverlapped) = 0;
+	virtual void OnCompletion(T*const ThreadEnv, const DWORD numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED*const pOverlapped) = 0;
 public:
-	T*const GetThreadEnv(const unsigned char ThreadNum) const { return Environments.at(ThreadNum); }
+	auto const GetThreadEnv(const unsigned char ThreadNum) const { return Environments.at(ThreadNum); }
 
 	//	Constructor
 	ThreadPoolIOCP() :

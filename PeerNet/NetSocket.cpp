@@ -15,7 +15,6 @@ namespace PeerNet
 		auto Peer = Peers.find(FormattedAddress);
 		if (Peer == Peers.end())
 		{
-			//printf("New\n");
 			size_t pos = 0;
 			std::string StrIP;
 			while ((pos = FormattedAddress.find(Delimiter)) != std::string::npos) {
@@ -31,7 +30,7 @@ namespace PeerNet
 		return Peer->second;
 	}
 
-	void NetSocket::OnCompletion(ThreadEnvironment*const Env, const DWORD numberOfBytes, const ULONG_PTR completionKey, const OVERLAPPED*const pOverlapped)
+	void NetSocket::OnCompletion(ThreadEnvironment*const Env, const DWORD numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED*const pOverlapped)
 	{
 		//
 		//	Thread Completion Function
@@ -43,14 +42,8 @@ namespace PeerNet
 		{
 		case CK_RIO:
 		{
-#ifdef _PERF_SPINLOCK
-			while (!RioMutex.try_lock()) {}
-#else
-			RioMutex.lock();
-#endif
 			const ULONG NumResults = g_rio.RIODequeueCompletion(CompletionQueue, Env->CompletionResults, 128);
-			if (g_rio.RIONotify(CompletionQueue) != ERROR_SUCCESS) { RioMutex.unlock(); printf("\tRIO Notify Failed\n"); return; }
-			RioMutex.unlock();
+			if (g_rio.RIONotify(CompletionQueue) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
 			if (RIO_CORRUPT_CQ == NumResults) { printf("RIO Corrupt Results\n"); return; }
 			//	Actually read the data from each received packet
 			for (ULONG CurResult = 0; CurResult < NumResults; CurResult++)
@@ -106,11 +99,11 @@ namespace PeerNet
 
 		case CK_SEND:
 		{
-			//	Grab a data buffer
+			NetPacket*const SendPacket = reinterpret_cast<NetPacket*const>(pOverlapped);
 			PRIO_BUF_EXT pBuffer = Env->PopBuffer();
-			//printf("Thread %i ", pBuffer->ThreadNumber);
-			if (pBuffer == nullptr) { break; }
-			const NetPacket*const SendPacket = reinterpret_cast<const NetPacket*const>(pOverlapped);
+
+			//	If we are out of buffers push the request back out for another thread to pick up
+			if (pBuffer == nullptr) { PostCompletion<NetPacket*const>(CK_SEND, SendPacket); break; }
 			pBuffer->Length = LZ4_compress_default(SendPacket->GetData().c_str(), &Data_Buffer[pBuffer->Offset], SendPacket->GetDataSize(), PacketSize);
 			if (pBuffer->Length > 0) {
 				//printf("Compressed: %i->%i\n", SendPacket->GetData().size(), pBuffer->Length);
@@ -208,7 +201,6 @@ namespace PeerNet
 				pBuf->completionKey = CK_SEND;
 				//	Figure out which thread we will belong to
 				pBuf->MyEnv = GetThreadEnv(pBuf->ThreadNumber);
-				//printf("Thread %i ", pBuf->ThreadNumber);
 				pBuf->MyEnv->PushBuffer(pBuf);
 			} else {
 				pBuf->completionKey = CK_RECEIVE;
