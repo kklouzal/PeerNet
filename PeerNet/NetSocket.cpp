@@ -65,8 +65,7 @@ namespace PeerNet
 				case CK_RECEIVE:
 				{
 					//	Try to decompress the received data
-					char*const Uncompressed_Data = new char[PacketSize];
-					const int CompressResult = LZ4_decompress_safe(&Data_Buffer[pBuffer->Offset], Uncompressed_Data, Env->CompletionResults[CurResult].BytesTransferred, PacketSize);
+					const int CompressResult = LZ4_decompress_safe(&Data_Buffer[pBuffer->Offset], Env->Uncompressed_Data, Env->CompletionResults[CurResult].BytesTransferred, PacketSize);
 
 					//printf("Decompressed: %i->%i\n", CompletionResults[CurResult].BytesTransferred, CompressResult);
 
@@ -75,18 +74,17 @@ namespace PeerNet
 						const std::string SenderIP(inet_ntoa(((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset])->Ipv4.sin_addr));
 						const std::string SenderPort(std::to_string(ntohs(((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset])->Ipv4.sin_port)));
 						//	Determine which peer this packet belongs to and immediatly pass it to them for processing.
-						RetrievePeer(SenderIP + std::string(":") + SenderPort, this)->ReceivePacket(new NetPacket(std::string(Uncompressed_Data, CompressResult)));
+						RetrievePeer(SenderIP + std::string(":") + SenderPort, this)->ReceivePacket(new NetPacket(std::string(Env->Uncompressed_Data, CompressResult)));
 					}
 					else { printf("\tPacket Decompression Failed\n"); }
-					delete[] Uncompressed_Data;
 #ifdef _PERF_SPINLOCK
 					while (!RioMutex.try_lock()) {}
 #else
-					RioMutex.lock();
+					RioMutex_Receive.lock();
 #endif
 					//	Push another read request into the queue
 					if (!g_rio.RIOReceiveEx(RequestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, 0, pBuffer)) { printf("RIO Receive2 Failed\n"); }
-					RioMutex.unlock();
+					RioMutex_Receive.unlock();
 				}
 				break;
 
@@ -107,7 +105,7 @@ namespace PeerNet
 			pBuffer->Length = LZ4_compress_default(SendPacket->GetData().c_str(), &Data_Buffer[pBuffer->Offset], SendPacket->GetDataSize(), PacketSize);
 			if (pBuffer->Length > 0) {
 				//printf("Compressed: %i->%i\n", SendPacket->GetData().size(), pBuffer->Length);
-				memcpy(&Address_Buffer[pBuffer->pAddrBuff->Offset], SendPacket->GetPeer()->SockAddr(), sizeof(SOCKADDR_INET));
+				std::memcpy(&Address_Buffer[pBuffer->pAddrBuff->Offset], SendPacket->GetPeer()->SockAddr(), sizeof(SOCKADDR_INET));
 				//	Instead of just waiting here spinning our wheels,
 				//	If we can't lock, add this send request into a queue and continue the thread
 				//	If we CAN lock, process our queue THEN process this request.
@@ -115,10 +113,10 @@ namespace PeerNet
 #ifdef _PERF_SPINLOCK
 				while (!RioMutex.try_lock()) {}
 #else
-				RioMutex.lock();
+				RioMutex_Send.lock();
 #endif
 				g_rio.RIOSendEx(RequestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, NULL, pBuffer);
-				RioMutex.unlock();
+				RioMutex_Send.unlock();
 			}
 			else { printf("Packet Compression Failed - %i\n", pBuffer->Length); }
 		}
@@ -134,6 +132,7 @@ namespace PeerNet
 		Address_Buffer(new char[sizeof(SOCKADDR_INET)*(MaxSends + MaxReceives)]),
 		Data_Buffer(new char[PacketSize*(MaxSends + MaxReceives)]), Overlapped(new OVERLAPPED()),
 		Socket(WSASocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, NULL, WSA_FLAG_REGISTERED_IO)),
+		RioMutex_Send(), RioMutex_Receive(),
 		ThreadPoolIOCP()
 	{
 		//	Make sure our socket was created properly

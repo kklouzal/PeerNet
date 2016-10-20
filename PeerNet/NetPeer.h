@@ -10,8 +10,8 @@ namespace PeerNet
 		unsigned long LastReceivedUnreliable = 0;
 
 		const double RollingRTT = 30;	//	Keep a rolling average of the last estimated 15 Round Trip Times
-		double AvgReliableRTT = 300;	//	Start the system off assuming a 300ms ping. Let the algorythms adjust from that point.
-		double AvgOrderedRTT = 300;		//	**
+		double AvgReliableRTT = 0;	//	Start the system off assuming a 300ms ping. Let the algorythms adjust from that point.
+		double AvgOrderedRTT = 0;		//	**
 		unsigned long LatestReceivedReliable = 0;
 		std::unordered_map<unsigned long, NetPacket*const> ReliablePkts;
 		std::mutex ReliablePktMutex;

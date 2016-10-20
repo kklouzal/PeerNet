@@ -10,7 +10,6 @@ namespace PeerNet
 		ThreadEnvironment* MyEnv;
 		unsigned char ThreadNumber;
 
-		NetPeer* Recipient;
 		PRIO_BUF pAddrBuff;
 
 		//	Values Filled Upon Call To GetQueuedCompletionStatus
@@ -26,8 +25,10 @@ namespace PeerNet
 		std::mutex BuffersMutex;
 	public:
 		RIORESULT CompletionResults[128];
+		char*const Uncompressed_Data;
 
-		ThreadEnvironment() : BuffersMutex(), Data_Buffers(), CompletionResults() {}
+		ThreadEnvironment() : BuffersMutex(), Data_Buffers(), CompletionResults(), Uncompressed_Data(new char[1472]) {}
+		~ThreadEnvironment() { delete[] Uncompressed_Data; }
 
 		PRIO_BUF_EXT PopBuffer()
 		{
@@ -58,7 +59,8 @@ namespace PeerNet
 		SOCKET Socket;
 		RIO_EXTENSION_FUNCTION_TABLE g_rio;
 
-		std::mutex RioMutex;
+		std::mutex RioMutex_Send;
+		std::mutex RioMutex_Receive;
 
 		// Completion Queue
 		RIO_CQ CompletionQueue;
