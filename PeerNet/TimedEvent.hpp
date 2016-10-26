@@ -1,38 +1,49 @@
 #pragma once
 #include <thread>			// std::thread
-#include <functional>		// std::function
 
 using std::thread;
-using std::function;
 
 class TimedEvent
 {
-	const function<void()> OnTick;
-	const function<void()> OnExpire;
+protected:
 	const std::chrono::milliseconds IntervalTime;
 	const unsigned char MaxTicks;
 	unsigned char CurTicks;
+	bool Abort;
 	bool Running;
 	thread TimedThread;
 
+private:
+	virtual void OnTick() = 0;
+	virtual void OnExpire() = 0;
+
 public:
 
+	void StartTimer() { Running = true; }
+	void StopTimer() { Running = false; }
+
 	//	Constructor
-	TimedEvent(const function<void()> OnTickFunc, const function<void()> OnExpireFunc, std::chrono::milliseconds Interval, const unsigned char iMaxTicks) :
-		OnTick(OnTickFunc), OnExpire(OnExpireFunc), IntervalTime(Interval), MaxTicks(iMaxTicks), CurTicks(0), Running(true),
+	TimedEvent(std::chrono::milliseconds Interval, const unsigned char iMaxTicks) :
+		IntervalTime(Interval), MaxTicks(iMaxTicks), CurTicks(0), Abort(false), Running(false),
 		TimedThread([&]() {
-		SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_BEGIN);
-		while (CurTicks < MaxTicks)
+		SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_IDLE);
+
+		while (!Abort)
 		{
-			if (!Running) { return; }
-			CurTicks++;
-			OnTick();
+			if (Running)
+			{
+				if ((MaxTicks == 0 || CurTicks < MaxTicks))
+				{
+					OnTick();
+				} else { OnExpire(); return; }
+			}
 			std::this_thread::sleep_for(IntervalTime);
-		} OnExpire(); }) {}
+		}}) {}
 
 		//	Destructor
 		~TimedEvent() {
-			Running = false;
+			printf("\tDestroy Timed Event\n");
+			Abort = true;
 			TimedThread.join();
 		}
 };

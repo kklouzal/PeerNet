@@ -5,12 +5,42 @@ namespace PeerNet
 	//
 	//	Default Constructor
 	NetPeer::NetPeer(const std::string StrIP, const std::string StrPort, NetSocket*const DefaultSocket)
-		: Address(new NetAddress(StrIP, StrPort)), Socket(DefaultSocket),OrderedPkts(), OrderedAcks(),
-		ReliablePkts(), IN_OrderedPkts(), IN_OrderedPktMutex(), OrderedMutex(), ReliablePktMutex()
+		: Address(new NetAddress(StrIP, StrPort)), Socket(DefaultSocket), OrderedPkts(), OrderedAcks(),
+		ReliablePkts(), IN_OrderedPkts(), IN_OrderedPktMutex(), OrderedMutex(), ReliablePktMutex(),
+		TimedEvent(std::chrono::milliseconds(1000), 0)	//	Clients 'Tick' every 1 second until they're destroyed
 	{
+		this->StartTimer();
 		printf("Create Peer - %s\n", Address->FormattedAddress());
 	}
 
+	NetPeer::~NetPeer()
+	{
+		this->StopTimer();
+		printf("Remove Peer - %s\n", Address->FormattedAddress());
+	}
+
+	//	BaseClass TimedEvent OnTick function
+	//	Used for Keep-Alive and ACK sync
+	void NetPeer::OnTick()
+	{
+		//	Keep-Alive Protocol:
+		//
+		//	(unsigned long)					Highest Received Reliable Packet
+		//	(unordered_map)					Missing Ordered Reliable Packet ID's
+		//	(std::chrono::milliseconds)		My Reliable RTT
+		//	(std::chrono::milliseconds)		My Reliable Ordered RTT
+		//
+		NetPacket* KeepAlive = CreateNewPacket(PacketType::PN_KeepAlive);
+		KeepAlive->WriteData<unsigned long>(LatestReceivedReliable);
+		SendPacket(KeepAlive);
+	}
+
+	//	BaseClass TimedEvent OnExpire function
+	//	This should never call as a clients timed event infinitely ticks until the client is destroyed
+	void NetPeer::OnExpire()
+	{
+		printf("Client Tick Expire\n");
+	}
 
 	//	Send a packet
 	//	External usage only and as a means to introduce a packet into a socket for transmission
@@ -136,7 +166,7 @@ namespace PeerNet
 		//	PN_Reliable
 		case PacketType::PN_Reliable:
 			//	Reliable packets always ACK immediatly
-			SendPacket(new NetPacket(IncomingPacket->GetPacketID(), PacketType::PN_ReliableACK, this));
+			//SendPacket(new NetPacket(IncomingPacket->GetPacketID(), PacketType::PN_ReliableACK, this));
 			//	Only accept the most recent received reliable packets
 			if (IncomingPacket->GetPacketID() <= LatestReceivedReliable) { delete IncomingPacket; break; }
 			LatestReceivedReliable = IncomingPacket->GetPacketID();
@@ -155,6 +185,48 @@ namespace PeerNet
 			printf("Recv Unreliable - %u\n", IncomingPacket->GetPacketID());
 #endif
 			delete IncomingPacket;
+		break;
+
+		//	PN_KeepAlive
+		case PacketType::PN_KeepAlive:
+		{
+			//	Only accept the most recent received KOL packets
+			if (IncomingPacket->GetPacketID() <= LastReceivedKOL) { delete IncomingPacket; break; }
+			LastReceivedKOL = IncomingPacket->GetPacketID();
+			//
+			//	Process our Keep Alive
+			const unsigned long LastReliableID = IncomingPacket->ReadData<unsigned long>();
+
+			//	If their last received reliable ID is less than our last sent reliable id
+			//	Send the most recently sent reliable packet to them again
+			//	Note: if this packet is still in-transit it will be sent again
+			//	ToDo:	Hold off on resending the packet until it's creation time
+			//			is greater than this clients RTT
+			ReliablePktMutex.lock();
+			if (LastReliableID < NextReliablePacketID-1)
+			{
+				if (ReliablePkts.count(LastReliableID))
+				{
+					printf("Resend Reliable ID %i\n", LastReliableID);
+					Socket->PostCompletion<NetPacket*const>(CK_SEND, ReliablePkts[LastReliableID]);
+				}
+			}
+			//	Remove all packets in our outgoing reliable packet container
+			//	With an ID less or equal to the last confirmed received ID
+			for (auto Packet : ReliablePkts)
+			{
+				if (Packet.first <= LastReliableID)
+				{
+					ReliablePkts.erase(Packet.first);
+				}
+			}
+			ReliablePktMutex.unlock();
+			//
+#ifdef _DEBUG_PACKETS_KEEPALIVE
+			printf("Recv Keep Alive - %u\n", IncomingPacket->GetPacketID());
+#endif
+			delete IncomingPacket;
+		}
 		break;
 
 		default:

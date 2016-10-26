@@ -3,12 +3,10 @@
 //#include <Windows.h>		// IOCP functions and HANDLE
 #include <stack>			// std::stack
 #include <thread>			// std::thread
-#include <functional>		// std::function
 #include <unordered_map>	// std::unordered_map
 
 using std::stack;
 using std::thread;
-using std::function;
 using std::unordered_map;
 
 enum COMPLETION_KEY
@@ -44,7 +42,6 @@ public:
 			printf("Creating IOCP Thread %i\n", i);
 
 			Environments.insert(std::make_pair(i, new T()));
-			//Environments[i]->ThreadNumber = i;
 
 			Threads.emplace(thread([&]() {
 				T*const MyEnv = Environments[i];
@@ -53,7 +50,7 @@ public:
 				OVERLAPPED* pOverlapped = 0;
 
 				//	Set our scheduling priority
-				SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
+				SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 
 				//	Run this threads main loop
 				while (true) {
