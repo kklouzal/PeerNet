@@ -29,7 +29,7 @@ namespace PeerNet
 		{
 			BinaryOut->operator()(PacketID);
 			BinaryOut->operator()(TypeID);
-			if (TypeID == PacketType::PN_ReliableACK || TypeID == PacketType::PN_OrderedACK) { CreationTime = std::chrono::high_resolution_clock::now(); }
+			if (TypeID == PacketType::PN_KeepAlive || TypeID == PacketType::PN_Reliable) { CreationTime = std::chrono::high_resolution_clock::now(); }
 		}
 
 		// This constructor is for handling Send Packets ONLY

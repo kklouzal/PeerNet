@@ -102,7 +102,7 @@ namespace PeerNet
 
 			//	If we are out of buffers push the request back out for another thread to pick up
 			if (pBuffer == nullptr) { PostCompletion<NetPacket*const>(CK_SEND, SendPacket); break; }
-			pBuffer->Length = LZ4_compress_default(SendPacket->GetData().c_str(), &Data_Buffer[pBuffer->Offset], SendPacket->GetDataSize(), PacketSize);
+			pBuffer->Length = LZ4_compress_default(SendPacket->GetData().c_str(), &Data_Buffer[pBuffer->Offset], (int)SendPacket->GetDataSize(), PacketSize);
 			if (pBuffer->Length > 0) {
 				//printf("Compressed: %i->%i\n", SendPacket->GetData().size(), pBuffer->Length);
 				std::memcpy(&Address_Buffer[pBuffer->pAddrBuff->Offset], SendPacket->GetPeer()->SockAddr(), sizeof(SOCKADDR_INET));
@@ -189,7 +189,7 @@ namespace PeerNet
 			pBuf->pAddrBuff->Offset = AddressOffset;
 			pBuf->pAddrBuff->Length = sizeof(SOCKADDR_INET);
 
-			pBuf->ThreadNumber = floor(i / SendsPerThread);
+			pBuf->ThreadNumber = (unsigned char)floor(i / SendsPerThread);
 
 			ReceiveOffset += PacketSize;
 			AddressOffset += sizeof(SOCKADDR_INET);

@@ -38,6 +38,9 @@
     <ClInclude Include="OrderedSequence.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ReliableChannel.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="PeerNet.cpp">

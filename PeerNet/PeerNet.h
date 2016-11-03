@@ -36,11 +36,10 @@ namespace PeerNet
 	enum PacketType : unsigned char
 	{
 		PN_KeepAlive = 0,
-		PN_OrderedACK = 1,
-		PN_ReliableACK = 2,
-		PN_Ordered = 3,
-		PN_Reliable = 4,
-		PN_Unreliable = 5
+		PN_Ordered = 1,
+		PN_Reliable = 2,
+		PN_Unreliable = 3,
+		PN_OrderedACK = 4
 	};
 	class SocketRequest;
 	class NetPeer;

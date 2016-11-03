@@ -63,6 +63,6 @@ public:
 
 	void Stats()
 	{
-		printf("IDs %i Missing %i\n", IDs.size(), MissingIDs.size());
+		printf("IDs %I64u Missing %I64u\n", IDs.size(), MissingIDs.size());
 	}
 };

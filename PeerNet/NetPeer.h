@@ -2,21 +2,19 @@
 #include "TimedEvent.hpp"
 #include "OrderedSequence.hpp"
 
+#include "ReliableChannel.hpp"
+
 namespace PeerNet
 {
 	class NetPeer : public TimedEvent
 	{
 		const NetAddress*const Address;
-		NetSocket*const Socket;
 
-		unsigned long LastReceivedUnreliable = 0;
+		UnreliableChannel<PacketType::PN_Unreliable>* CH_Unreliable;
 
-		const double RollingRTT = 30;	//	Keep a rolling average of the last estimated 15 Round Trip Times
-		double AvgReliableRTT = 0;		//	Start the system off assuming a 300ms ping. Let the algorythms adjust from that point.
-		double AvgOrderedRTT = 0;		//	**
-		unsigned long LatestReceivedReliable = 0;
-		std::unordered_map<unsigned long, NetPacket*const> ReliablePkts;
-		std::mutex ReliablePktMutex;
+		ReliableChannel<PacketType::PN_KeepAlive>* CH_KOL;
+		ReliableChannel<PacketType::PN_Reliable>* CH_Reliable;
+
 
 		unsigned long NextExpectedOrdered = 1;
 		std::unordered_map<unsigned long, NetPacket*const> IN_OrderedPkts;
@@ -27,31 +25,16 @@ namespace PeerNet
 		unsigned long NextExpectedOrderedACK = 1;
 		std::unordered_map<unsigned long, NetPacket*const> OrderedAcks;
 
-		unsigned long NextUnreliablePacketID = 1;
-		unsigned long NextReliablePacketID = 1;
 		unsigned long NextOrderedPacketID = 1;
-
-		unsigned long LastReceivedKOL = 0;
-		unsigned long NextKOLPacketID = 1;
 
 		void OnTick();
 		void OnExpire();
 
 	public:
+		NetSocket*const Socket;
 
 		NetPeer(const std::string StrIP, const std::string StrPort, NetSocket*const DefaultSocket);
 		~NetPeer();
-
-		void AckOrdered(double RTT)
-		{
-			AvgOrderedRTT -= AvgOrderedRTT / RollingRTT;
-			AvgOrderedRTT += RTT / RollingRTT;
-		}
-		void AckReliable(double RTT)
-		{
-			AvgReliableRTT -= AvgReliableRTT / RollingRTT;
-			AvgReliableRTT += RTT / RollingRTT;
-		}
 
 		//	Construct and return a NetPacket to fill and send to this NetPeer
 		auto const NetPeer::CreateNewPacket(const PacketType pType) {
@@ -61,20 +44,21 @@ namespace PeerNet
 			}
 			else if (pType == PacketType::PN_Reliable)
 			{
-				return new NetPacket(NextReliablePacketID++, pType, this);
+				return CH_Reliable->NewPacket();
 			}
 			else if (pType == PacketType::PN_KeepAlive)
 			{
-				return new NetPacket(NextKOLPacketID++, pType, this);
+				return CH_KOL->NewPacket();
 			}
-			return new NetPacket(NextUnreliablePacketID++, pType, this);
+			return CH_Unreliable->NewPacket();
 		}
 
 		void SendPacket(NetPacket*const Packet);
 		void ReceivePacket(NetPacket*const IncomingPacket);
 
-		const auto GetAvgOrderedRTT() const { return AvgOrderedRTT; }
-		const auto GetAvgReliableRTT() const { return AvgReliableRTT; }
+		const auto GetAvgKOLRTT() const { return CH_KOL->RTT(); }
+		const auto GetAvgOrderedRTT() const { return 0; }
+		const auto GetAvgReliableRTT() const { return CH_Reliable->RTT(); }
 
 		const auto FormattedAddress() const { return Address->FormattedAddress(); }
 		const auto SockAddr() const { return Address->SockAddr(); }
