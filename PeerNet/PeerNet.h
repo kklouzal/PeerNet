@@ -21,9 +21,9 @@
 //#define _DEBUG_COMPRESSION
 //#define _DEBUG_THREADS
 #define _DEBUG_DISCOVERY
-#define _DEBUG_PACKETS_ORDERED
+//#define _DEBUG_PACKETS_ORDERED
 //#define _DEBUG_PACKETS_RELIABLE
-#define _DEBUG_PACKETS_UNRELIABLE
+//#define _DEBUG_PACKETS_UNRELIABLE
 //#define _DEBUG_PACKETS_RELIABLE_ACK
 //#define _DEBUG_PACKETS_ORDERED_ACK
 
@@ -38,8 +38,7 @@ namespace PeerNet
 		PN_KeepAlive = 0,
 		PN_Ordered = 1,
 		PN_Reliable = 2,
-		PN_Unreliable = 3,
-		PN_OrderedACK = 4
+		PN_Unreliable = 3
 	};
 	class SocketRequest;
 	class NetPeer;

@@ -35,12 +35,10 @@ public:
 	ThreadPoolIOCP() :
 		IOCompletionPort(CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, NULL)),
 		MaxThreads(thread::hardware_concurrency()), Environments(), Threads() {
-		printf("Thread Pool Opening %i Threads\n", MaxThreads);
+		printf("\tThread Pool Opening %i Threads\n", MaxThreads);
 		//	Create our threads
 		for (unsigned char i = 0; i < MaxThreads; i++)
 		{
-			printf("Creating IOCP Thread %i\n", i);
-
 			Environments.insert(std::make_pair(i, new T()));
 
 			Threads.emplace(thread([&]() {
@@ -57,7 +55,7 @@ public:
 					//	Grab the next available completion or block until one arrives
 					GetQueuedCompletionStatus(IOCompletionPort, &numberOfBytes, &completionKey, &pOverlapped, INFINITE);
 					//	break our main loop on CK_STOP
-					if (completionKey == CK_STOP) { printf("Stop Completion Received\n"); delete MyEnv; return; }
+					if (completionKey == CK_STOP) { delete MyEnv; return; }
 					//	Call user defined completion function
 					OnCompletion(MyEnv, numberOfBytes, completionKey, pOverlapped);
 				}}));
@@ -68,7 +66,7 @@ public:
 	~ThreadPoolIOCP() {
 		//	Close the IO Completion Port
 		CloseHandle(IOCompletionPort);
-		printf("IOCP Thread Pool Closed\n");
+		printf("\tClose Thread Pool\n");
 	}
 
 	void ShutdownThreads()
@@ -76,7 +74,6 @@ public:
 		//	Post a CK_STOP for each created thread
 		for (unsigned char i = 0; i < MaxThreads; i++)
 		{
-			printf("Posting IOCP STOP Completion %i\n", i);
 			PostCompletion(CK_STOP);
 		}
 		//	Wait for each thread to exit

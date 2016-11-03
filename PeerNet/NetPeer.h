@@ -10,22 +10,10 @@ namespace PeerNet
 	{
 		const NetAddress*const Address;
 
-		UnreliableChannel<PacketType::PN_Unreliable>* CH_Unreliable;
-
 		ReliableChannel<PacketType::PN_KeepAlive>* CH_KOL;
+		OrderedChannel<PacketType::PN_Ordered>* CH_Ordered;
 		ReliableChannel<PacketType::PN_Reliable>* CH_Reliable;
-
-
-		unsigned long NextExpectedOrdered = 1;
-		std::unordered_map<unsigned long, NetPacket*const> IN_OrderedPkts;
-		std::mutex IN_OrderedPktMutex;
-
-		std::unordered_map<unsigned long, NetPacket*const> OrderedPkts;
-		std::mutex OrderedMutex;
-		unsigned long NextExpectedOrderedACK = 1;
-		std::unordered_map<unsigned long, NetPacket*const> OrderedAcks;
-
-		unsigned long NextOrderedPacketID = 1;
+		UnreliableChannel<PacketType::PN_Unreliable>* CH_Unreliable;
 
 		void OnTick();
 		void OnExpire();
@@ -40,7 +28,7 @@ namespace PeerNet
 		auto const NetPeer::CreateNewPacket(const PacketType pType) {
 			if (pType == PacketType::PN_Ordered)
 			{
-				return new NetPacket(NextOrderedPacketID++, pType, this);
+				return CH_Ordered->NewPacket();
 			}
 			else if (pType == PacketType::PN_Reliable)
 			{
@@ -57,7 +45,7 @@ namespace PeerNet
 		void ReceivePacket(NetPacket*const IncomingPacket);
 
 		const auto GetAvgKOLRTT() const { return CH_KOL->RTT(); }
-		const auto GetAvgOrderedRTT() const { return 0; }
+		const auto GetAvgOrderedRTT() const { return CH_Ordered->RTT(); }
 		const auto GetAvgReliableRTT() const { return CH_Reliable->RTT(); }
 
 		const auto FormattedAddress() const { return Address->FormattedAddress(); }

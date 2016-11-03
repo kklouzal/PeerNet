@@ -212,28 +212,24 @@ namespace PeerNet
 		if (g_rio.RIONotify(CompletionQueue) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
 
 		//	Set Priority
-		printf("Listening On %s\n", Address->FormattedAddress());
+		printf("\tListening On - %s\n", Address->FormattedAddress());
 	}
 
 	//	NetSocket Destructor
 	//
 	NetSocket::~NetSocket()
 	{
-		printf("\tShutdown Socket\n");
+		printf("\tClose Socket - %s\n", Address->FormattedAddress());
 		shutdown(Socket, SD_BOTH);		//	Prohibit Socket from conducting any more Sends or Receives
 		this->ShutdownThreads();		//	Shutdown the threads in our Thread Pool
-		printf("Close Socket\n");
 		closesocket(Socket);			//	Shutdown Socket
 										//	Cleanup our Completion Queue
-		printf("Close Completion Queue\n");
 		g_rio.RIOCloseCompletionQueue(CompletionQueue);
 		//	Cleanup our RIO Buffers
-		printf("Deregister Buffers\n");
 		g_rio.RIODeregisterBuffer(Address_BufferID);
 		g_rio.RIODeregisterBuffer(Data_BufferID);
 		//	Cleanup other memory
 		//delete[] uncompressed_data;
-		printf("Delete Overlapped and Buffers\n");
 		delete Overlapped;
 		/*while (!Data_Buffers.empty())
 		{
@@ -245,8 +241,8 @@ namespace PeerNet
 		delete Address_Buffer;
 		delete Data_Buffer;
 
-		printf("Stopped Listening On %s\n", Address->FormattedAddress());
 		//	Cleanup our NetAddress
 		delete Address;
+		printf("\tSocket Closed\n");
 	}
 }
