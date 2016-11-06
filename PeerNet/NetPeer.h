@@ -1,8 +1,6 @@
 #pragma once
 #include "TimedEvent.hpp"
-#include "OrderedSequence.hpp"
-
-#include "ReliableChannel.hpp"
+#include "Channel.hpp"
 
 namespace PeerNet
 {
@@ -10,7 +8,7 @@ namespace PeerNet
 	{
 		const NetAddress*const Address;
 
-		ReliableChannel<PacketType::PN_KeepAlive>* CH_KOL;
+		KeepAliveChannel<PacketType::PN_KeepAlive>* CH_KOL;
 		OrderedChannel<PacketType::PN_Ordered>* CH_Ordered;
 		ReliableChannel<PacketType::PN_Reliable>* CH_Reliable;
 		UnreliableChannel<PacketType::PN_Unreliable>* CH_Unreliable;
@@ -25,7 +23,7 @@ namespace PeerNet
 		~NetPeer();
 
 		//	Construct and return a NetPacket to fill and send to this NetPeer
-		auto const NetPeer::CreateNewPacket(const PacketType pType) {
+		auto NetPeer::CreateNewPacket(const PacketType pType) {
 			if (pType == PacketType::PN_Ordered)
 			{
 				return CH_Ordered->NewPacket();
@@ -41,12 +39,10 @@ namespace PeerNet
 			return CH_Unreliable->NewPacket();
 		}
 
-		void SendPacket(NetPacket*const Packet);
-		void ReceivePacket(NetPacket*const IncomingPacket);
+		void SendPacket(NetPacket* Packet);
+		void ReceivePacket(NetPacket* IncomingPacket);
 
-		const auto GetAvgKOLRTT() const { return CH_KOL->RTT(); }
-		const auto GetAvgOrderedRTT() const { return CH_Ordered->RTT(); }
-		const auto GetAvgReliableRTT() const { return CH_Reliable->RTT(); }
+		const auto RTT_KOL() const { return CH_KOL->RTT(); }
 
 		const auto FormattedAddress() const { return Address->FormattedAddress(); }
 		const auto SockAddr() const { return Address->SockAddr(); }

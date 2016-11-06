@@ -19,6 +19,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Channel_KeepAlive.hpp" />
+    <ClInclude Include="Channel_Ordered.hpp" />
+    <ClInclude Include="Channel_Reliable.hpp" />
+    <ClInclude Include="Channel_Unreliable.hpp" />
     <ClInclude Include="lz4.h" />
     <ClInclude Include="NetAddress.hpp" />
     <ClInclude Include="NetPacket.h" />
@@ -26,7 +30,7 @@
     <ClInclude Include="OrderedSequence.hpp" />
     <ClInclude Include="PeerNet.h" />
     <ClInclude Include="NetSocket.h" />
-    <ClInclude Include="ReliableChannel.hpp" />
+    <ClInclude Include="Channel.hpp" />
     <ClInclude Include="ThreadPool.hpp" />
     <ClInclude Include="TimedEvent.hpp" />
   </ItemGroup>

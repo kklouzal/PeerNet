@@ -7,6 +7,10 @@ namespace PeerNet
 
 	struct RIO_BUF_EXT : public RIO_BUF
 	{
+		//	Do Not Use
+		//	Reserved to cleanup the NetPacket that was created to ACK an incoming Keep-Alive
+		NetPacket* Ack_NetPacket;
+
 		ThreadEnvironment* MyEnv;
 		unsigned char ThreadNumber;
 
