@@ -24,23 +24,23 @@ namespace PeerNet
 
 		//	Construct and return a NetPacket to fill and send to this NetPeer
 		auto NetPeer::CreateNewPacket(const PacketType pType) {
-			if (pType == PacketType::PN_Ordered)
+			if (pType == PN_Ordered)
 			{
 				return CH_Ordered->NewPacket();
 			}
-			else if (pType == PacketType::PN_Reliable)
+			else if (pType == PN_Reliable)
 			{
 				return CH_Reliable->NewPacket();
 			}
-			else if (pType == PacketType::PN_KeepAlive)
+			else if (pType == PN_KeepAlive)
 			{
 				return CH_KOL->NewPacket();
 			}
 			return CH_Unreliable->NewPacket();
 		}
 
-		void SendPacket(NetPacket* Packet);
 		void ReceivePacket(NetPacket* IncomingPacket);
+		void SendPacket(NetPacket* Packet);
 
 		const auto RTT_KOL() const { return CH_KOL->RTT(); }
 

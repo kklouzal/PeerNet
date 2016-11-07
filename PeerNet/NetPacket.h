@@ -3,14 +3,16 @@
 
 namespace PeerNet
 {
+	using std::chrono::high_resolution_clock;
+	using std::chrono::time_point;
 	class NetPacket
 	{
 		NetPeer*const MyPeer;		//	The destination peer for this packet
 
-		std::chrono::time_point<std::chrono::high_resolution_clock> CreationTime;
+		time_point<high_resolution_clock> CreationTime;
 
 		unsigned long PacketID;
-		PeerNet::PacketType TypeID;
+		PacketType TypeID;
 
 		std::stringstream DataStream;
 		cereal::PortableBinaryOutputArchive*const BinaryIn;
@@ -29,19 +31,19 @@ namespace PeerNet
 		{
 			BinaryOut->operator()(PacketID);
 			BinaryOut->operator()(TypeID);
-			if (TypeID == PacketType::PN_KeepAlive) { CreationTime = std::chrono::high_resolution_clock::now(); }
+			if (TypeID == PN_KeepAlive) { CreationTime = high_resolution_clock::now(); }
 		}
 
 		//	This constructor is for handling Send Packets ONLY
 		//	Managed == true ONLY for non-user accessible packets
-		NetPacket(const unsigned long pID, const PeerNet::PacketType pType, NetPeer*const Peer, const bool Managed = false)
+		NetPacket(const unsigned long pID, const PacketType pType, NetPeer*const Peer, const bool Managed = false)
 			: DataStream(std::ios::in | std::ios::out | std::ios::binary),
 			BinaryIn(new cereal::PortableBinaryOutputArchive(DataStream)), BinaryOut(nullptr),
 			MyPeer(Peer), InternallyManaged(Managed), PacketID(pID), TypeID(pType)
 		{
 			BinaryIn->operator()(PacketID);
 			BinaryIn->operator()(TypeID);
-			if (TypeID == PacketType::PN_KeepAlive) { CreationTime = std::chrono::high_resolution_clock::now(); }
+			if (TypeID == PN_KeepAlive) { CreationTime = high_resolution_clock::now(); }
 		}
 
 		//	Default Destructor

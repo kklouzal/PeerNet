@@ -30,7 +30,6 @@ namespace PeerNet
 	public:
 		RIORESULT CompletionResults[128];
 		char*const Uncompressed_Data;
-
 		ThreadEnvironment() : BuffersMutex(), Data_Buffers(), CompletionResults(), Uncompressed_Data(new char[1472]) {}
 		~ThreadEnvironment() { delete[] Uncompressed_Data; }
 

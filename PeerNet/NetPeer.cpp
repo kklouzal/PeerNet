@@ -60,13 +60,13 @@ namespace PeerNet
 	{
 		switch (IncomingPacket->GetType()) {
 
-		case PacketType::PN_KeepAlive:
+		case PN_KeepAlive:
 			if (CH_KOL->Receive(IncomingPacket))
 			{
 				//	Process this Keep-Alive Packet
 				//printf("Recv 1\n");
 				//	Memory for the ACK is cleaned up by the NetSocket that sends it
-				NetPacket* ACK = new NetPacket(IncomingPacket->GetPacketID(), PacketType::PN_KeepAlive, this, true);
+				NetPacket* ACK = new NetPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, this, true);
 				ACK->WriteData<bool>(false);
 				SendPacket(ACK);
 
@@ -77,29 +77,29 @@ namespace PeerNet
 			}
 		break;
 
-		case PacketType::PN_Unreliable:
+		case PN_Unreliable:
 			if (CH_Unreliable->Receive(IncomingPacket))
 			{
 				//	Call packet's callback function?
-
+				printf("Unreliable - %s\n", IncomingPacket->ReadData<std::string>().c_str());
 				//	For now just delete the IncomingPacket
 				delete IncomingPacket;
 			}
 		break;
-		case PacketType::PN_Reliable:
+		case PN_Reliable:
 			if (CH_Reliable->Receive(IncomingPacket))
 			{
 				//	Call packet's callback function?
-
+				//printf("Reliable - %s", IncomingPacket->ReadData<std::string>().c_str());
 				//	For now just delete the IncomingPacket
 				delete IncomingPacket;
 			}
 		break;
-		case PacketType::PN_Ordered:
+		case PN_Ordered:
 			if (CH_Ordered->Receive(IncomingPacket))
 			{
 				//	Call packet's callback function?
-
+				//printf("Ordered - %s", IncomingPacket->ReadData<std::string>().c_str());
 				//	For now just delete the IncomingPacket
 				delete IncomingPacket;
 			}

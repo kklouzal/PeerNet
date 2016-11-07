@@ -1,9 +1,12 @@
 #pragma once
+//#include "lz4.h"	//	Compression/Decompression Library
+
 #include <mutex>
 #include <memory>
 #include <unordered_map>
 
 using std::mutex;
+using std::string;
 using std::shared_ptr;
 using std::make_shared;
 using std::unordered_map;
@@ -24,14 +27,15 @@ namespace PeerNet
 	class Channel
 	{
 	protected:
-		NetPeer* MyPeer;			//	ToDo: Eliminate need to pass down NetPeer
+		NetPeer*const MyPeer;		//	ToDo: Eliminate need to pass down NetPeer
+		//
 		mutex Out_Mutex;			//	Synchronize this channels Outgoing vars and funcs
 		unsigned long Out_NextID;	//	Next packet ID we'll use
 		mutex In_Mutex;				//	Synchronize this channels Incoming vars and funcs
 		unsigned long In_LastID;	//	The largest received ID so far
 	public:
 		//	Constructor initializes our base class
-		Channel(NetPeer* ThisPeer) : MyPeer(ThisPeer), Out_Mutex(), Out_NextID(1), In_Mutex(), In_LastID(0) {}
+		Channel(NetPeer*const ThisPeer) : MyPeer(ThisPeer), Out_Mutex(), Out_NextID(1), In_Mutex(), In_LastID(0) {}
 		//	Initialize and return a new packet
 		virtual shared_ptr<NetPacket> NewPacket() = 0;
 		//	Receives a packet
@@ -40,5 +44,8 @@ namespace PeerNet
 		virtual void ACK(const unsigned long ID) = 0;
 		//	Get the largest received ID so far
 		const auto GetLastID() const { return In_LastID; }
+
+		/*virtual const string CompressPacket(NetPacket* OUT_Packet) = 0;
+		virtual NetPacket* DecompressPacket(string IN_Data) = 0;*/
 	};
 }

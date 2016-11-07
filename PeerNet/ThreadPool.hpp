@@ -11,10 +11,10 @@ using std::unordered_map;
 
 enum COMPLETION_KEY
 {
-	CK_STOP			=	0,	//	used to break a threads main loop	(REQUIRED)
-	CK_RIO			=	1,	//	used for RIO completions			(REQUIRED)
-	CK_SEND			=	2,	//	used during send operation			(USER CUSTOM)
-	CK_RECEIVE		=	3	//	used during receive operation		(USER CUSTOM)
+	CK_STOP			=	0,	//	used to break a threads main loop
+	CK_RIO			=	1,	//	used for RIO completions
+	CK_SEND			=	2,	//	used during send operation
+	CK_RECEIVE		=	3	//	used during receive operation
 };
 
 template <typename T>

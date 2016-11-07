@@ -19,7 +19,7 @@ namespace PeerNet
 		const bool Receive(NetPacket* IN_Packet)
 		{
 			In_Mutex.lock();
-			if (IN_Packet->GetPacketID() <= In_LastID) { In_Mutex.unlock(); delete IN_Packet; return false; }
+			if (IN_Packet->GetPacketID() <= In_LastID) { In_Mutex.unlock(); /*delete IN_Packet;*/ return false; }
 			In_LastID = IN_Packet->GetPacketID();
 			In_Mutex.unlock();
 			return true;

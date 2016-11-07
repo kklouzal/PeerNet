@@ -60,7 +60,7 @@ namespace PeerNet
 					//	Send this pBuffer back to the correct Thread Environment
 					//pBuffer->MyEnv->PushBuffer(pBuffer);
 
-					if (pBuffer->Ack_NetPacket != nullptr) { delete pBuffer->Ack_NetPacket; }
+					//if (pBuffer->Ack_NetPacket != nullptr) { /*delete pBuffer->Ack_NetPacket;*/ }
 
 					GetThreadEnv(pBuffer->ThreadNumber)->PushBuffer(pBuffer);
 				}
@@ -111,8 +111,8 @@ namespace PeerNet
 				std::memcpy(&Address_Buffer[pBuffer->pAddrBuff->Offset], SendPacket->GetPeer()->SockAddr(), sizeof(SOCKADDR_INET));
 				//	Used to cleanup the NetPacket created to ACK an incoming Keep-Alive
 				
-				if (SendPacket->GetManaged()) { pBuffer->Ack_NetPacket = SendPacket; }
-				else { pBuffer->Ack_NetPacket = nullptr; }
+				/*if (SendPacket->GetManaged()) { pBuffer->Ack_NetPacket = SendPacket; }
+				else { pBuffer->Ack_NetPacket = nullptr; }*/
 
 				//	Instead of just waiting here spinning our wheels,
 				//	If we can't lock, add this send request into a queue and continue the thread
