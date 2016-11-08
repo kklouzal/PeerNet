@@ -6,12 +6,11 @@ namespace PeerNet
 	class KeepAliveChannel : public Channel
 	{
 		const double RollingRTT;	//	Keep a rolling average of the last estimated 15 Round Trip Times
-		unordered_map<unsigned long, shared_ptr<NetPacket>> Out_Packets;	//	Outgoing packets that may need resent
-		unsigned long Out_LastACK;	//	Most recent acknowledged ID
 		double Out_RTT;				//	Start the system off assuming a 300ms ping. Let the algorythms adjust from that point.
 	public:
 		//	Default constructor initializes us and our base class
-		KeepAliveChannel(NetPeer* ThisPeer) : RollingRTT(15), Out_LastACK(0), Out_RTT(0), Channel(ThisPeer) {}
+		KeepAliveChannel(NetPeer* ThisPeer) : RollingRTT(15), Out_RTT(0), Channel(ThisPeer) {}
+
 		//	Initialize and return a new packet
 		shared_ptr<NetPacket> NewPacket()
 		{

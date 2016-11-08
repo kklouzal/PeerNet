@@ -28,14 +28,21 @@ namespace PeerNet
 	{
 	protected:
 		NetPeer*const MyPeer;		//	ToDo: Eliminate need to pass down NetPeer
-		//
+
+		//	Outgoing Variables
 		mutex Out_Mutex;			//	Synchronize this channels Outgoing vars and funcs
 		unsigned long Out_NextID;	//	Next packet ID we'll use
+		//	Since we use shared pointers to manage memory cleanup for our packets
+		//	Unreliable packets need to be held onto long enough to actually get sent
+		unordered_map<unsigned long, shared_ptr<NetPacket>> Out_Packets;
+		unsigned long Out_LastACK;	//	Most recent acknowledged ID
+
+		//	Incoming Variables
 		mutex In_Mutex;				//	Synchronize this channels Incoming vars and funcs
 		unsigned long In_LastID;	//	The largest received ID so far
 	public:
 		//	Constructor initializes our base class
-		Channel(NetPeer*const ThisPeer) : MyPeer(ThisPeer), Out_Mutex(), Out_NextID(1), In_Mutex(), In_LastID(0) {}
+		Channel(NetPeer*const ThisPeer) : MyPeer(ThisPeer), Out_Mutex(), Out_NextID(1), Out_Packets(), Out_LastACK(0), In_Mutex(), In_LastID(0) {}
 		//	Initialize and return a new packet
 		virtual shared_ptr<NetPacket> NewPacket() = 0;
 		//	Receives a packet

@@ -24,7 +24,11 @@ namespace PeerNet
 
 		//	Construct and return a NetPacket to fill and send to this NetPeer
 		auto NetPeer::CreateNewPacket(const PacketType pType) {
-			if (pType == PN_Ordered)
+			if (pType == PN_KeepAlive)
+			{
+				return CH_KOL->NewPacket();
+			}
+			else if (pType == PN_Ordered)
 			{
 				return CH_Ordered->NewPacket();
 			}
@@ -32,10 +36,7 @@ namespace PeerNet
 			{
 				return CH_Reliable->NewPacket();
 			}
-			else if (pType == PN_KeepAlive)
-			{
-				return CH_KOL->NewPacket();
-			}
+
 			return CH_Unreliable->NewPacket();
 		}
 

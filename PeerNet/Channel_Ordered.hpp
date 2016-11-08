@@ -5,16 +5,14 @@ namespace PeerNet
 	template <PacketType ChannelID>
 	class OrderedChannel : public Channel
 	{
-		unordered_map<unsigned long, shared_ptr<NetPacket>> Out_Packets;	//	Outgoing packets that may need resent
-		unsigned long Out_LastACK;	//	Most recent acknowledged ID
-
 		std::unordered_map<unsigned long, shared_ptr<NetPacket>> IN_OrderedPkts;	//	Incoming packets we cant process yet
 		std::unordered_map<unsigned long, bool> IN_MissingIDs;	//	Missing IDs from the ordered sequence
 
 		unsigned int IN_HighestID;	//	Highest received ID
 	public:
 		//	Default constructor initializes us and our base class
-		OrderedChannel(NetPeer* ThisPeer) : Out_LastACK(0), Channel(ThisPeer) {}
+		OrderedChannel(NetPeer* ThisPeer) : IN_OrderedPkts(), IN_MissingIDs(), IN_HighestID(0), Channel(ThisPeer) {}
+
 		//	Initialize and return a new packet
 		shared_ptr<NetPacket> NewPacket()
 		{

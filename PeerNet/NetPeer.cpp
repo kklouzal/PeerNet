@@ -35,6 +35,7 @@ namespace PeerNet
 		//	(bool)				Is this not an Acknowledgement?
 		//	(unsigned long)		Highest Received KOL Packet ID
 		//	(unsigned long)		Highest Received Reliable Packet ID
+		//	(unsigned long)		Highest Received Unreliable Packet ID
 		//	(unsigned long)		Highest Received && Processed Ordered Packet ID
 		//	(unordered_map)*					Missing Ordered Reliable Packet ID's
 		//	(std::chrono::milliseconds)*		My Reliable RTT
@@ -44,6 +45,7 @@ namespace PeerNet
 		KeepAlive->WriteData<bool>(true);
 		KeepAlive->WriteData<unsigned long>(CH_KOL->GetLastID());
 		KeepAlive->WriteData<unsigned long>(CH_Reliable->GetLastID());
+		KeepAlive->WriteData<unsigned long>(CH_Unreliable->GetLastID());
 		KeepAlive->WriteData<unsigned long>(CH_Ordered->GetLastID());
 		SendPacket(KeepAlive.get());
 	}
@@ -73,6 +75,11 @@ namespace PeerNet
 				NetPacket* ACK = new NetPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, this, true);
 				ACK->WriteData<bool>(false);
 				SendPacket(ACK);
+
+				const unsigned long ACK_KOL = IncomingPacket->ReadData<unsigned long>();
+				const unsigned long ACK_Reliable = IncomingPacket->ReadData<unsigned long>();
+				CH_Unreliable->ACK(IncomingPacket->ReadData<unsigned long>());
+				const unsigned long ACK_Ordered = IncomingPacket->ReadData<unsigned long>();
 
 				//CH_KOL->ACK(IncomingPacket->ReadData<unsigned long>());
 				//CH_Reliable->ACK(IncomingPacket->ReadData<unsigned long>());

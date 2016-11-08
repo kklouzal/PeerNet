@@ -5,11 +5,9 @@ namespace PeerNet
 	template <PacketType ChannelID>
 	class ReliableChannel : public Channel
 	{
-		unordered_map<unsigned long, shared_ptr<NetPacket>> Out_Packets;	//	Outgoing packets that may need resent
-		unsigned long Out_LastACK;	//	Most recent acknowledged ID
 	public:
-		//	Default constructor initializes us and our base class
-		ReliableChannel(NetPeer* ThisPeer) : Out_LastACK(0), Channel(ThisPeer) {}
+		ReliableChannel(NetPeer* ThisPeer) : Channel(ThisPeer) {}
+
 		//	Initialize and return a new packet
 		shared_ptr<NetPacket> NewPacket()
 		{
