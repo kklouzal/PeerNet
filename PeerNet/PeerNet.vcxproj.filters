@@ -38,7 +38,19 @@
     <ClInclude Include="OrderedSequence.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ReliableChannel.hpp">
+    <ClInclude Include="Channel_Unreliable.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Channel_Reliable.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Channel_Ordered.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Channel.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Channel_KeepAlive.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

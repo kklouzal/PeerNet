@@ -54,18 +54,18 @@ namespace PeerNet
 {
 	//
 	//	Basically takes the place of a formal outgoing packet
-	class SocketRequest : public OVERLAPPED
+	/*class SocketRequest : public OVERLAPPED
 	{
 	public:
-		SocketRequest(NetPacket*const OutgoingPacket, NetPeer*const DestinationPeer) : Packet(OutgoingPacket), Destination(DestinationPeer) {}
-		NetPacket*const Packet;
+		SocketRequest(shared_ptr<NetPacket> OutgoingPacket, NetPeer*const DestinationPeer) : Packet(OutgoingPacket), Destination(DestinationPeer) {}
+		shared_ptr<NetPacket> Packet;
 		NetPeer*const Destination;
 
 		const auto GetData() const { return Packet->GetData(); }
 		const auto GetDataSize() const { return Packet->GetDataSize(); }
 		const auto GetSockAddr() const { return Destination->SockAddr(); }
 		const auto GetCreationTime() const { return Packet->GetCreationTime(); }
-	};
+	};*/
 
 	//	Initialize PeerNet
 	void Initialize();

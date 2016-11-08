@@ -23,8 +23,6 @@ namespace PeerNet
 			}
 			auto NewPeer = new NetPeer(StrIP, FormattedAddress, Socket);
 			Peers.emplace(NewPeer->FormattedAddress(), NewPeer);
-			//	Send out our discovery request
-			NewPeer->SendPacket(NewPeer->CreateNewPacket(PacketType::PN_Reliable));
 			return NewPeer;
 		}
 		return Peer->second;
@@ -56,9 +54,14 @@ namespace PeerNet
 				case CK_SEND:
 				{
 					//	Completion of a CK_SEND request
+
+					//	If defined, cleanup the NetPacket that initiated this CK_SEND
+					if (pBuffer->NetPacket->GetManaged()) { delete pBuffer->NetPacket; }
+
 					//	The thread processing this completion may be different from the thread that executed the CK_SEND
 					//	Send this pBuffer back to the correct Thread Environment
-					GetThreadEnv(pBuffer->ThreadNumber)->PushBuffer(pBuffer);
+					pBuffer->MyEnv->PushBuffer(pBuffer);
+					//GetThreadEnv(pBuffer->ThreadNumber)->PushBuffer(pBuffer);
 				}
 				break;
 
@@ -97,15 +100,18 @@ namespace PeerNet
 
 		case CK_SEND:
 		{
-			NetPacket*const SendPacket = reinterpret_cast<NetPacket*const>(pOverlapped);
+			NetPacket* SendPacket = reinterpret_cast<NetPacket*>(pOverlapped);
 			PRIO_BUF_EXT pBuffer = Env->PopBuffer();
-
 			//	If we are out of buffers push the request back out for another thread to pick up
-			if (pBuffer == nullptr) { PostCompletion<NetPacket*const>(CK_SEND, SendPacket); break; }
+			if (pBuffer == nullptr) { PostCompletion<NetPacket*>(CK_SEND, SendPacket); break; }
 			pBuffer->Length = LZ4_compress_default(SendPacket->GetData().c_str(), &Data_Buffer[pBuffer->Offset], (int)SendPacket->GetDataSize(), PacketSize);
 			if (pBuffer->Length > 0) {
 				//printf("Compressed: %i->%i\n", SendPacket->GetData().size(), pBuffer->Length);
 				std::memcpy(&Address_Buffer[pBuffer->pAddrBuff->Offset], SendPacket->GetPeer()->SockAddr(), sizeof(SOCKADDR_INET));
+
+				//	This will allow the CK_SEND RIO completion to cleanup SendPacket when IsManaged() == true
+				pBuffer->NetPacket = SendPacket;
+
 				//	Instead of just waiting here spinning our wheels,
 				//	If we can't lock, add this send request into a queue and continue the thread
 				//	If we CAN lock, process our queue THEN process this request.

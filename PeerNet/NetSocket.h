@@ -7,6 +7,9 @@ namespace PeerNet
 
 	struct RIO_BUF_EXT : public RIO_BUF
 	{
+		//	Reserved to alow RIO CK_SEND completions to cleanup its initiating NetPacket under certain circumstances
+		NetPacket* NetPacket;
+
 		ThreadEnvironment* MyEnv;
 		unsigned char ThreadNumber;
 
@@ -26,17 +29,23 @@ namespace PeerNet
 	public:
 		RIORESULT CompletionResults[128];
 		char*const Uncompressed_Data;
-
 		ThreadEnvironment() : BuffersMutex(), Data_Buffers(), CompletionResults(), Uncompressed_Data(new char[1472]) {}
 		~ThreadEnvironment() { delete[] Uncompressed_Data; }
 
+		//	Will only be called by this thread
 		PRIO_BUF_EXT PopBuffer()
 		{
-			if (Data_Buffers.empty()) { return nullptr; }
+			//	Always leave 1 buffer in the pool
+			//	Prevents popping the front buffer as it's being pushed
+			//	Eliminates the need to lock this function
+			BuffersMutex.lock();
+			if (Data_Buffers.empty()) { BuffersMutex.unlock(); return nullptr; }
 			PRIO_BUF_EXT Buffer = Data_Buffers.front();
 			Data_Buffers.pop();
+			BuffersMutex.unlock();
 			return Buffer;
 		}
+		//	Will be called by multiple threads
 		void PushBuffer(PRIO_BUF_EXT Buffer)
 		{
 			BuffersMutex.lock();

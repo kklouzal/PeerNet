@@ -100,11 +100,11 @@ int main()
 			if (Peer != nullptr)
 			{
 				unsigned int i = 0;
-				while (i < 384)
+				while (i < 8)
 				{
 					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Ordered);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm ordered!!");
-					Peer->SendPacket(NewPacket);
+					Peer->SendPacket(NewPacket.get());
 					i++;
 				}
 			}
@@ -114,11 +114,11 @@ int main()
 			if (Peer != nullptr)
 			{
 				unsigned int i = 0;
-				while (i < 384)
+				while (i < 8)
 				{
 					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Reliable);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm reliable!!");
-					Peer->SendPacket(NewPacket);
+					Peer->SendPacket(NewPacket.get());
 				i++;
 				}
 			}
@@ -128,20 +128,18 @@ int main()
 			if (Peer != nullptr)
 			{
 				unsigned int i = 0;
-				while (i < 384)
+				while (i < 8)
 				{
 					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Unreliable);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm unreliable!!");
-					Peer->SendPacket(NewPacket);
+					Peer->SendPacket(NewPacket.get());
 					i++;
 				}
 			}
 		}
 		else if (ConsoleInput == "rtt")
 		{
-			printf("\tKeep-Alive RTT:\t%.3fms\n", Peer->GetAvgKOLRTT());
-			printf("\tOrdered RTT:\t%.3fms\n", Peer->GetAvgOrderedRTT());
-			printf("\tReliable RTT:\t%.3fms\n", Peer->GetAvgReliableRTT());
+			printf("\tKeep-Alive RTT:\t%.3fms\n", Peer->RTT_KOL());
 		}
 	}
 	std::system("PAUSE");
