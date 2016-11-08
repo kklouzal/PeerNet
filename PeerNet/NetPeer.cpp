@@ -6,12 +6,16 @@ namespace PeerNet
 	//	Default Constructor
 	NetPeer::NetPeer(const std::string StrIP, const std::string StrPort, NetSocket*const DefaultSocket)
 		: Address(new NetAddress(StrIP, StrPort)), Socket(DefaultSocket),
-		CH_KOL(new KeepAliveChannel<PacketType::PN_KeepAlive>(this)),
-		CH_Ordered(new OrderedChannel<PacketType::PN_Ordered>(this)),
-		CH_Reliable(new ReliableChannel<PacketType::PN_Reliable>(this)),
-		CH_Unreliable(new UnreliableChannel<PacketType::PN_Unreliable>(this)),
+		CH_KOL(new KeepAliveChannel<PN_KeepAlive>(this)),
+		CH_Ordered(new OrderedChannel<PN_Ordered>(this)),
+		CH_Reliable(new ReliableChannel<PN_Reliable>(this)),
+		CH_Unreliable(new UnreliableChannel<PN_Unreliable>(this)),
 		TimedEvent(std::chrono::milliseconds(25), 0)	//	Clients 'Tick' every 0.025 second until they're destroyed
 	{
+		//	Send out our discovery request
+		auto DiscoveryPacket = CreateNewPacket(PN_Reliable);
+		DiscoveryPacket->WriteData<std::string>("Read - Discovery Packet\n");
+		SendPacket(DiscoveryPacket.get());
 		this->StartTimer();
 		printf("Create Peer - %s\n", Address->FormattedAddress());
 	}
@@ -90,7 +94,7 @@ namespace PeerNet
 			if (CH_Reliable->Receive(IncomingPacket))
 			{
 				//	Call packet's callback function?
-				//printf("Reliable - %s", IncomingPacket->ReadData<std::string>().c_str());
+				printf("Reliable - %s", IncomingPacket->ReadData<std::string>().c_str());
 				//	For now just delete the IncomingPacket
 				delete IncomingPacket;
 			}
@@ -99,7 +103,7 @@ namespace PeerNet
 			if (CH_Ordered->Receive(IncomingPacket))
 			{
 				//	Call packet's callback function?
-				//printf("Ordered - %s", IncomingPacket->ReadData<std::string>().c_str());
+				printf("Ordered - %s", IncomingPacket->ReadData<std::string>().c_str());
 				//	For now just delete the IncomingPacket
 				delete IncomingPacket;
 			}

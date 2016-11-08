@@ -33,13 +33,18 @@ namespace PeerNet
 		ThreadEnvironment() : BuffersMutex(), Data_Buffers(), CompletionResults(), Uncompressed_Data(new char[1472]) {}
 		~ThreadEnvironment() { delete[] Uncompressed_Data; }
 
+		//	Will only be called by this thread
 		PRIO_BUF_EXT PopBuffer()
 		{
-			if (Data_Buffers.empty()) { return nullptr; }
+			//	Always leave 1 buffer in the pool
+			//	Prevents popping the front buffer as it's being pushed
+			//	Eliminates the need to lock this function
+			if (Data_Buffers.size() <= 1) { return nullptr; }
 			PRIO_BUF_EXT Buffer = Data_Buffers.front();
 			Data_Buffers.pop();
 			return Buffer;
 		}
+		//	Will be called by multiple threads
 		void PushBuffer(PRIO_BUF_EXT Buffer)
 		{
 			BuffersMutex.lock();

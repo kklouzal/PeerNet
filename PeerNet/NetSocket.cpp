@@ -23,8 +23,6 @@ namespace PeerNet
 			}
 			auto NewPeer = new NetPeer(StrIP, FormattedAddress, Socket);
 			Peers.emplace(NewPeer->FormattedAddress(), NewPeer);
-			//	Send out our discovery request
-			NewPeer->SendPacket(NewPeer->CreateNewPacket(PacketType::PN_Reliable).get());
 			return NewPeer;
 		}
 		return Peer->second;
