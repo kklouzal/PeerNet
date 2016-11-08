@@ -23,6 +23,10 @@ namespace PeerNet
 	NetPeer::~NetPeer()
 	{
 		this->StopTimer();
+		delete CH_KOL;
+		delete CH_Ordered;
+		delete CH_Reliable;
+		delete CH_Unreliable;
 		printf("Remove Peer - %s\n", Address->FormattedAddress());
 	}
 
