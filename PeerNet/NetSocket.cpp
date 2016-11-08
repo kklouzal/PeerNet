@@ -54,13 +54,14 @@ namespace PeerNet
 				case CK_SEND:
 				{
 					//	Completion of a CK_SEND request
+
+					//	If defined, cleanup the NetPacket that initiated this CK_SEND
+					if (pBuffer->NetPacket->GetManaged()) { delete pBuffer->NetPacket; }
+
 					//	The thread processing this completion may be different from the thread that executed the CK_SEND
 					//	Send this pBuffer back to the correct Thread Environment
-					//pBuffer->MyEnv->PushBuffer(pBuffer);
-
-					//if (pBuffer->Ack_NetPacket != nullptr) { /*delete pBuffer->Ack_NetPacket;*/ }
-
-					GetThreadEnv(pBuffer->ThreadNumber)->PushBuffer(pBuffer);
+					pBuffer->MyEnv->PushBuffer(pBuffer);
+					//GetThreadEnv(pBuffer->ThreadNumber)->PushBuffer(pBuffer);
 				}
 				break;
 
@@ -107,10 +108,9 @@ namespace PeerNet
 			if (pBuffer->Length > 0) {
 				//printf("Compressed: %i->%i\n", SendPacket->GetData().size(), pBuffer->Length);
 				std::memcpy(&Address_Buffer[pBuffer->pAddrBuff->Offset], SendPacket->GetPeer()->SockAddr(), sizeof(SOCKADDR_INET));
-				//	Used to cleanup the NetPacket created to ACK an incoming Keep-Alive
-				
-				/*if (SendPacket->GetManaged()) { pBuffer->Ack_NetPacket = SendPacket; }
-				else { pBuffer->Ack_NetPacket = nullptr; }*/
+
+				//	This will allow the CK_SEND RIO completion to cleanup SendPacket when IsManaged() == true
+				pBuffer->NetPacket = SendPacket;
 
 				//	Instead of just waiting here spinning our wheels,
 				//	If we can't lock, add this send request into a queue and continue the thread

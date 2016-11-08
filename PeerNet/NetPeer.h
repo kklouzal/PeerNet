@@ -8,10 +8,10 @@ namespace PeerNet
 	{
 		const NetAddress*const Address;
 
-		KeepAliveChannel<PacketType::PN_KeepAlive>* CH_KOL;
-		OrderedChannel<PacketType::PN_Ordered>* CH_Ordered;
-		ReliableChannel<PacketType::PN_Reliable>* CH_Reliable;
-		UnreliableChannel<PacketType::PN_Unreliable>* CH_Unreliable;
+		KeepAliveChannel* CH_KOL;
+		OrderedChannel* CH_Ordered;
+		ReliableChannel* CH_Reliable;
+		UnreliableChannel* CH_Unreliable;
 
 		void OnTick();
 		void OnExpire();

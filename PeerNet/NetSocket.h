@@ -7,9 +7,8 @@ namespace PeerNet
 
 	struct RIO_BUF_EXT : public RIO_BUF
 	{
-		//	Do Not Use
-		//	Reserved to cleanup the NetPacket that was created to ACK an incoming Keep-Alive
-		NetPacket* Ack_NetPacket;
+		//	Reserved to alow RIO CK_SEND completions to cleanup its initiating NetPacket under certain circumstances
+		NetPacket* NetPacket;
 
 		ThreadEnvironment* MyEnv;
 		unsigned char ThreadNumber;
@@ -39,9 +38,11 @@ namespace PeerNet
 			//	Always leave 1 buffer in the pool
 			//	Prevents popping the front buffer as it's being pushed
 			//	Eliminates the need to lock this function
-			if (Data_Buffers.size() <= 1) { return nullptr; }
+			BuffersMutex.lock();
+			if (Data_Buffers.empty()) { BuffersMutex.unlock(); return nullptr; }
 			PRIO_BUF_EXT Buffer = Data_Buffers.front();
 			Data_Buffers.pop();
+			BuffersMutex.unlock();
 			return Buffer;
 		}
 		//	Will be called by multiple threads

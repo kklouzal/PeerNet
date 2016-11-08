@@ -6,10 +6,10 @@ namespace PeerNet
 	//	Default Constructor
 	NetPeer::NetPeer(const std::string StrIP, const std::string StrPort, NetSocket*const DefaultSocket)
 		: Address(new NetAddress(StrIP, StrPort)), Socket(DefaultSocket),
-		CH_KOL(new KeepAliveChannel<PN_KeepAlive>(this)),
-		CH_Ordered(new OrderedChannel<PN_Ordered>(this)),
-		CH_Reliable(new ReliableChannel<PN_Reliable>(this)),
-		CH_Unreliable(new UnreliableChannel<PN_Unreliable>(this)),
+		CH_KOL(new KeepAliveChannel(this, PN_KeepAlive)),
+		CH_Ordered(new OrderedChannel(this, PN_Ordered)),
+		CH_Reliable(new ReliableChannel(this, PN_Reliable)),
+		CH_Unreliable(new UnreliableChannel(this, PN_Unreliable)),
 		TimedEvent(std::chrono::milliseconds(25), 0)	//	Clients 'Tick' every 0.025 second until they're destroyed
 	{
 		//	Send out our discovery request
@@ -70,21 +70,18 @@ namespace PeerNet
 			if (CH_KOL->Receive(IncomingPacket))
 			{
 				//	Process this Keep-Alive Packet
-				//printf("Recv 1\n");
 				//	Memory for the ACK is cleaned up by the NetSocket that sends it
 				NetPacket* ACK = new NetPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, this, true);
 				ACK->WriteData<bool>(false);
 				SendPacket(ACK);
 
-				const unsigned long ACK_KOL = IncomingPacket->ReadData<unsigned long>();
-				const unsigned long ACK_Reliable = IncomingPacket->ReadData<unsigned long>();
+				CH_KOL->ACK(IncomingPacket->ReadData<unsigned long>());
+				CH_Reliable->ACK(IncomingPacket->ReadData<unsigned long>());
 				CH_Unreliable->ACK(IncomingPacket->ReadData<unsigned long>());
-				const unsigned long ACK_Ordered = IncomingPacket->ReadData<unsigned long>();
+				CH_Ordered->ACK(IncomingPacket->ReadData<unsigned long>());
 
-				//CH_KOL->ACK(IncomingPacket->ReadData<unsigned long>());
-				//CH_Reliable->ACK(IncomingPacket->ReadData<unsigned long>());
-				//CH_Ordered->ACK(IncomingPacket->ReadData<unsigned long>());
 				//	End Keep-Alive Packet Processing
+				delete IncomingPacket;
 			}
 		break;
 

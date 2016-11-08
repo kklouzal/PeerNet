@@ -2,7 +2,6 @@
 
 namespace PeerNet
 {
-	template <PacketType ChannelID>
 	class OrderedChannel : public Channel
 	{
 		std::unordered_map<unsigned long, shared_ptr<NetPacket>> IN_OrderedPkts;	//	Incoming packets we cant process yet
@@ -11,16 +10,8 @@ namespace PeerNet
 		unsigned int IN_HighestID;	//	Highest received ID
 	public:
 		//	Default constructor initializes us and our base class
-		OrderedChannel(NetPeer* ThisPeer) : IN_OrderedPkts(), IN_MissingIDs(), IN_HighestID(0), Channel(ThisPeer) {}
+		OrderedChannel(NetPeer* ThisPeer, PacketType ChannelID) : IN_OrderedPkts(), IN_MissingIDs(), IN_HighestID(0), Channel(ThisPeer, ChannelID) {}
 
-		//	Initialize and return a new packet
-		shared_ptr<NetPacket> NewPacket()
-		{
-			Out_Mutex.lock();
-			Out_Packets[Out_NextID] = std::make_shared<NetPacket>(Out_NextID, ChannelID, MyPeer);
-			Out_Mutex.unlock();
-			return Out_Packets[Out_NextID++];
-		}
 		//	Receives an ordered packet
 		//	LastID+1 here is the 'next expected packet'
 		const bool Receive(NetPacket* IN_Packet)
@@ -70,31 +61,7 @@ namespace PeerNet
 			In_Mutex.unlock();
 			return true;
 		}
-		//	Acknowledge the remote peers reception of an ID
-		void ACK(const unsigned long ID)
-		{
-			Out_Mutex.lock();
-			//	If this ID is less than or equal to the most recent ACK, disreguard it
-			if (ID <= Out_LastACK) { Out_Mutex.unlock(); return; }
-			//	Remove any packets with an ID less or equal to our most recently acknowledged ID
-			Out_LastACK = ID;
-			for (auto Packet : Out_Packets)
-			{
-				if (Packet.first < Out_LastACK) { Out_Packets.erase(Packet.first); }
-				else if (Packet.first == Out_LastACK)
-				{
-					Out_Packets.erase(Packet.first);
-				}
-			}
-			//	If their last received reliable ID is less than our last sent reliable id
-			//	Send the most recently sent reliable packet to them again
-			//	Note: if this packet is still in-transit it will be sent again
-			//	ToDo:	Hold off on resending the packet until it's creation time
-			//			is greater than this clients RTT
-			if (ID < Out_NextID - 1 && Out_Packets.count(Out_NextID - 1)) { MyPeer->Socket->PostCompletion<NetPacket*>(CK_SEND, Out_Packets[Out_NextID-1].get()); }
-			Out_Mutex.unlock();
-		}
 		//	Returns an unordered map of all the missing id's (this could include id's currently in transit)
-		const unordered_map<unsigned long, bool> GetMissingIDs() const { return MissingIDs; }
+		const unordered_map<unsigned long, bool> GetMissingIDs() const { return IN_MissingIDs; }
 	};
 }

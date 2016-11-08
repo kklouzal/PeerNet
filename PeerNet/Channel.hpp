@@ -14,11 +14,6 @@ using std::chrono::duration;
 using std::chrono::time_point;
 using std::chrono::high_resolution_clock;
 
-#include "Channel_Ordered.hpp"
-#include "Channel_Reliable.hpp"
-#include "Channel_Unreliable.hpp"
-#include "Channel_KeepAlive.hpp"
-
 namespace PeerNet
 {
 	class NetPeer;	// ToDo: Eliminate need to pass down NetPeer.
@@ -27,7 +22,9 @@ namespace PeerNet
 	class Channel
 	{
 	protected:
+		//	Main Variables
 		NetPeer*const MyPeer;		//	ToDo: Eliminate need to pass down NetPeer
+		PacketType ChannelID;
 
 		//	Outgoing Variables
 		mutex Out_Mutex;			//	Synchronize this channels Outgoing vars and funcs
@@ -42,17 +39,58 @@ namespace PeerNet
 		unsigned long In_LastID;	//	The largest received ID so far
 	public:
 		//	Constructor initializes our base class
-		Channel(NetPeer*const ThisPeer) : MyPeer(ThisPeer), Out_Mutex(), Out_NextID(1), Out_Packets(), Out_LastACK(0), In_Mutex(), In_LastID(0) {}
+		Channel(NetPeer*const ThisPeer, PacketType ChanID)
+			: MyPeer(ThisPeer), ChannelID(ChanID), Out_Mutex(), Out_NextID(1), Out_Packets(), Out_LastACK(0), In_Mutex(), In_LastID(0) {}
+		//
+		const auto GetChannelID() const { return ChannelID; }
 		//	Initialize and return a new packet
-		virtual shared_ptr<NetPacket> NewPacket() = 0;
+		shared_ptr<NetPacket> NewPacket()
+		{
+			Out_Mutex.lock();
+			shared_ptr<NetPacket> Packet = std::make_shared<NetPacket>(Out_NextID, GetChannelID(), MyPeer);
+			Out_Packets[Out_NextID++] = Packet;
+			Out_Mutex.unlock();
+			return Packet;
+		}
 		//	Receives a packet
 		virtual const bool Receive(NetPacket* IN_Packet) = 0;
-		//	Update a remote peers acknowledgement
-		virtual void ACK(const unsigned long ID) = 0;
 		//	Get the largest received ID so far
 		const auto GetLastID() const { return In_LastID; }
+		//	Acknowledge delivery and processing of all packets up to this ID
+		void ACK(const unsigned long ID)
+		{
+			//	We hold onto all the sent packets with an ID higher than that of
+			//	Which our remote peer has not confirmed delivery for as those
+			//	Packets may still be going through their initial sending process
+			Out_Mutex.lock();
+			if (ID > Out_LastACK)
+			{
+				Out_LastACK = ID;
+				auto Out_Itr = Out_Packets.begin();
+				while (Out_Itr != Out_Packets.end()) {
+					if (Out_Itr->first <= Out_LastACK) {
+						Out_Packets.erase(Out_Itr++);
+					}
+					else {
+						++Out_Itr;
+					}
+				}
+			}
+			//	If their last received reliable ID is less than our last sent reliable id
+			//	Send the most recently sent reliable packet to them again
+			//	Note: if this packet is still in-transit it will be sent again
+			//	ToDo:	Hold off on resending the packet until it's creation time
+			//			is greater than this clients RTT
+			//if (ID < Out_NextID - 1 && Out_Packets.count(Out_NextID - 1)) { MyPeer->Socket->PostCompletion<NetPacket*>(CK_SEND, Out_Packets[Out_NextID - 1].get()); }
+			Out_Mutex.unlock();
+		}
 
 		/*virtual const string CompressPacket(NetPacket* OUT_Packet) = 0;
 		virtual NetPacket* DecompressPacket(string IN_Data) = 0;*/
 	};
 }
+
+#include "Channel_Ordered.hpp"
+#include "Channel_Reliable.hpp"
+#include "Channel_Unreliable.hpp"
+#include "Channel_KeepAlive.hpp"
