@@ -62,7 +62,7 @@ int main()
 				std::string InputPort;
 				std::getline(std::cin, InputPort);
 				if (InputIP.empty() || InputPort.empty()) { printf("Invalid Arguments\n"); continue; }
-				Socket = new PeerNet::NetSocket(InputIP, InputPort);
+				Socket = PeerNet::OpenSocket(InputIP, InputPort);
 			}
 		}
 		else if (ConsoleInput == "close")
@@ -84,7 +84,7 @@ int main()
 				std::string InputPort;
 				std::getline(std::cin, InputPort);
 				if (InputIP.empty() || InputPort.empty()) { printf("Invalid Arguments\n"); continue; }
-				Peer = PeerNet::RetrievePeer(InputIP + std::string(":") + InputPort, Socket);
+				Peer = PeerNet::ConnectPeer(InputIP,InputPort,Socket);
 			}
 		}
 		else if (ConsoleInput == "forget")

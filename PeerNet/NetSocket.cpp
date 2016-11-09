@@ -3,31 +3,6 @@
 
 namespace PeerNet
 {
-	namespace
-	{
-		std::unordered_map<std::string, NetPeer*const> Peers;
-		std::string Delimiter = ":";
-	}
-
-	//	Retrieve a NetPeer* from it's formatted address or create a new one
-	NetPeer*const RetrievePeer(std::string FormattedAddress, NetSocket*const Socket)
-	{
-		auto Peer = Peers.find(FormattedAddress);
-		if (Peer == Peers.end())
-		{
-			size_t pos = 0;
-			std::string StrIP;
-			while ((pos = FormattedAddress.find(Delimiter)) != std::string::npos) {
-				StrIP = FormattedAddress.substr(0, pos);
-				FormattedAddress.erase(0, pos + Delimiter.length());
-			}
-			auto NewPeer = new NetPeer(StrIP, FormattedAddress, Socket);
-			Peers.emplace(NewPeer->FormattedAddress(), NewPeer);
-			return NewPeer;
-		}
-		return Peer->second;
-	}
-
 	void NetSocket::OnCompletion(ThreadEnvironment*const Env, const DWORD numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED*const pOverlapped)
 	{
 		//
@@ -74,10 +49,10 @@ namespace PeerNet
 
 					if (CompressResult > 0) {
 						//	Get which peer sent this data
-						const std::string SenderIP(inet_ntoa(((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset])->Ipv4.sin_addr));
-						const std::string SenderPort(std::to_string(ntohs(((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset])->Ipv4.sin_port)));
+						//const std::string SenderIP(inet_ntoa(((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset])->Ipv4.sin_addr));
+						//const std::string SenderPort(std::to_string(ntohs(((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset])->Ipv4.sin_port)));
 						//	Determine which peer this packet belongs to and immediatly pass it to them for processing.
-						RetrievePeer(SenderIP + std::string(":") + SenderPort, this)->ReceivePacket(new NetPacket(std::string(Env->Uncompressed_Data, CompressResult)));
+						GetPeer(&Address_Buffer[pBuffer->pAddrBuff->Offset], this)->ReceivePacket(new NetPacket(std::string(Env->Uncompressed_Data, CompressResult)));
 					}
 					else { printf("\tPacket Decompression Failed\n"); }
 #ifdef _PERF_SPINLOCK
@@ -107,7 +82,6 @@ namespace PeerNet
 			pBuffer->Length = LZ4_compress_default(SendPacket->GetData().c_str(), &Data_Buffer[pBuffer->Offset], (int)SendPacket->GetDataSize(), PacketSize);
 			if (pBuffer->Length > 0) {
 				//printf("Compressed: %i->%i\n", SendPacket->GetData().size(), pBuffer->Length);
-				std::memcpy(&Address_Buffer[pBuffer->pAddrBuff->Offset], SendPacket->GetPeer()->SockAddr(), sizeof(SOCKADDR_INET));
 
 				//	This will allow the CK_SEND RIO completion to cleanup SendPacket when IsManaged() == true
 				pBuffer->NetPacket = SendPacket;
@@ -121,7 +95,7 @@ namespace PeerNet
 #else
 				RioMutex_Send.lock();
 #endif
-				g_rio.RIOSendEx(RequestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, NULL, pBuffer);
+				RIO().RIOSendEx(RequestQueue, pBuffer, 1, NULL, SendPacket->GetPeer()->GetAddress(), NULL, NULL, NULL, pBuffer);
 				RioMutex_Send.unlock();
 			}
 			else { printf("Packet Compression Failed - %i\n", pBuffer->Length); }
@@ -134,7 +108,14 @@ namespace PeerNet
 		//
 	}
 
-	NetSocket::NetSocket(const std::string StrIP, const std::string StrPort) : Address(new NetAddress(StrIP, StrPort)),
+	void NetSocket::Bind(NetAddress* MyAddress)
+	{
+		Address = MyAddress;
+		//	Bind our servers socket so we can listen for data
+		if (bind(Socket, Address->AddrInfo()->ai_addr, (int)Address->AddrInfo()->ai_addrlen) == SOCKET_ERROR) { printf("Bind Failed(%i)\n", WSAGetLastError()); }
+	}
+
+	NetSocket::NetSocket(std::string StrIP, std::string StrPort) :
 		Address_Buffer(new char[sizeof(SOCKADDR_INET)*(MaxSends + MaxReceives)]),
 		Data_Buffer(new char[PacketSize*(MaxSends + MaxReceives)]), Overlapped(new OVERLAPPED()),
 		Socket(WSASocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, NULL, WSA_FLAG_REGISTERED_IO)),
@@ -144,20 +125,8 @@ namespace PeerNet
 		//	Make sure our socket was created properly
 		if (Socket == INVALID_SOCKET) { printf("Socket Failed(%i)\n", WSAGetLastError()); }
 
-		//	Bind our servers socket so we can listen for data
-		if (bind(Socket, Address->AddrInfo()->ai_addr, (int)Address->AddrInfo()->ai_addrlen) == SOCKET_ERROR) { printf("Bind Failed(%i)\n", WSAGetLastError()); }
-
 		//	Initialize RIO on this socket
-		GUID functionTableID = WSAID_MULTIPLE_RIO;
-		DWORD dwBytes = 0;
-		if (WSAIoctl(Socket, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER,
-			&functionTableID,
-			sizeof(GUID),
-			(void**)&g_rio,
-			sizeof(g_rio),
-			&dwBytes, 0, 0) == SOCKET_ERROR) {
-			printf("RIO Failed(%i)\n", WSAGetLastError());
-		}
+		PeerNet::InitializeRIO(Socket);
 
 		//	Create Completion Queue
 		RIO_NOTIFICATION_COMPLETION CompletionType;
@@ -215,9 +184,9 @@ namespace PeerNet
 				}
 			}
 		}
+		//
 		if (g_rio.RIONotify(CompletionQueue) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
 
-		//	Set Priority
 		printf("\tListening On - %s\n", Address->FormattedAddress());
 	}
 

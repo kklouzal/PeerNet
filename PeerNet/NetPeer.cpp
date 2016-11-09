@@ -2,10 +2,8 @@
 
 namespace PeerNet
 {
-	//
-	//	Default Constructor
-	NetPeer::NetPeer(const std::string StrIP, const std::string StrPort, NetSocket*const DefaultSocket)
-		: Address(new NetAddress(StrIP, StrPort)), Socket(DefaultSocket),
+	NetPeer::NetPeer(NetSocket*const DefaultSocket, NetAddress*const NetAddr)
+		: Address(NetAddr), Socket(DefaultSocket),
 		CH_KOL(new KeepAliveChannel(this, PN_KeepAlive)),
 		CH_Ordered(new OrderedChannel(this, PN_Ordered)),
 		CH_Reliable(new ReliableChannel(this, PN_Reliable)),
