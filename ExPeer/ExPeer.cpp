@@ -31,10 +31,12 @@ int main()
 	//	
 
 
+
+	PeerNet::Initialize();
+
 	PeerNet::NetSocket* Socket = nullptr;
 	PeerNet::NetPeer* Peer = nullptr;
 
-	PeerNet::Initialize();
 	while (std::getline(std::cin, ConsoleInput))
 	{
 		if (ConsoleInput == "quit")	{
@@ -84,7 +86,13 @@ int main()
 				std::string InputPort;
 				std::getline(std::cin, InputPort);
 				if (InputIP.empty() || InputPort.empty()) { printf("Invalid Arguments\n"); continue; }
-				Peer = PeerNet::ConnectPeer(InputIP,InputPort,Socket);
+				if (Socket == nullptr)
+				{
+					Peer = PeerNet::ConnectPeer(InputIP, InputPort, PeerNet::LoopBack());
+				}
+				else {
+					Peer = PeerNet::ConnectPeer(InputIP, InputPort, Socket);
+				}
 			}
 		}
 		else if (ConsoleInput == "forget")

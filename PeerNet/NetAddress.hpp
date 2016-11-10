@@ -18,7 +18,7 @@ struct NetAddress : public RIO_BUF
 	string Address;
 	addrinfo* Results;
 
-	NetAddress() : RIO_BUF() {}
+	NetAddress() : Address(), RIO_BUF() {}
 
 	//	Resolve initializes the NetAddress from an IP address or hostname along with a port number
 	void Resolve(string StrHost, string StrPort)
@@ -30,7 +30,6 @@ struct NetAddress : public RIO_BUF
 		Hint.ai_socktype = SOCK_DGRAM;
 		Hint.ai_protocol = IPPROTO_UDP;
 		Hint.ai_flags = AI_PASSIVE;
-
 		//	Resolve the End Hosts addrinfo
 		if (getaddrinfo(StrHost.c_str(), StrPort.c_str(), &Hint, &Results) != 0) { printf("NetAddress GetAddrInfo Failed %i\n", WSAGetLastError()); }
 
@@ -65,7 +64,8 @@ class AddressPool
 
 public:
 	mutex AddrMutex;
-	unordered_map<PCHAR, T> Objects;
+	//unordered_map<SOCKADDR_INET, T> Objects;
+	unordered_map<string, T> Objects;
 	deque<NetAddress*> UsedAddr;
 	deque<NetAddress*> UnusedAddr;
 	RIO_BUFFERID Addr_BufferID;
@@ -77,51 +77,74 @@ public:
 
 	~AddressPool() { delete[] Addr_Buffer; }
 
-	T GetExisting(PCHAR AddrBuff)
+	T GetExisting(SOCKADDR_INET* AddrBuff)
 	{
 		//	Check if we already have a connected object with this address
 		AddrMutex.lock();
-		if (Objects.count(AddrBuff))
+		const string SenderIP(inet_ntoa(AddrBuff->Ipv4.sin_addr));
+		const string SenderPort(to_string(ntohs(AddrBuff->Ipv4.sin_port)));
+		const string Formatted = SenderIP + string(":") + SenderPort;
+		//if (Objects.count(AddrBuff))
+		if (Objects.count(Formatted))
 		{
-			T ThisObject = Objects.at(AddrBuff);
+			//T ThisObject = Objects.at(AddrBuff);
+			T ThisObject = Objects.at(Formatted);
 			AddrMutex.unlock();
 			return ThisObject;	//	Already have a connected object for this ip/port
 		}
+		AddrMutex.unlock();
 		return nullptr;	//	No connected object exists
 	}
 
-	const bool New(string StrIP, string StrPort, T ExistingObj, NetAddress* NewAddr)
+	NetAddress* FreeAddress()
 	{
-		ExistingObj = nullptr;
-		NewAddr = nullptr;
 		AddrMutex.lock();
-		if (UnusedAddr.empty()) { AddrMutex.unlock(); return false; }	//	No available objects to hand out
+		if (UnusedAddr.empty()) { AddrMutex.unlock(); return nullptr; }
 
 		NetAddress* NewAddress = UnusedAddr.back();
 		UsedAddr.push_front(UnusedAddr.back());
 		UnusedAddr.pop_back();
+		AddrMutex.unlock();
+		return NewAddress;
+	}
 
+	const bool New(string StrIP, string StrPort, T& ExistingObj, NetAddress*& NewAddr)
+	{
+		AddrMutex.lock();
+		printf("Available Addresses: %I64u\n", UnusedAddr.size());
+		if (UnusedAddr.empty()) { AddrMutex.unlock(); return false; }	//	No available objects to hand out
+
+		NewAddr = UnusedAddr.back();
+		UsedAddr.push_front(UnusedAddr.back());
+		UnusedAddr.pop_back();
+
+		printf("\t Resolve\n");
 		//	resolve our Address from the supplied IP and Port
-		NewAddress->Resolve(StrIP, StrPort);
+		NewAddr->Resolve(StrIP, StrPort);
 
-		std::memcpy(&Addr_Buffer[NewAddress->Offset], SendPacket->GetPeer()->SockAddr(), sizeof(SOCKADDR_INET));
+		printf("\t Copy\n");
+		std::memcpy(&Addr_Buffer[NewAddr->Offset], NewAddr->AddrInfo()->ai_addr, sizeof(SOCKADDR_INET));
 
-
+		printf("\t Count\n");
 		//	Check if we already have a connected object with this address
-		if (Objects.count(&Addr_Buffer[NewAddress->Offset]))
+		//if (Objects.count((SOCKADDR_INET*)NewAddr->AddrInfo()->ai_addr))
+		if (Objects.count(NewAddr->FormattedAddress()))
 		{
-			T ThisObject = Objects.at(&Addr_Buffer[NewAddress->Offset]);
+			//ExistingObj = Objects.at((SOCKADDR_INET*)NewAddr->AddrInfo()->ai_addr);
+			ExistingObj = Objects.at(NewAddr->FormattedAddress());
 			AddrMutex.unlock();
-			ExistingObj = ThisObject;
 			return false;	//	Already have a connected object for this ip/port
 		}
+		printf("\t true\n");
+		AddrMutex.unlock();
 		return true;	//	Go ahead and create a new object
 	}
 
 	void InsertConnected(NetAddress* Address, T NewObject)
 	{
 		AddrMutex.lock();
-		Objects.emplace(&Addr_Buffer[Address->Offset], NewObject);
+		//Objects.emplace((SOCKADDR_INET*)Address->AddrInfo()->ai_addr, NewObject);
+		Objects.emplace(Address->FormattedAddress(), NewObject);
 		AddrMutex.unlock();
 	}
 };

@@ -11,6 +11,7 @@ namespace PeerNet
 		TimedEvent(std::chrono::milliseconds(25), 0)	//	Clients 'Tick' every 0.025 second until they're destroyed
 	{
 		//	Send out our discovery request
+		printf("Create Discovery Packet\n");
 		auto DiscoveryPacket = CreateNewPacket(PN_Reliable);
 		DiscoveryPacket->WriteData<std::string>("Read - Discovery Packet\n");
 		SendPacket(DiscoveryPacket.get());
@@ -61,7 +62,9 @@ namespace PeerNet
 
 	//	Send a packet
 	//	External usage only and as a means to introduce a packet into a socket for transmission
-	void NetPeer::SendPacket(NetPacket* Packet) { Socket->PostCompletion<NetPacket*>(CK_SEND, Packet); }
+	void NetPeer::SendPacket(NetPacket* Packet) {
+		Socket->PostCompletion<NetPacket*>(CK_SEND, Packet);
+	}
 	//
 	//	Called from a NetSocket's Receive Thread
 	void NetPeer::ReceivePacket(NetPacket* IncomingPacket)

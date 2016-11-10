@@ -66,7 +66,6 @@ namespace PeerNet
 
 		NetAddress* Address;
 		SOCKET Socket;
-		RIO_EXTENSION_FUNCTION_TABLE g_rio;
 
 		std::mutex RioMutex_Send;
 		std::mutex RioMutex_Receive;
@@ -93,7 +92,7 @@ namespace PeerNet
 		//	Resolve the input address
 		//	Create our Socket
 		//	Initialize our Base Class (ThreadPoolIOCP) and use a lambda to specify each threads completion function
-		NetSocket(std::string StrIP, std::string StrPort);
+		NetSocket();
 		~NetSocket();
 
 		void Bind(NetAddress* MyAddress);

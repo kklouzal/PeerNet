@@ -67,6 +67,8 @@ namespace PeerNet
 	//	Deinitialize PeerNet
 	void Deinitialize();
 
+	NetSocket*const LoopBack();
+
 	//	Creates a socket and starts listening at the specified IP and Port
 	//	Returns socket if it already exists
 	NetSocket*const OpenSocket(string StrIP, string StrPort);
@@ -77,5 +79,5 @@ namespace PeerNet
 
 	//	Checks for an existing connected peer and returns it
 	//	Or returns a newly constructed NetPeer and immediatly sends the discovery packet
-	NetPeer*const GetPeer(PCHAR const AddrBuff, NetSocket* DefaultSocket);
+	NetPeer*const GetPeer(SOCKADDR_INET* AddrBuff, NetSocket* DefaultSocket);
 }
