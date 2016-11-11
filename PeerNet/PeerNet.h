@@ -3,6 +3,7 @@
 // This file will be included in their .cpp files
 
 // Winsock2 Headers
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
 #define WIN32_LEAN_AND_MEAN
 #include <WS2tcpip.h>
 #include <WinSock2.h>
@@ -44,13 +45,10 @@ namespace PeerNet
 		PN_Reliable = 2,
 		PN_Unreliable = 3
 	};
-	class SocketRequest;
 	class NetPeer;
 	class NetSocket;
 	class NetPacket;
 
-	//	Initialize RIO On an individual socket
-	void InitializeRIO(SOCKET Socket);
 	//	Returns access to the RIO Function Table
 	RIO_EXTENSION_FUNCTION_TABLE RIO();
 }
@@ -66,8 +64,6 @@ namespace PeerNet
 	void Initialize();
 	//	Deinitialize PeerNet
 	void Deinitialize();
-
-	NetSocket*const LoopBack();
 
 	//	Creates a socket and starts listening at the specified IP and Port
 	//	Returns socket if it already exists

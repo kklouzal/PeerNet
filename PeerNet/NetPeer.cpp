@@ -10,11 +10,7 @@ namespace PeerNet
 		CH_Unreliable(new UnreliableChannel(this, PN_Unreliable)),
 		TimedEvent(std::chrono::milliseconds(25), 0)	//	Clients 'Tick' every 0.025 second until they're destroyed
 	{
-		//	Send out our discovery request
-		printf("Create Discovery Packet\n");
-		auto DiscoveryPacket = CreateNewPacket(PN_Reliable);
-		DiscoveryPacket->WriteData<std::string>("Read - Discovery Packet\n");
-		SendPacket(DiscoveryPacket.get());
+		//	Start the Keep-Alive sequence which will initiate the connection
 		this->StartTimer();
 		printf("Create Peer - %s\n", Address->FormattedAddress());
 	}
@@ -69,6 +65,9 @@ namespace PeerNet
 	//	Called from a NetSocket's Receive Thread
 	void NetPeer::ReceivePacket(NetPacket* IncomingPacket)
 	{
+		//	Disreguard any incoming packets for this peer if our Keep-Alive sequence isnt active
+		if (!TimerRunning()) { return; }
+
 		switch (IncomingPacket->GetType()) {
 
 		case PN_KeepAlive:
@@ -94,7 +93,7 @@ namespace PeerNet
 			if (CH_Unreliable->Receive(IncomingPacket))
 			{
 				//	Call packet's callback function?
-				printf("Unreliable - %s\n", IncomingPacket->ReadData<std::string>().c_str());
+				printf("Unreliable - %d - %s\n", IncomingPacket->GetPacketID(), IncomingPacket->ReadData<std::string>().c_str());
 				//	For now just delete the IncomingPacket
 				delete IncomingPacket;
 			}
@@ -103,21 +102,15 @@ namespace PeerNet
 			if (CH_Reliable->Receive(IncomingPacket))
 			{
 				//	Call packet's callback function?
-				printf("Reliable - %s", IncomingPacket->ReadData<std::string>().c_str());
+				printf("Reliable - %d - %s\n", IncomingPacket->GetPacketID(), IncomingPacket->ReadData<std::string>().c_str());
 				//	For now just delete the IncomingPacket
 				delete IncomingPacket;
 			}
 		break;
-		case PN_Ordered:
-			if (CH_Ordered->Receive(IncomingPacket))
-			{
-				//	Call packet's callback function?
-				printf("Ordered - %s", IncomingPacket->ReadData<std::string>().c_str());
-				//	For now just delete the IncomingPacket
-				delete IncomingPacket;
-			}
-		break;
-		default:	printf("Recv Unknown Packet Type\n");
+		//	Ordered packeds need processed inside their Receive function
+		case PN_Ordered:	CH_Ordered->Receive(IncomingPacket); break;
+		//	Default case for unknown packet type
+		default:			printf("Recv Unknown Packet Type\n");
 		}
 	}
 }

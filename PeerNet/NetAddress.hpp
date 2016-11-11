@@ -81,9 +81,7 @@ public:
 	{
 		//	Check if we already have a connected object with this address
 		AddrMutex.lock();
-		const string SenderIP(inet_ntoa(AddrBuff->Ipv4.sin_addr));
-		const string SenderPort(to_string(ntohs(AddrBuff->Ipv4.sin_port)));
-		const string Formatted = SenderIP + string(":") + SenderPort;
+		const string Formatted = inet_ntoa(AddrBuff->Ipv4.sin_addr) + string(":") + to_string(ntohs(AddrBuff->Ipv4.sin_port));
 		//if (Objects.count(AddrBuff))
 		if (Objects.count(Formatted))
 		{
@@ -111,21 +109,17 @@ public:
 	const bool New(string StrIP, string StrPort, T& ExistingObj, NetAddress*& NewAddr)
 	{
 		AddrMutex.lock();
-		printf("Available Addresses: %I64u\n", UnusedAddr.size());
 		if (UnusedAddr.empty()) { AddrMutex.unlock(); return false; }	//	No available objects to hand out
 
 		NewAddr = UnusedAddr.back();
 		UsedAddr.push_front(UnusedAddr.back());
 		UnusedAddr.pop_back();
 
-		printf("\t Resolve\n");
 		//	resolve our Address from the supplied IP and Port
 		NewAddr->Resolve(StrIP, StrPort);
 
-		printf("\t Copy\n");
 		std::memcpy(&Addr_Buffer[NewAddr->Offset], NewAddr->AddrInfo()->ai_addr, sizeof(SOCKADDR_INET));
 
-		printf("\t Count\n");
 		//	Check if we already have a connected object with this address
 		//if (Objects.count((SOCKADDR_INET*)NewAddr->AddrInfo()->ai_addr))
 		if (Objects.count(NewAddr->FormattedAddress()))
@@ -135,7 +129,6 @@ public:
 			AddrMutex.unlock();
 			return false;	//	Already have a connected object for this ip/port
 		}
-		printf("\t true\n");
 		AddrMutex.unlock();
 		return true;	//	Go ahead and create a new object
 	}

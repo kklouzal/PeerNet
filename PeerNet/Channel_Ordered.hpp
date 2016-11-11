@@ -38,9 +38,10 @@ namespace PeerNet
 			else if (IN_Packet->GetPacketID() == In_LastID + 1)
 			{
 				++In_LastID;
-#ifdef _DEBUG_PACKETS_ORDERED
-				printf("Process Ordered Packet - %u\n", IN_Packet->GetPacketID());
-#endif
+//#ifdef _DEBUG_PACKETS_ORDERED
+				printf("Ordered - %d - %s\tNew\n", IN_Packet->GetPacketID(), IN_Packet->ReadData<std::string>().c_str());
+//#endif
+				delete IN_Packet;	//	Cleanup the NetPacket's memory
 				//	Check the container against our new counter value
 				while (!IN_OrderedPkts.empty())
 				{
@@ -50,9 +51,9 @@ namespace PeerNet
 					if (got == IN_OrderedPkts.end()) { In_Mutex.unlock(); return true; }
 					//	Found; increment counter; process packet; continue searching
 					++In_LastID;
-#ifdef _DEBUG_PACKETS_ORDERED
-					printf("\tProcess Stored Packet - %u\n", got->first);
-#endif
+//#ifdef _DEBUG_PACKETS_ORDERED
+					printf("Ordered - %d - %s\tStored\n", got->first, got->second->ReadData<std::string>().c_str());
+//#endif
 					IN_OrderedPkts.erase(got);
 				}
 			}

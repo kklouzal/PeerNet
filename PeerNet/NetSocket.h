@@ -85,16 +85,7 @@ namespace PeerNet
 		void OnCompletion(ThreadEnvironment*const Env, const DWORD numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED*const pOverlapped);
 
 	public:
-		//	NetSocket Constructor
-		//
-		//	args	-	StrIP, StrPort	-	IP and Port this socket will bind to
-		//
-		//	Resolve the input address
-		//	Create our Socket
-		//	Initialize our Base Class (ThreadPoolIOCP) and use a lambda to specify each threads completion function
-		NetSocket();
+		NetSocket(NetAddress* MyAddress);
 		~NetSocket();
-
-		void Bind(NetAddress* MyAddress);
 	};
 }

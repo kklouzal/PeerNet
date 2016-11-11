@@ -37,6 +37,8 @@ int main()
 	PeerNet::NetSocket* Socket = nullptr;
 	PeerNet::NetPeer* Peer = nullptr;
 
+	//	New Line before first command entry
+	printf("\n");
 	while (std::getline(std::cin, ConsoleInput))
 	{
 		if (ConsoleInput == "quit")	{
@@ -77,7 +79,7 @@ int main()
 		}
 		else if (ConsoleInput == "discover")
 		{
-			if (Peer == nullptr)
+			if (Peer == nullptr && Socket != nullptr)
 			{
 				printf("IP Address: ");
 				std::string InputIP;
@@ -86,13 +88,7 @@ int main()
 				std::string InputPort;
 				std::getline(std::cin, InputPort);
 				if (InputIP.empty() || InputPort.empty()) { printf("Invalid Arguments\n"); continue; }
-				if (Socket == nullptr)
-				{
-					Peer = PeerNet::ConnectPeer(InputIP, InputPort, PeerNet::LoopBack());
-				}
-				else {
-					Peer = PeerNet::ConnectPeer(InputIP, InputPort, Socket);
-				}
+				Peer = PeerNet::ConnectPeer(InputIP, InputPort, Socket);
 			}
 		}
 		else if (ConsoleInput == "forget")
@@ -149,6 +145,9 @@ int main()
 		{
 			printf("\tKeep-Alive RTT:\t%.3fms\n", Peer->RTT_KOL());
 		}
+
+		//	New Line before next command entry
+		printf("\n");
 	}
 	std::system("PAUSE");
 	return 0;

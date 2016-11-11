@@ -108,30 +108,15 @@ namespace PeerNet
 		//
 	}
 
-	void NetSocket::Bind(NetAddress* MyAddress)
-	{
-		printf("Socket Bind\n");
-		Address = MyAddress;
-		//	Bind our servers socket so we can listen for data
-		if (bind(Socket, Address->AddrInfo()->ai_addr, (int)Address->AddrInfo()->ai_addrlen) == SOCKET_ERROR) { printf("Bind Failed(%i)\n", WSAGetLastError()); }
-		//
-		if (RIO().RIONotify(CompletionQueue) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
-		printf("\tListening On - %s\n", Address->FormattedAddress());
-	}
-
-	NetSocket::NetSocket() :
+	NetSocket::NetSocket(NetAddress* MyAddress) : Address(MyAddress),
 		Address_Buffer(new char[sizeof(SOCKADDR_INET)*(MaxSends + MaxReceives)]),
 		Data_Buffer(new char[PacketSize*(MaxSends + MaxReceives)]), Overlapped(new OVERLAPPED()),
 		Socket(WSASocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, NULL, WSA_FLAG_REGISTERED_IO)),
-		RioMutex_Send(), RioMutex_Receive(),
-		ThreadPoolIOCP()
+		RioMutex_Send(), RioMutex_Receive(), ThreadPoolIOCP()
 	{
 		printf("Initialize Socket\n");
 		//	Make sure our socket was created properly
 		if (Socket == INVALID_SOCKET) { printf("Socket Failed(%i)\n", WSAGetLastError()); }
-
-		//	Initialize RIO on this socket
-		PeerNet::InitializeRIO(Socket);
 
 		//	Create Completion Queue
 		RIO_NOTIFICATION_COMPLETION CompletionType;
@@ -189,6 +174,12 @@ namespace PeerNet
 				}
 			}
 		}
+
+		//	Finally bind our servers socket so we can listen for data
+		if (bind(Socket, Address->AddrInfo()->ai_addr, (int)Address->AddrInfo()->ai_addrlen) == SOCKET_ERROR) { printf("Bind Failed(%i)\n", WSAGetLastError()); }
+		//
+		if (RIO().RIONotify(CompletionQueue) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
+		printf("\tListening On - %s\n", Address->FormattedAddress());
 	}
 
 	//	NetSocket Destructor
