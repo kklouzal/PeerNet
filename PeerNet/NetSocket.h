@@ -64,9 +64,8 @@ namespace PeerNet
 
 		const DWORD SendsPerThread = MaxSends / MaxThreads;
 
-		const NetAddress*const Address;
+		NetAddress* Address;
 		SOCKET Socket;
-		RIO_EXTENSION_FUNCTION_TABLE g_rio;
 
 		std::mutex RioMutex_Send;
 		std::mutex RioMutex_Receive;
@@ -86,19 +85,7 @@ namespace PeerNet
 		void OnCompletion(ThreadEnvironment*const Env, const DWORD numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED*const pOverlapped);
 
 	public:
-		//	NetSocket Constructor
-		//
-		//	args	-	StrIP, StrPort	-	IP and Port this socket will bind to
-		//
-		//	Resolve the input address
-		//	Create our Socket
-		//	Initialize our Base Class (ThreadPoolIOCP) and use a lambda to specify each threads completion function
-		NetSocket(const std::string StrIP, const std::string StrPort);
+		NetSocket(NetAddress* MyAddress);
 		~NetSocket();
-
 	};
-
-	//	Checks for an existing connected peer and returns it
-	//	Or returns a newly constructed NetPeer and immediatly sends the discovery packet
-	NetPeer*const RetrievePeer(const std::string FormattedAddress, NetSocket*const Socket);
 }

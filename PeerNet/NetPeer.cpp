@@ -1,21 +1,17 @@
 #include "PeerNet.h"
+#include "lz4.h"
 
 namespace PeerNet
 {
-	//
-	//	Default Constructor
-	NetPeer::NetPeer(const std::string StrIP, const std::string StrPort, NetSocket*const DefaultSocket)
-		: Address(new NetAddress(StrIP, StrPort)), Socket(DefaultSocket),
+	NetPeer::NetPeer(NetSocket*const DefaultSocket, NetAddress*const NetAddr)
+		: Address(NetAddr), Socket(DefaultSocket),
 		CH_KOL(new KeepAliveChannel(this, PN_KeepAlive)),
 		CH_Ordered(new OrderedChannel(this, PN_Ordered)),
 		CH_Reliable(new ReliableChannel(this, PN_Reliable)),
 		CH_Unreliable(new UnreliableChannel(this, PN_Unreliable)),
 		TimedEvent(std::chrono::milliseconds(25), 0)	//	Clients 'Tick' every 0.025 second until they're destroyed
 	{
-		//	Send out our discovery request
-		auto DiscoveryPacket = CreateNewPacket(PN_Reliable);
-		DiscoveryPacket->WriteData<std::string>("Read - Discovery Packet\n");
-		SendPacket(DiscoveryPacket.get());
+		//	Start the Keep-Alive sequence which will initiate the connection
 		this->StartTimer();
 		printf("Create Peer - %s\n", Address->FormattedAddress());
 	}
@@ -63,11 +59,41 @@ namespace PeerNet
 
 	//	Send a packet
 	//	External usage only and as a means to introduce a packet into a socket for transmission
-	void NetPeer::SendPacket(NetPacket* Packet) { Socket->PostCompletion<NetPacket*>(CK_SEND, Packet); }
+	void NetPeer::SendPacket(NetPacket* Packet) {
+		Socket->PostCompletion<NetPacket*>(CK_SEND, Packet);
+	}
 	//
-	//	Called from a NetSocket's Receive Thread
-	void NetPeer::ReceivePacket(NetPacket* IncomingPacket)
+	//	Called from a NetSocket's Send function
+	//	OUT_Packet = Outgoing packet being compressed
+	//	DataBuffer = Preallocated buffer to store our compressed data
+	//	MaxDataSize = Maximum allowed size after compression
+	//	Return Value - Any integer greater than 0 for success
+	const int NetPeer::CompressPacket(NetPacket*const OUT_Packet, PCHAR DataBuffer, const u_int MaxDataSize)
 	{
+		return LZ4_compress_default(OUT_Packet->GetData().c_str(), DataBuffer, (int)OUT_Packet->GetDataSize(), MaxDataSize);
+	}
+	//
+	//	Called from a NetSocket's Receive function
+	//	TypeID = Type of incoming packet
+	//	IncomingData = Raw incoming data payload
+	//	DataSize = IncomingData size
+	//	MaxDataSize = Maximum allowed size after decompression
+	//	CompressionBuffer = Preallocated buffer for use during decompression
+	void NetPeer::ReceivePacket(u_short TypeID, const PCHAR IncomingData, const u_int DataSize, const u_int MaxDataSize, char*const CompressionBuffer)
+	{
+		//	Disreguard any incoming packets for this peer if our Keep-Alive sequence isnt active
+		if (!TimerRunning()) { return; }
+
+		//	Decompress the incoming data payload
+		const int DecompressResult = LZ4_decompress_safe(IncomingData, CompressionBuffer, DataSize, MaxDataSize);
+
+		//	Return if decompression fails
+		if (DecompressResult < 0) { printf("Receive Packet - Decompression Failed!\n"); return; }
+
+		//	Instantiate a NetPacket from our decompressed data
+		NetPacket*const IncomingPacket = new NetPacket(std::string(CompressionBuffer, DecompressResult));
+
+		//	Process the packet as needed
 		switch (IncomingPacket->GetType()) {
 
 		case PN_KeepAlive:
@@ -93,7 +119,7 @@ namespace PeerNet
 			if (CH_Unreliable->Receive(IncomingPacket))
 			{
 				//	Call packet's callback function?
-				printf("Unreliable - %s\n", IncomingPacket->ReadData<std::string>().c_str());
+				printf("Unreliable - %d - %s\n", IncomingPacket->GetPacketID(), IncomingPacket->ReadData<std::string>().c_str());
 				//	For now just delete the IncomingPacket
 				delete IncomingPacket;
 			}
@@ -102,21 +128,15 @@ namespace PeerNet
 			if (CH_Reliable->Receive(IncomingPacket))
 			{
 				//	Call packet's callback function?
-				printf("Reliable - %s", IncomingPacket->ReadData<std::string>().c_str());
+				printf("Reliable - %d - %s\n", IncomingPacket->GetPacketID(), IncomingPacket->ReadData<std::string>().c_str());
 				//	For now just delete the IncomingPacket
 				delete IncomingPacket;
 			}
 		break;
-		case PN_Ordered:
-			if (CH_Ordered->Receive(IncomingPacket))
-			{
-				//	Call packet's callback function?
-				printf("Ordered - %s", IncomingPacket->ReadData<std::string>().c_str());
-				//	For now just delete the IncomingPacket
-				delete IncomingPacket;
-			}
-		break;
-		default:	printf("Recv Unknown Packet Type\n");
+		//	Ordered packeds need processed inside their Receive function
+		case PN_Ordered:	CH_Ordered->Receive(IncomingPacket); break;
+		//	Default case for unknown packet type
+		default:			printf("Recv Unknown Packet Type\n");
 		}
 	}
 }

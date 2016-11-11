@@ -31,10 +31,14 @@ int main()
 	//	
 
 
+
+	PeerNet::Initialize();
+
 	PeerNet::NetSocket* Socket = nullptr;
 	PeerNet::NetPeer* Peer = nullptr;
 
-	PeerNet::Initialize();
+	//	New Line before first command entry
+	printf("\n");
 	while (std::getline(std::cin, ConsoleInput))
 	{
 		if (ConsoleInput == "quit")	{
@@ -62,7 +66,7 @@ int main()
 				std::string InputPort;
 				std::getline(std::cin, InputPort);
 				if (InputIP.empty() || InputPort.empty()) { printf("Invalid Arguments\n"); continue; }
-				Socket = new PeerNet::NetSocket(InputIP, InputPort);
+				Socket = PeerNet::OpenSocket(InputIP, InputPort);
 			}
 		}
 		else if (ConsoleInput == "close")
@@ -75,7 +79,7 @@ int main()
 		}
 		else if (ConsoleInput == "discover")
 		{
-			if (Peer == nullptr)
+			if (Peer == nullptr && Socket != nullptr)
 			{
 				printf("IP Address: ");
 				std::string InputIP;
@@ -84,7 +88,7 @@ int main()
 				std::string InputPort;
 				std::getline(std::cin, InputPort);
 				if (InputIP.empty() || InputPort.empty()) { printf("Invalid Arguments\n"); continue; }
-				Peer = PeerNet::RetrievePeer(InputIP + std::string(":") + InputPort, Socket);
+				Peer = PeerNet::ConnectPeer(InputIP, InputPort, Socket);
 			}
 		}
 		else if (ConsoleInput == "forget")
@@ -141,6 +145,9 @@ int main()
 		{
 			printf("\tKeep-Alive RTT:\t%.3fms\n", Peer->RTT_KOL());
 		}
+
+		//	New Line before next command entry
+		printf("\n");
 	}
 	std::system("PAUSE");
 	return 0;

@@ -21,6 +21,7 @@ public:
 
 	void StartTimer() { Running = true; }
 	void StopTimer() { Running = false; }
+	const bool TimerRunning() const { return Running; }
 
 	//	Constructor
 	TimedEvent(std::chrono::milliseconds Interval, const unsigned char iMaxTicks) :
@@ -45,5 +46,6 @@ public:
 			printf("\tDestroy Timed Event\n");
 			Abort = true;
 			TimedThread.join();
+			printf("\tTimed Event Destroyed\n");
 		}
 };

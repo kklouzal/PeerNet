@@ -6,7 +6,7 @@ namespace PeerNet
 {
 	class NetPeer : public TimedEvent
 	{
-		const NetAddress*const Address;
+		NetAddress*const Address;
 
 		KeepAliveChannel* CH_KOL;
 		OrderedChannel* CH_Ordered;
@@ -19,7 +19,9 @@ namespace PeerNet
 	public:
 		NetSocket*const Socket;
 
-		NetPeer(const std::string StrIP, const std::string StrPort, NetSocket*const DefaultSocket);
+		NetPeer(NetSocket*const DefaultSocket, NetAddress*const NetAddr);
+
+		//NetPeer(const std::string StrIP, const std::string StrPort, NetSocket*const DefaultSocket);
 		~NetPeer();
 
 		//	Construct and return a NetPacket to fill and send to this NetPeer
@@ -40,12 +42,15 @@ namespace PeerNet
 			return CH_Unreliable->NewPacket();
 		}
 
-		void ReceivePacket(NetPacket* IncomingPacket);
+		void ReceivePacket(u_short TypeID, const PCHAR IncomingData, const u_int DataSize, const u_int MaxDataSize, char*const CompressionBuffer);
 		void SendPacket(NetPacket* Packet);
+
+		const int CompressPacket(NetPacket * const OUT_Packet, PCHAR DataBuffer, const u_int MaxDataSize);
 
 		const auto RTT_KOL() const { return CH_KOL->RTT(); }
 
-		const auto FormattedAddress() const { return Address->FormattedAddress(); }
-		const auto SockAddr() const { return Address->SockAddr(); }
+		NetAddress*const GetAddress() const { return Address; }
+		//const auto FormattedAddress() const { return Address->FormattedAddress(); }
+		//const auto SockAddr() const { return Address->SockAddr(); }
 	};
 }

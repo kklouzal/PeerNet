@@ -3,6 +3,7 @@
 // This file will be included in their .cpp files
 
 // Winsock2 Headers
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
 #define WIN32_LEAN_AND_MEAN
 #include <WS2tcpip.h>
 #include <WinSock2.h>
@@ -30,19 +31,26 @@
 //	Performance Tuning
 //#define _PERF_SPINLOCK	//	Higher CPU Usage for more responsive packet handling; lower latencies
 
+#define LOOPBACK_PORT 9999
+#define MaxPeers 1024
+#define MaxSockets 32
+
 // Core Classes
 namespace PeerNet
 {
-	enum PacketType : unsigned char
+	enum PacketType : unsigned short
 	{
 		PN_KeepAlive = 0,
 		PN_Ordered = 1,
 		PN_Reliable = 2,
 		PN_Unreliable = 3
 	};
-	class SocketRequest;
 	class NetPeer;
 	class NetSocket;
+	class NetPacket;
+
+	//	Returns access to the RIO Function Table
+	RIO_EXTENSION_FUNCTION_TABLE RIO();
 }
 
 #include "NetAddress.hpp"
@@ -52,23 +60,20 @@ namespace PeerNet
 
 namespace PeerNet
 {
-	//
-	//	Basically takes the place of a formal outgoing packet
-	/*class SocketRequest : public OVERLAPPED
-	{
-	public:
-		SocketRequest(shared_ptr<NetPacket> OutgoingPacket, NetPeer*const DestinationPeer) : Packet(OutgoingPacket), Destination(DestinationPeer) {}
-		shared_ptr<NetPacket> Packet;
-		NetPeer*const Destination;
-
-		const auto GetData() const { return Packet->GetData(); }
-		const auto GetDataSize() const { return Packet->GetDataSize(); }
-		const auto GetSockAddr() const { return Destination->SockAddr(); }
-		const auto GetCreationTime() const { return Packet->GetCreationTime(); }
-	};*/
-
 	//	Initialize PeerNet
 	void Initialize();
 	//	Deinitialize PeerNet
 	void Deinitialize();
+
+	//	Creates a socket and starts listening at the specified IP and Port
+	//	Returns socket if it already exists
+	NetSocket*const OpenSocket(string StrIP, string StrPort);
+
+	//	Creates and connects to a peer at the specified IP and Port
+	//	Returns peer if it already exists
+	NetPeer* const ConnectPeer(std::string StrIP, std::string StrPort, NetSocket* DefaultSocket);
+
+	//	Checks for an existing connected peer and returns it
+	//	Or returns a newly constructed NetPeer and immediatly sends the discovery packet
+	NetPeer*const GetPeer(SOCKADDR_INET* AddrBuff, NetSocket* DefaultSocket);
 }
