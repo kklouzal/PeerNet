@@ -38,7 +38,7 @@
 // Core Classes
 namespace PeerNet
 {
-	enum PacketType : unsigned char
+	enum PacketType : unsigned short
 	{
 		PN_KeepAlive = 0,
 		PN_Ordered = 1,

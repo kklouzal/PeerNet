@@ -1,4 +1,5 @@
 #include "PeerNet.h"
+#include "lz4.h"
 
 namespace PeerNet
 {
@@ -62,12 +63,37 @@ namespace PeerNet
 		Socket->PostCompletion<NetPacket*>(CK_SEND, Packet);
 	}
 	//
-	//	Called from a NetSocket's Receive Thread
-	void NetPeer::ReceivePacket(NetPacket* IncomingPacket)
+	//	Called from a NetSocket's Send function
+	//	OUT_Packet = Outgoing packet being compressed
+	//	DataBuffer = Preallocated buffer to store our compressed data
+	//	MaxDataSize = Maximum allowed size after compression
+	//	Return Value - Any integer greater than 0 for success
+	const int NetPeer::CompressPacket(NetPacket*const OUT_Packet, PCHAR DataBuffer, const u_int MaxDataSize)
+	{
+		return LZ4_compress_default(OUT_Packet->GetData().c_str(), DataBuffer, (int)OUT_Packet->GetDataSize(), MaxDataSize);
+	}
+	//
+	//	Called from a NetSocket's Receive function
+	//	TypeID = Type of incoming packet
+	//	IncomingData = Raw incoming data payload
+	//	DataSize = IncomingData size
+	//	MaxDataSize = Maximum allowed size after decompression
+	//	CompressionBuffer = Preallocated buffer for use during decompression
+	void NetPeer::ReceivePacket(u_short TypeID, const PCHAR IncomingData, const u_int DataSize, const u_int MaxDataSize, char*const CompressionBuffer)
 	{
 		//	Disreguard any incoming packets for this peer if our Keep-Alive sequence isnt active
 		if (!TimerRunning()) { return; }
 
+		//	Decompress the incoming data payload
+		const int DecompressResult = LZ4_decompress_safe(IncomingData, CompressionBuffer, DataSize, MaxDataSize);
+
+		//	Return if decompression fails
+		if (DecompressResult < 0) { printf("Receive Packet - Decompression Failed!\n"); return; }
+
+		//	Instantiate a NetPacket from our decompressed data
+		NetPacket*const IncomingPacket = new NetPacket(std::string(CompressionBuffer, DecompressResult));
+
+		//	Process the packet as needed
 		switch (IncomingPacket->GetType()) {
 
 		case PN_KeepAlive:

@@ -42,19 +42,8 @@ namespace PeerNet
 
 				case CK_RECEIVE:
 				{
-					//	Try to decompress the received data
-					const int CompressResult = LZ4_decompress_safe(&Data_Buffer[pBuffer->Offset], Env->Uncompressed_Data, Env->CompletionResults[CurResult].BytesTransferred, PacketSize);
-
-					//printf("Decompressed: %i->%i\n", CompletionResults[CurResult].BytesTransferred, CompressResult);
-
-					if (CompressResult > 0) {
-						//	Get which peer sent this data
-						//const std::string SenderIP(inet_ntoa(((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset])->Ipv4.sin_addr));
-						//const std::string SenderPort(std::to_string(ntohs(((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset])->Ipv4.sin_port)));
-						//	Determine which peer this packet belongs to and immediatly pass it to them for processing.
-						GetPeer((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset], this)->ReceivePacket(new NetPacket(std::string(Env->Uncompressed_Data, CompressResult)));
-					}
-					else { printf("\tPacket Decompression Failed\n"); }
+					//	Determine which peer this packet belongs to and pass the data payload off to our NetPeer so they can decompress it according to the TypeID
+					GetPeer((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset], this)->ReceivePacket(ntohs((u_short)&Data_Buffer[pBuffer->Offset]), &Data_Buffer[pBuffer->Offset+sizeof(u_short)], Env->CompletionResults[CurResult].BytesTransferred-sizeof(u_short), PacketSize-sizeof(u_short), Env->Uncompressed_Data);
 #ifdef _PERF_SPINLOCK
 					while (!RioMutex.try_lock()) {}
 #else
@@ -79,17 +68,21 @@ namespace PeerNet
 			PRIO_BUF_EXT pBuffer = Env->PopBuffer();
 			//	If we are out of buffers push the request back out for another thread to pick up
 			if (pBuffer == nullptr) { PostCompletion<NetPacket*>(CK_SEND, SendPacket); break; }
-			pBuffer->Length = LZ4_compress_default(SendPacket->GetData().c_str(), &Data_Buffer[pBuffer->Offset], (int)SendPacket->GetDataSize(), PacketSize);
+
+			//	Copy our TypeID into the beginning of the data buffer
+			u_short TypeID = htons(SendPacket->GetType());
+			std::memcpy(&Data_Buffer[pBuffer->Offset], &TypeID, sizeof(u_short));
+
+			//	Compress our outgoing packets data payload into the rest of the data buffer
+			pBuffer->Length = SendPacket->GetPeer()->CompressPacket(SendPacket, &Data_Buffer[pBuffer->Offset + sizeof(u_short)], PacketSize-sizeof(u_short))+sizeof(u_short);
+
+			//	If compression was successful, actually transmit our packet
 			if (pBuffer->Length > 0) {
 				//printf("Compressed: %i->%i\n", SendPacket->GetData().size(), pBuffer->Length);
 
 				//	This will allow the CK_SEND RIO completion to cleanup SendPacket when IsManaged() == true
 				pBuffer->NetPacket = SendPacket;
 
-				//	Instead of just waiting here spinning our wheels,
-				//	If we can't lock, add this send request into a queue and continue the thread
-				//	If we CAN lock, process our queue THEN process this request.
-				//	This will allow us to minimize contention and minimize wasted CPU cycles
 #ifdef _PERF_SPINLOCK
 				while (!RioMutex.try_lock()) {}
 #else
