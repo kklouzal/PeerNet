@@ -20,4 +20,5 @@
 #### Followed by a quick compression. ####
 >>Data Compression with LZ4 - https://github.com/Cyan4973/lz4
 
-Round Trip Time (RTT) for a reliable packet using localhost is 200μs (Microseconds) and 100μs for unreliable packets.
+Loopback Round Trip Time (RTT) for a reliable packet is sub-200μs (Microseconds).
+LAN tests put it around 800μs - Thats less than 1ms of overhead for a packet to travel to it's destination and for the host to receive a notification of delivery!
