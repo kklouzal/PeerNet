@@ -43,17 +43,17 @@ namespace PeerNet
 			: MyPeer(ThisPeer), ChannelID(ChanID), Out_Mutex(), Out_NextID(1), Out_Packets(), Out_LastACK(0), In_Mutex(), In_LastID(0) {}
 		//
 		const auto GetChannelID() const { return ChannelID; }
-		//	Initialize and return a new packet
-		shared_ptr<NetPacket> NewPacket()
+		//	Initialize and return a new packet for sending
+		shared_ptr<SendPacket> NewPacket()
 		{
 			Out_Mutex.lock();
-			shared_ptr<NetPacket> Packet = std::make_shared<NetPacket>(Out_NextID, GetChannelID(), MyPeer);
+			shared_ptr<SendPacket> Packet = std::make_shared<SendPacket>(Out_NextID, GetChannelID(), MyPeer);
 			Out_Packets[Out_NextID++] = Packet;
 			Out_Mutex.unlock();
 			return Packet;
 		}
 		//	Receives a packet
-		virtual const bool Receive(NetPacket* IN_Packet) = 0;
+		virtual const bool Receive(ReceivePacket* IN_Packet) = 0;
 		//	Get the largest received ID so far
 		const auto GetLastID() const { return In_LastID; }
 		//	Acknowledge delivery and processing of all packets up to this ID

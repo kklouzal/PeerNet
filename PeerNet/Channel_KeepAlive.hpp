@@ -12,7 +12,7 @@ namespace PeerNet
 		KeepAliveChannel(NetPeer* ThisPeer, PacketType ChannelID) : RollingRTT(35), Out_RTT(0), Channel(ThisPeer, ChannelID) {}
 
 		//	Receives a packet
-		const bool Receive(NetPacket* IN_Packet)
+		const bool Receive(ReceivePacket* IN_Packet)
 		{
 			if (IN_Packet->ReadData<bool>())
 			{

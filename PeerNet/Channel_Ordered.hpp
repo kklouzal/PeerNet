@@ -4,7 +4,7 @@ namespace PeerNet
 {
 	class OrderedChannel : public Channel
 	{
-		std::unordered_map<unsigned long, shared_ptr<NetPacket>> IN_OrderedPkts;	//	Incoming packets we cant process yet
+		std::unordered_map<unsigned long, shared_ptr<ReceivePacket>> IN_OrderedPkts;	//	Incoming packets we cant process yet
 		std::unordered_map<unsigned long, bool> IN_MissingIDs;	//	Missing IDs from the ordered sequence
 
 		unsigned int IN_HighestID;	//	Highest received ID
@@ -14,7 +14,7 @@ namespace PeerNet
 
 		//	Receives an ordered packet
 		//	LastID+1 here is the 'next expected packet'
-		const bool Receive(NetPacket* IN_Packet)
+		const bool Receive(ReceivePacket* IN_Packet)
 		{
 			In_Mutex.lock();
 			//	If this ID was missing, remove it from the MissingIDs container

@@ -8,7 +8,7 @@ namespace PeerNet
 		ReliableChannel(NetPeer* ThisPeer, PacketType ChannelID) : Channel(ThisPeer, ChannelID) {}
 
 		//	Receives a packet
-		const bool Receive(NetPacket* IN_Packet)
+		const bool Receive(ReceivePacket* IN_Packet)
 		{
 			In_Mutex.lock();
 			if (IN_Packet->GetPacketID() <= In_LastID) { In_Mutex.unlock(); delete IN_Packet; return false; }

@@ -108,7 +108,7 @@ int main()
 				{
 					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Ordered);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm ordered!!");
-					Peer->SendPacket(NewPacket.get());
+					Peer->Send_Packet(NewPacket.get());
 					i++;
 				}
 			}
@@ -122,7 +122,7 @@ int main()
 				{
 					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Reliable);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm reliable!!");
-					Peer->SendPacket(NewPacket.get());
+					Peer->Send_Packet(NewPacket.get());
 				i++;
 				}
 			}
@@ -136,7 +136,7 @@ int main()
 				{
 					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Unreliable);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm unreliable!!");
-					Peer->SendPacket(NewPacket.get());
+					Peer->Send_Packet(NewPacket.get());
 					i++;
 				}
 			}

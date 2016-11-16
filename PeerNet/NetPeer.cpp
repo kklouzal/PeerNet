@@ -47,7 +47,7 @@ namespace PeerNet
 		KeepAlive->WriteData<unsigned long>(CH_Reliable->GetLastID());
 		KeepAlive->WriteData<unsigned long>(CH_Unreliable->GetLastID());
 		KeepAlive->WriteData<unsigned long>(CH_Ordered->GetLastID());
-		SendPacket(KeepAlive.get());
+		Send_Packet(KeepAlive.get());
 	}
 
 	//	BaseClass TimedEvent OnExpire function
@@ -59,8 +59,8 @@ namespace PeerNet
 
 	//	Send a packet
 	//	External usage only and as a means to introduce a packet into a socket for transmission
-	void NetPeer::SendPacket(NetPacket* Packet) {
-		Socket->PostCompletion<NetPacket*>(CK_SEND, Packet);
+	void NetPeer::Send_Packet(SendPacket* Packet) {
+		Socket->PostCompletion<SendPacket*>(CK_SEND, Packet);
 	}
 	//
 	//	Called from a NetSocket's Send function
@@ -68,7 +68,7 @@ namespace PeerNet
 	//	DataBuffer = Preallocated buffer to store our compressed data
 	//	MaxDataSize = Maximum allowed size after compression
 	//	Return Value - Any integer greater than 0 for success
-	const int NetPeer::CompressPacket(NetPacket*const OUT_Packet, PCHAR DataBuffer, const u_int MaxDataSize)
+	const int NetPeer::CompressPacket(SendPacket*const OUT_Packet, PCHAR DataBuffer, const u_int MaxDataSize)
 	{
 		return LZ4_compress_default(OUT_Packet->GetData().c_str(), DataBuffer, (int)OUT_Packet->GetDataSize(), MaxDataSize);
 	}
@@ -79,7 +79,7 @@ namespace PeerNet
 	//	DataSize = IncomingData size
 	//	MaxDataSize = Maximum allowed size after decompression
 	//	CompressionBuffer = Preallocated buffer for use during decompression
-	void NetPeer::ReceivePacket(u_short TypeID, const PCHAR IncomingData, const u_int DataSize, const u_int MaxDataSize, char*const CompressionBuffer)
+	void NetPeer::Receive_Packet(u_short TypeID, const PCHAR IncomingData, const u_int DataSize, const u_int MaxDataSize, char*const CompressionBuffer)
 	{
 		//	Disreguard any incoming packets for this peer if our Keep-Alive sequence isnt active
 		if (!TimerRunning()) { return; }
@@ -91,7 +91,7 @@ namespace PeerNet
 		if (DecompressResult < 0) { printf("Receive Packet - Decompression Failed!\n"); return; }
 
 		//	Instantiate a NetPacket from our decompressed data
-		NetPacket*const IncomingPacket = new NetPacket(std::string(CompressionBuffer, DecompressResult));
+		ReceivePacket*const IncomingPacket = new ReceivePacket(std::string(CompressionBuffer, DecompressResult));
 
 		//	Process the packet as needed
 		switch (IncomingPacket->GetType()) {
@@ -101,9 +101,9 @@ namespace PeerNet
 			{
 				//	Process this Keep-Alive Packet
 				//	Memory for the ACK is cleaned up by the NetSocket that sends it
-				NetPacket* ACK = new NetPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, this, true);
+				SendPacket* ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, this, true);
 				ACK->WriteData<bool>(false);
-				SendPacket(ACK);
+				Send_Packet(ACK);
 
 				CH_KOL->ACK(IncomingPacket->ReadData<unsigned long>());
 				CH_Reliable->ACK(IncomingPacket->ReadData<unsigned long>());

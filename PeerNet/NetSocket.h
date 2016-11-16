@@ -8,7 +8,7 @@ namespace PeerNet
 	struct RIO_BUF_EXT : public RIO_BUF
 	{
 		//	Reserved to alow RIO CK_SEND completions to cleanup its initiating NetPacket under certain circumstances
-		NetPacket* NetPacket;
+		SendPacket* MyNetPacket;
 
 		ThreadEnvironment* MyEnv;
 		unsigned char ThreadNumber;
