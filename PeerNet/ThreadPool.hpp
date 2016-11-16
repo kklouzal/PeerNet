@@ -14,7 +14,8 @@ enum COMPLETION_KEY
 	CK_STOP			=	0,	//	used to break a threads main loop
 	CK_RIO			=	1,	//	used for RIO completions
 	CK_SEND			=	2,	//	used during send operation
-	CK_RECEIVE		=	3	//	used during receive operation
+	CK_SEND_DELETE	=	3,	//	used during send operation (deletes the SendPacket*)
+	CK_RECEIVE		=	4	//	used during receive operation
 };
 
 template <typename T>
@@ -27,7 +28,7 @@ protected:
 	stack<thread> Threads;
 
 private:
-	virtual void OnCompletion(T*const ThreadEnv, const DWORD numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED*const pOverlapped) = 0;
+	virtual void OnCompletion(T*const ThreadEnv, const DWORD numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED* pOverlapped) = 0;
 public:
 	auto const GetThreadEnv(const unsigned char ThreadNum) const { return Environments.at(ThreadNum); }
 

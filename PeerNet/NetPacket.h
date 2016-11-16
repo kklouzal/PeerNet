@@ -10,79 +10,67 @@ namespace PeerNet
 	using std::stringstream;
 	using std::string;
 
-	class NetPacket
+	class NetPacket : public OVERLAPPED
 	{
 	protected:
 		time_point<high_resolution_clock> CreationTime;
-
-		unsigned long PacketID;
-		PacketType TypeID;
-
-		//	Is the memory for this packet handled internally or through a shared_ptr
-		bool InternallyManaged;		//	Only true for non-user accessible packets
-
-		//	DataStream holds our serialized binary data
-		stringstream DataStream;
-
-		//	Managed == true ONLY for non-user accessible packets
-		NetPacket(const bool Managed, const string Data = string()) : InternallyManaged(Managed), DataStream(Data, std::ios::in | std::ios::out | std::ios::binary) {}
+		unsigned long PacketID = 0;
+		PacketType TypeID = PN_NotInialized;
 
 	public:
-		//	Default Destructor
-		~NetPacket() {}
-
-		// Get the current, raw serialized, data from the packet
-		const auto GetData() const			{ return DataStream.rdbuf()->str(); }
-		// Get the current, raw serialized, data size from the packet
-		const auto GetDataSize() const		{ return DataStream.rdbuf()->str().size(); }
-		// Get the packets type
-		const auto GetType() const			{ return TypeID; }
-		// Get the packets ID
-		const auto GetPacketID() const		{ return PacketID; }
 		//	Get the creation time
 		const auto GetCreationTime() const	{ return CreationTime; }
-
-		auto const GetManaged() const		{ return InternallyManaged; }
+		// Get the packets ID
+		const auto GetPacketID() const		{ return PacketID; }
+		// Get the packets type
+		const auto GetType() const			{ return TypeID; }
 	};
 
 	//
 	//	Specialized SendPacket
 	class SendPacket : public NetPacket
 	{
-		NetPeer*const MyPeer;		//	The destination peer for this SendPacket
-
+		stringstream DataStream;				//	DataStream holds our serialized binary data
+		bool InternallyManaged;					//	If the data held by MyNetPacket is deleted or not
+		NetPeer*const MyPeer;					//	The destination peer for this SendPacket
 		PortableBinaryOutputArchive* BinaryIn;	//	Putting binary into the archive to send out
 
 	public:
 		//	Managed == true ONLY for non-user accessible packets
 		SendPacket(const unsigned long pID, const PacketType pType, NetPeer*const Peer, const bool Managed = false)
-			: MyPeer(Peer), NetPacket(Managed), BinaryIn(new PortableBinaryOutputArchive(DataStream))
+			: DataStream(std::ios::in | std::ios::out | std::ios::binary), InternallyManaged(Managed), MyPeer(Peer),
+			BinaryIn(new PortableBinaryOutputArchive(DataStream))
 		{
 			PacketID = pID;
 			TypeID = pType;
-			BinaryIn->operator()(PacketID);
-			BinaryIn->operator()(TypeID);
-			if (TypeID == PN_KeepAlive) { CreationTime = high_resolution_clock::now(); }
+			BinaryIn->operator()(pID);
+			BinaryIn->operator()(pType);
+			if (pType == PN_KeepAlive) { CreationTime = high_resolution_clock::now(); }
 		}
 
 		~SendPacket() { delete BinaryIn; }
 
 		// Write data into the packet
 		template <typename T> void WriteData(T Data) const { BinaryIn->operator()(Data); }
+		// Get the packets data buffer
+		const auto GetData() const { return DataStream.rdbuf(); }
 		//	Return our underlying destination NetPeer
 		auto const GetPeer() const { return MyPeer; }
+		auto const GetManaged() const { return InternallyManaged; }
 	};
 
 	//
 	//	Specialized ReceivePacket
 	class ReceivePacket : public NetPacket
 	{
+		stringstream DataStream;				//	DataStream holds our serialized binary data
 		PortableBinaryInputArchive* BinaryOut;	//	Pulling binary out of the archive we received
 
 	public:
 		//	Managed == true ONLY for non-user accessible packets
-		ReceivePacket(const string Data, const bool Managed = false)
-			: NetPacket(Managed, Data), BinaryOut(new PortableBinaryInputArchive(DataStream))
+		ReceivePacket(const string Data)
+			: DataStream(Data, std::ios::in | std::ios::out | std::ios::binary),
+			BinaryOut(new PortableBinaryInputArchive(DataStream))
 		{
 			BinaryOut->operator()(PacketID);
 			BinaryOut->operator()(TypeID);
@@ -99,5 +87,7 @@ namespace PeerNet
 			BinaryOut->operator()(Temp);
 			return Temp;
 		}
+		// Get the packets data buffer
+		const auto GetData() const { return DataStream.rdbuf(); }
 	};
 }

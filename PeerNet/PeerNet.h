@@ -35,6 +35,14 @@
 #define MaxPeers 1024
 #define MaxSockets 32
 
+enum
+{
+	PN_MaxPacketSize = 1472,		//	Max size of an outgoing or incoming packet
+	RIO_ResultsPerThread = 128,		//	How many results to dequeue from the stack per thread
+	PN_MaxSendPackets = 1024,		//	Max outgoing packets per socket before you run out of memory
+	PN_MaxReceivePackets = 1024		//	Max pending incoming packets before new packets are disgarded
+};
+
 // Core Classes
 namespace PeerNet
 {
@@ -43,7 +51,8 @@ namespace PeerNet
 		PN_KeepAlive = 0,
 		PN_Ordered = 1,
 		PN_Reliable = 2,
-		PN_Unreliable = 3
+		PN_Unreliable = 3,
+		PN_NotInialized = 1001
 	};
 	class NetPeer;
 	class NetSocket;

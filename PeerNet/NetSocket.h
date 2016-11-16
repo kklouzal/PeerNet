@@ -27,9 +27,9 @@ namespace PeerNet
 		std::queue<PRIO_BUF_EXT> Data_Buffers;
 		std::mutex BuffersMutex;
 	public:
-		RIORESULT CompletionResults[128];
+		RIORESULT CompletionResults[RIO_ResultsPerThread];
 		char*const Uncompressed_Data;
-		ThreadEnvironment() : BuffersMutex(), Data_Buffers(), CompletionResults(), Uncompressed_Data(new char[1472]) {}
+		ThreadEnvironment() : BuffersMutex(), Data_Buffers(), CompletionResults(), Uncompressed_Data(new char[PN_MaxPacketSize]) {}
 		~ThreadEnvironment() { delete[] Uncompressed_Data; }
 
 		//	Will only be called by this thread
@@ -39,7 +39,7 @@ namespace PeerNet
 			//	Prevents popping the front buffer as it's being pushed
 			//	Eliminates the need to lock this function
 			BuffersMutex.lock();
-			if (Data_Buffers.empty()) { BuffersMutex.unlock(); return nullptr; }
+			if (Data_Buffers.size() <= 1) { BuffersMutex.unlock(); return nullptr; }
 			PRIO_BUF_EXT Buffer = Data_Buffers.front();
 			Data_Buffers.pop();
 			BuffersMutex.unlock();
@@ -56,13 +56,7 @@ namespace PeerNet
 
 	class NetSocket : public ThreadPoolIOCP<ThreadEnvironment>
 	{
-		//	Maximum size of an individual packet in bytes
-		const DWORD PacketSize = 1472;
-		//	Maximum pending receive packets
-		const DWORD MaxReceives = 1024;
-		const DWORD MaxSends = 1024;
-
-		const DWORD SendsPerThread = MaxSends / MaxThreads;
+		const DWORD SendsPerThread = PN_MaxSendPackets / MaxThreads;
 
 		NetAddress* Address;
 		SOCKET Socket;
@@ -82,7 +76,7 @@ namespace PeerNet
 		RIO_BUFFERID Data_BufferID;
 		PCHAR const Data_Buffer;
 
-		void OnCompletion(ThreadEnvironment*const Env, const DWORD numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED*const pOverlapped);
+		void OnCompletion(ThreadEnvironment*const Env, const DWORD numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED* pOverlapped);
 
 	public:
 		NetSocket(NetAddress* MyAddress);

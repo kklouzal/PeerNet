@@ -70,7 +70,7 @@ namespace PeerNet
 	//	Return Value - Any integer greater than 0 for success
 	const int NetPeer::CompressPacket(SendPacket*const OUT_Packet, PCHAR DataBuffer, const u_int MaxDataSize)
 	{
-		return LZ4_compress_default(OUT_Packet->GetData().c_str(), DataBuffer, (int)OUT_Packet->GetDataSize(), MaxDataSize);
+		return LZ4_compress_default(OUT_Packet->GetData()->str().c_str(), DataBuffer, (int)OUT_Packet->GetData()->str().size(), MaxDataSize);
 	}
 	//
 	//	Called from a NetSocket's Receive function
