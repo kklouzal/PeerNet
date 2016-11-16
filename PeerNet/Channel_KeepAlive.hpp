@@ -4,11 +4,12 @@ namespace PeerNet
 {
 	class KeepAliveChannel : public Channel
 	{
-		const double RollingRTT;	//	Keep a rolling average of the last estimated 15 Round Trip Times
+		const double RollingRTT;	//	Keep a rolling average of the last estimated 20 Round Trip Times
+									//	- That should equate to about 5 seconds worth of averaging with a 250ms average RTT
 		double Out_RTT;				//	Start the system off assuming a 300ms ping. Let the algorythms adjust from that point.
 	public:
 		//	Default constructor initializes us and our base class
-		KeepAliveChannel(NetPeer* ThisPeer, PacketType ChannelID) : RollingRTT(15), Out_RTT(0), Channel(ThisPeer, ChannelID) {}
+		KeepAliveChannel(NetPeer* ThisPeer, PacketType ChannelID) : RollingRTT(35), Out_RTT(0), Channel(ThisPeer, ChannelID) {}
 
 		//	Receives a packet
 		const bool Receive(NetPacket* IN_Packet)

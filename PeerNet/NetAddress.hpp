@@ -16,7 +16,7 @@ using std::mutex;
 struct NetAddress : public RIO_BUF
 {
 	string Address;
-	addrinfo* Results;
+	addrinfo* Results = nullptr;
 
 	NetAddress() : Address(), RIO_BUF() {}
 
