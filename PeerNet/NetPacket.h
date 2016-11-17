@@ -29,10 +29,10 @@ namespace PeerNet
 	//	Specialized SendPacket
 	class SendPacket : public NetPacket
 	{
-		stringstream DataStream;				//	DataStream holds our serialized binary data
-		bool InternallyManaged;					//	If the data held by MyNetPacket is deleted or not
-		NetPeer*const MyPeer;					//	The destination peer for this SendPacket
-		PortableBinaryOutputArchive* BinaryIn;	//	Putting binary into the archive to send out
+		stringstream DataStream;					//	DataStream holds our serialized binary data
+		bool InternallyManaged;						//	If the data held by MyNetPacket is deleted or not
+		NetPeer*const MyPeer;						//	The destination peer for this SendPacket
+		PortableBinaryOutputArchive*const BinaryIn;	//	Putting binary into the archive to send out
 
 	public:
 		//	Managed == true ONLY for non-user accessible packets
@@ -62,8 +62,8 @@ namespace PeerNet
 	//	Specialized ReceivePacket
 	class ReceivePacket : public NetPacket
 	{
-		stringstream DataStream;				//	DataStream holds our serialized binary data
-		PortableBinaryInputArchive* BinaryOut;	//	Pulling binary out of the archive we received
+		stringstream DataStream;					//	DataStream holds our serialized binary data
+		PortableBinaryInputArchive*const BinaryOut;	//	Pulling binary out of the archive we received
 
 	public:
 		//	Managed == true ONLY for non-user accessible packets

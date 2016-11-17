@@ -17,7 +17,7 @@ int main()
 	printf("\tdiscover - Discover new peer from IP and PORT\n");
 	printf("\tforget - Forget a discovered peer\n");
 	printf("\n");
-	printf("\to - Send unknown packets to the discovered peer\n");
+	printf("\to - Send ordered packets to the discovered peer\n");
 	printf("\tr - Send reliable packets to the discovered peer\n");
 	printf("\tu - Send unreliable packets to the discovered peer\n");
 	printf("\n");
@@ -107,7 +107,7 @@ int main()
 			if (Peer != nullptr)
 			{
 				unsigned int i = 0;
-				while (i < 2048)
+				while (i < 1024)
 				{
 					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Ordered);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm ordered!!");
@@ -121,7 +121,7 @@ int main()
 			if (Peer != nullptr)
 			{
 				unsigned int i = 0;
-				while (i < 2048)
+				while (i < 1024)
 				{
 					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Reliable);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm reliable!!");
@@ -135,7 +135,7 @@ int main()
 			if (Peer != nullptr)
 			{
 				unsigned int i = 0;
-				while (i < 2048)
+				while (i < 1024)
 				{
 					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Unreliable);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm unreliable!!");
@@ -146,7 +146,7 @@ int main()
 		}
 		else if (ConsoleInput == "rtt")
 		{
-			printf("\tKeep-Alive RTT:\t%.3fms\n", Peer->RTT_KOL());
+			printf("\tKeep-Alive RTT:\t%.3fms\n", Peer->RTT_KOL().count());
 		}
 
 		//	New Line before next command entry

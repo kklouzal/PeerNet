@@ -42,8 +42,8 @@ enum
 
 	PN_MaxPacketSize = 1472,		//	Max size of an outgoing or incoming packet
 	RIO_ResultsPerThread = 128,		//	How many results to dequeue from the stack per thread
-	PN_MaxSendPackets = 10240,		//	Max outgoing packets per socket before you run out of memory
-	PN_MaxReceivePackets = 10240	//	Max pending incoming packets before new packets are disgarded
+	PN_MaxSendPackets = 14336,		//	Max outgoing packets per socket before you run out of memory
+	PN_MaxReceivePackets = 14336	//	Max pending incoming packets before new packets are disgarded
 };
 
 // Core Classes

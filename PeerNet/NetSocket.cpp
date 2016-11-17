@@ -82,7 +82,7 @@ namespace PeerNet
 			std::memcpy(&Data_Buffer[pBuffer->Offset], &TypeID, sizeof(u_short));
 
 			//	Compress our outgoing packets data payload into the rest of the data buffer
-			pBuffer->Length = OutPacket->GetPeer()->CompressPacket(OutPacket, &Data_Buffer[pBuffer->Offset + sizeof(u_short)], PN_MaxPacketSize-sizeof(u_short))+sizeof(u_short);
+			pBuffer->Length = (ULONG)OutPacket->GetPeer()->CompressPacket(OutPacket, &Data_Buffer[pBuffer->Offset + sizeof(u_short)], PN_MaxPacketSize-sizeof(u_short))+sizeof(u_short);
 
 			//	If compression was successful, actually transmit our packet
 			if (pBuffer->Length > 0) {
