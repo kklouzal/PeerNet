@@ -1,5 +1,6 @@
 #include "PeerNet.h"
-#include "lz4.h"
+#include "zstd.h"
+#pragma comment(lib, "libzstd_static.lib")
 
 namespace PeerNet
 {
@@ -70,7 +71,8 @@ namespace PeerNet
 	//	Return Value - Any integer greater than 0 for success
 	const int NetPeer::CompressPacket(SendPacket*const OUT_Packet, PCHAR DataBuffer, const u_int MaxDataSize)
 	{
-		return LZ4_compress_default(OUT_Packet->GetData()->str().c_str(), DataBuffer, (int)OUT_Packet->GetData()->str().size(), MaxDataSize);
+		//return LZ4_compress_default(OUT_Packet->GetData()->str().c_str(), DataBuffer, (int)OUT_Packet->GetData()->str().size(), MaxDataSize);
+		return ZSTD_compress(DataBuffer, MaxDataSize, OUT_Packet->GetData()->str().c_str(), OUT_Packet->GetData()->str().size(), 1);
 	}
 	//
 	//	Called from a NetSocket's Receive function
@@ -85,7 +87,8 @@ namespace PeerNet
 		if (!TimerRunning()) { return; }
 
 		//	Decompress the incoming data payload
-		const int DecompressResult = LZ4_decompress_safe(IncomingData, CompressionBuffer, DataSize, MaxDataSize);
+		//const int DecompressResult = LZ4_decompress_safe(IncomingData, CompressionBuffer, DataSize, MaxDataSize);
+		const int DecompressResult = ZSTD_decompress(CompressionBuffer, MaxDataSize, IncomingData, DataSize);
 
 		//	Return if decompression fails
 		if (DecompressResult < 0) { printf("Receive Packet - Decompression Failed!\n"); return; }
