@@ -9,15 +9,6 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
     </Filter>
-    <Filter Include="lib">
-      <UniqueIdentifier>{9c94a38d-c9dd-4607-85b2-44361215c9b2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="lib\x86">
-      <UniqueIdentifier>{947fcec1-d91f-4545-9ce8-f333e6738685}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="lib\x64">
-      <UniqueIdentifier>{5b53575f-27f7-44df-902e-054de874d79c}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="PeerNet.h">
@@ -76,13 +67,5 @@
     <ClCompile Include="NetSocket.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <Library Include="..\lib\x86\libzstd_static.lib">
-      <Filter>lib\x86</Filter>
-    </Library>
-    <Library Include="..\lib\x64\libzstd_static.lib">
-      <Filter>lib\x64</Filter>
-    </Library>
   </ItemGroup>
 </Project>

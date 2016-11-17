@@ -1,6 +1,6 @@
 #include "PeerNet.h"
 #include "zstd.h"
-#pragma comment(lib, "libzstd_static.lib")
+#pragma comment(lib, "libzstd.lib")
 
 namespace PeerNet
 {
@@ -31,6 +31,8 @@ namespace PeerNet
 	//	Used for Keep-Alive and ACK sync
 	void NetPeer::OnTick()
 	{
+		//	Update our timed interval based on past Keep Alive RTT's
+		NewInterval(RTT_KOL());
 		//	Keep-Alive Protocol:
 		//
 		//	(bool)				Is this not an Acknowledgement?

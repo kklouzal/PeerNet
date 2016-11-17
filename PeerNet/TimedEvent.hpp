@@ -6,7 +6,7 @@ using std::thread;
 class TimedEvent
 {
 protected:
-	const std::chrono::milliseconds IntervalTime;
+	std::chrono::duration<long long, std::milli> IntervalTime;
 	const unsigned char MaxTicks;
 	unsigned char CurTicks;
 	bool Abort;
@@ -22,6 +22,13 @@ public:
 	void StartTimer() { Running = true; }
 	void StopTimer() { Running = false; }
 	const bool TimerRunning() const { return Running; }
+
+	//	ToDo: Multiply LastRTT here by some small percentage
+	//	Based on the variation between the last few values of LastRTT
+	//	This will smooth out random hiccups in the network
+	void NewInterval(const double LastRTT) {
+		IntervalTime = std::chrono::milliseconds((const unsigned int)ceil(LastRTT));
+	}
 
 	//	Constructor
 	TimedEvent(std::chrono::milliseconds Interval, const unsigned char iMaxTicks) :

@@ -40,10 +40,6 @@
     <ClCompile Include="NetSocket.cpp" />
     <ClCompile Include="PeerNet.cpp" />
   </ItemGroup>
-  <ItemGroup>
-    <Library Include="..\lib\x64\libzstd_static.lib" />
-    <Library Include="..\lib\x86\libzstd_static.lib" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{BF1491FC-4B94-4641-8A2C-99B4EA7E28BB}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
