@@ -28,12 +28,19 @@ namespace PeerNet
 	public:
 		RIORESULT CompletionResults[RIO_ResultsPerThread];
 		char*const Uncompressed_Data;
+		ZSTD_CCtx* Compression_Context;
+		ZSTD_DCtx* Decompression_Context;
 		const unsigned int ThreadsInPool;
 		ThreadEnvironment(const unsigned int MaxThreads)
-			: ThreadsInPool(MaxThreads), BuffersMutex(), Data_Buffers(), CompletionResults(), Uncompressed_Data(new char[PN_MaxPacketSize]) {}
+			: ThreadsInPool(MaxThreads), BuffersMutex(), Data_Buffers(), CompletionResults(),
+			Uncompressed_Data(new char[PN_MaxPacketSize]),
+			Compression_Context(ZSTD_createCCtx()),
+			Decompression_Context(ZSTD_createDCtx()) {}
 
 		~ThreadEnvironment()
 		{
+			ZSTD_freeDCtx(Decompression_Context);
+			ZSTD_freeCCtx(Compression_Context);
 			delete[] Uncompressed_Data;
 			while (!Data_Buffers.empty())
 			{

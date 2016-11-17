@@ -14,6 +14,9 @@
 #include "cereal\archives\binary.hpp"
 #include "cereal\archives\portable_binary.hpp"
 
+//	Compression Headers
+#include "zstd.h"
+
 // STD Headers
 #include <chrono>
 #include <mutex>

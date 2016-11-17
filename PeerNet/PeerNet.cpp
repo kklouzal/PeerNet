@@ -1,5 +1,6 @@
 #include "PeerNet.h"
 #pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "libzstd.lib")
 
 #include <unordered_map>
 #include <deque>

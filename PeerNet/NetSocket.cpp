@@ -25,7 +25,13 @@ namespace PeerNet
 				PRIO_BUF_EXT pBuffer = reinterpret_cast<PRIO_BUF_EXT>(Env->CompletionResults[CurResult].RequestContext);
 
 				//	Determine which peer this packet belongs to and pass the data payload off to our NetPeer so they can decompress it according to the TypeID
-				GetPeer((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset], this)->Receive_Packet(ntohs((u_short)&Data_Buffer[pBuffer->Offset]), &Data_Buffer[pBuffer->Offset + sizeof(u_short)], Env->CompletionResults[CurResult].BytesTransferred - sizeof(u_short), PN_MaxPacketSize - sizeof(u_short), Env->Uncompressed_Data);
+				GetPeer((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset], this)->Receive_Packet(
+					ntohs((u_short)&Data_Buffer[pBuffer->Offset]),
+					&Data_Buffer[pBuffer->Offset + sizeof(u_short)],
+					Env->CompletionResults[CurResult].BytesTransferred - sizeof(u_short),
+					PN_MaxPacketSize - sizeof(u_short),
+					Env->Uncompressed_Data,
+					Env->Decompression_Context);
 #ifdef _PERF_SPINLOCK
 				while (!RioMutex.try_lock()) {}
 #else
@@ -82,7 +88,8 @@ namespace PeerNet
 			std::memcpy(&Data_Buffer[pBuffer->Offset], &TypeID, sizeof(u_short));
 
 			//	Compress our outgoing packets data payload into the rest of the data buffer
-			pBuffer->Length = (ULONG)OutPacket->GetPeer()->CompressPacket(OutPacket, &Data_Buffer[pBuffer->Offset + sizeof(u_short)], PN_MaxPacketSize-sizeof(u_short))+sizeof(u_short);
+			pBuffer->Length = (ULONG)OutPacket->GetPeer()->CompressPacket(OutPacket, &Data_Buffer[pBuffer->Offset + sizeof(u_short)],
+				PN_MaxPacketSize-sizeof(u_short), Env->Compression_Context)+sizeof(u_short);
 
 			//	If compression was successful, actually transmit our packet
 			if (pBuffer->Length > 0) {
