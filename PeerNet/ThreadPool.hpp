@@ -12,18 +12,19 @@ using std::unordered_map;
 enum COMPLETION_KEY
 {
 	CK_STOP			=	0,	//	used to break a threads main loop
-	CK_RIO			=	1,	//	used for RIO completions
-	CK_SEND			=	2,	//	used during send operation
-	CK_SEND_DELETE	=	3,	//	used during send operation (deletes the SendPacket*)
-	CK_RECEIVE		=	4	//	used during receive operation
+	CK_RIO_RECV		=	1,	//	RIO Receive completions
+	CK_RIO_SEND		=	2,	//	RIO Send completions
+	CK_SEND			=	3,	//	used during send operation
+	CK_SEND_DELETE	=	4,	//	used during send operation (deletes the SendPacket*)
+	CK_RECEIVE		=	5	//	used during receive operation
 };
 
 template <typename T>
 class ThreadPoolIOCP
 {
 protected:
-	const HANDLE IOCompletionPort;
 	const unsigned char MaxThreads;
+	const HANDLE IOCompletionPort;
 	unordered_map<unsigned char, T*const> Environments;
 	stack<thread> Threads;
 
@@ -33,9 +34,9 @@ public:
 	auto const GetThreadEnv(const unsigned char ThreadNum) const { return Environments.at(ThreadNum); }
 
 	//	Constructor
-	ThreadPoolIOCP() :
-		IOCompletionPort(CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, NULL)),
-		MaxThreads(thread::hardware_concurrency()), Environments(), Threads() {
+	ThreadPoolIOCP() : MaxThreads(thread::hardware_concurrency()),
+		IOCompletionPort(CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, MaxThreads)),
+		Environments(), Threads() {
 		printf("\tOpening %i Threads\n", MaxThreads);
 		//	Create our threads
 		for (unsigned char i = 0; i < MaxThreads; i++)

@@ -12,10 +12,36 @@ namespace PeerNet
 
 		switch (completionKey)
 		{
-		case CK_RIO:
+		case CK_RIO_RECV:
 		{
-			const ULONG NumResults = RIO().RIODequeueCompletion(CompletionQueue, Env->CompletionResults, RIO_ResultsPerThread);
-			if (RIO().RIONotify(CompletionQueue) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
+			const ULONG NumResults = RIO().RIODequeueCompletion(CompletionQueue_Recv, Env->CompletionResults, RIO_ResultsPerThread);
+			if (RIO().RIONotify(CompletionQueue_Recv) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
+			if (RIO_CORRUPT_CQ == NumResults) { printf("RIO Corrupt Results\n"); return; }
+
+			//	Actually read the data from each received packet
+			for (ULONG CurResult = 0; CurResult < NumResults; CurResult++)
+			{
+				//	Get the raw packet data into our buffer
+				PRIO_BUF_EXT pBuffer = reinterpret_cast<PRIO_BUF_EXT>(Env->CompletionResults[CurResult].RequestContext);
+
+				//	Determine which peer this packet belongs to and pass the data payload off to our NetPeer so they can decompress it according to the TypeID
+				GetPeer((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset], this)->Receive_Packet(ntohs((u_short)&Data_Buffer[pBuffer->Offset]), &Data_Buffer[pBuffer->Offset + sizeof(u_short)], Env->CompletionResults[CurResult].BytesTransferred - sizeof(u_short), PN_MaxPacketSize - sizeof(u_short), Env->Uncompressed_Data);
+#ifdef _PERF_SPINLOCK
+				while (!RioMutex.try_lock()) {}
+#else
+				RioMutex_Receive.lock();
+#endif
+				//	Push another read request into the queue
+				if (!RIO().RIOReceiveEx(RequestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, 0, pBuffer)) { printf("RIO Receive2 Failed\n"); }
+				RioMutex_Receive.unlock();
+			}
+		}
+		break;
+
+		case CK_RIO_SEND:
+		{
+			const ULONG NumResults = RIO().RIODequeueCompletion(CompletionQueue_Send, Env->CompletionResults, RIO_ResultsPerThread);
+			if (RIO().RIONotify(CompletionQueue_Send) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
 			if (RIO_CORRUPT_CQ == NumResults) { printf("RIO Corrupt Results\n"); return; }
 			//	Actually read the data from each received packet
 			for (ULONG CurResult = 0; CurResult < NumResults; CurResult++)
@@ -23,52 +49,17 @@ namespace PeerNet
 				//	Get the raw packet data into our buffer
 				PRIO_BUF_EXT pBuffer = reinterpret_cast<PRIO_BUF_EXT>(Env->CompletionResults[CurResult].RequestContext);
 
-				switch (pBuffer->completionKey)
+				//	Completion of a send request with the delete flag set
+				if (pBuffer->completionKey == CK_SEND_DELETE)
 				{
-				case CK_SEND:
-				{
-					//	Completion of a CK_SEND request
-
-					//	The thread processing this completion may be different from the thread that executed the CK_SEND
-					//	Send this pBuffer back to the correct Thread Environment
-					pBuffer->MyEnv->PushBuffer(pBuffer);
-				}
-				break;
-
-				case CK_SEND_DELETE:
-				{
-					//	Completion of a CK_SEND request with the delete flag set
-
 					//	cleanup the NetPacket that initiated this CK_SEND
 					delete pBuffer->MyNetPacket;
-
 					//	Reset the completion key
 					pBuffer->completionKey = CK_SEND;
-
-					//	The thread processing this completion may be different from the thread that executed the CK_SEND
 					//	Send this pBuffer back to the correct Thread Environment
 					pBuffer->MyEnv->PushBuffer(pBuffer);
-				}
-				break;
-
-				case CK_RECEIVE:
-				{
-					//	Determine which peer this packet belongs to and pass the data payload off to our NetPeer so they can decompress it according to the TypeID
-					GetPeer((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset], this)->Receive_Packet(ntohs((u_short)&Data_Buffer[pBuffer->Offset]), &Data_Buffer[pBuffer->Offset+sizeof(u_short)], Env->CompletionResults[CurResult].BytesTransferred-sizeof(u_short), PN_MaxPacketSize-sizeof(u_short), Env->Uncompressed_Data);
-#ifdef _PERF_SPINLOCK
-					while (!RioMutex.try_lock()) {}
-#else
-					RioMutex_Receive.lock();
-#endif
-					//	Push another read request into the queue
-					if (!RIO().RIOReceiveEx(RequestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, 0, pBuffer)) { printf("RIO Receive2 Failed\n"); }
-					RioMutex_Receive.unlock();
-				}
-				break;
-
-				default:
-					printf("Unhandled RIO Key: %i\n", (int)pBuffer->completionKey);
-				}
+				} 
+				else { pBuffer->MyEnv->PushBuffer(pBuffer); }
 			}
 		}
 		break;
@@ -108,49 +99,49 @@ namespace PeerNet
 		}
 		break;
 		}
-
-		//
-		//	End Thread Completion Function
-		//
 	}
 
 	NetSocket::NetSocket(NetAddress* MyAddress) : Address(MyAddress),
 		Address_Buffer(new char[sizeof(SOCKADDR_INET)*(PN_MaxSendPackets + PN_MaxReceivePackets)]),
-		Data_Buffer(new char[PN_MaxPacketSize*(PN_MaxSendPackets + PN_MaxReceivePackets)]), Overlapped(new OVERLAPPED()),
+		Data_Buffer(new char[PN_MaxPacketSize*(PN_MaxSendPackets + PN_MaxReceivePackets)]),
+		Overlapped_Recv(new OVERLAPPED()), Overlapped_Send(new OVERLAPPED()),
 		Socket(WSASocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, NULL, WSA_FLAG_REGISTERED_IO)),
 		RioMutex_Send(), RioMutex_Receive(), ThreadPoolIOCP()
 	{
 		//	Make sure our socket was created properly
 		if (Socket == INVALID_SOCKET) { printf("Socket Failed(%i)\n", WSAGetLastError()); }
 
-		//	Create Completion Queue
-		RIO_NOTIFICATION_COMPLETION CompletionType;
-		CompletionType.Type = RIO_IOCP_COMPLETION;
-		CompletionType.Iocp.IocpHandle = this->IOCP();
-		CompletionType.Iocp.CompletionKey = (void*)CK_RIO;
-		CompletionType.Iocp.Overlapped = Overlapped;
-		CompletionQueue = RIO().RIOCreateCompletionQueue(PN_MaxSendPackets + PN_MaxReceivePackets, &CompletionType);
-		if (CompletionQueue == RIO_INVALID_CQ) { printf("Create Completion Queue Failed: %i\n", WSAGetLastError()); }
+		//	Create Receive Completion Type and Queue
+		RIO_NOTIFICATION_COMPLETION CompletionType_Recv;
+		CompletionType_Recv.Type = RIO_IOCP_COMPLETION;
+		CompletionType_Recv.Iocp.IocpHandle = this->IOCP();
+		CompletionType_Recv.Iocp.CompletionKey = (void*)CK_RIO_RECV;
+		CompletionType_Recv.Iocp.Overlapped = Overlapped_Recv;
+		CompletionQueue_Recv = RIO().RIOCreateCompletionQueue(PN_MaxReceivePackets, &CompletionType_Recv);
+		if (CompletionQueue_Recv == RIO_INVALID_CQ) { printf("Create Completion Queue Failed: %i\n", WSAGetLastError()); }
+
+		//	Create Send Completion Type and Queue
+		RIO_NOTIFICATION_COMPLETION CompletionType_Send;
+		CompletionType_Send.Type = RIO_IOCP_COMPLETION;
+		CompletionType_Send.Iocp.IocpHandle = this->IOCP();
+		CompletionType_Send.Iocp.CompletionKey = (void*)CK_RIO_SEND;
+		CompletionType_Send.Iocp.Overlapped = Overlapped_Send;
+		CompletionQueue_Send = RIO().RIOCreateCompletionQueue(PN_MaxSendPackets + PN_MaxReceivePackets, &CompletionType_Send);
+		if (CompletionQueue_Send == RIO_INVALID_CQ) { printf("Create Completion Queue Failed: %i\n", WSAGetLastError()); }
 
 		//	Create Request Queue
-		RequestQueue = RIO().RIOCreateRequestQueue(Socket, PN_MaxReceivePackets, 1, PN_MaxSendPackets, 1, CompletionQueue, CompletionQueue, NULL);
+		RequestQueue = RIO().RIOCreateRequestQueue(Socket, PN_MaxReceivePackets, 1, PN_MaxSendPackets, 1, CompletionQueue_Recv, CompletionQueue_Send, NULL);
 		if (RequestQueue == RIO_INVALID_RQ) { printf("Request Queue Failed: %i\n", WSAGetLastError()); }
 
-		//	Initialize Address Memory Buffer
-		Address_BufferID = RIO().RIORegisterBuffer(Address_Buffer, sizeof(SOCKADDR_INET)*(PN_MaxSendPackets + PN_MaxReceivePackets));
+		//	Initialize Address Memory Buffer for our receive packets
+		Address_BufferID = RIO().RIORegisterBuffer(Address_Buffer, sizeof(SOCKADDR_INET)*PN_MaxReceivePackets);
 		if (Address_BufferID == RIO_INVALID_BUFFERID) { printf("Address_Buffer: Invalid BufferID\n"); }
 
 		//	Initialize Data Memory Buffer
 		Data_BufferID = RIO().RIORegisterBuffer(Data_Buffer, PN_MaxPacketSize*(PN_MaxSendPackets+PN_MaxReceivePackets));
 		if (Data_BufferID == RIO_INVALID_BUFFERID) { printf("Data_Buffer: Invalid BufferID\n"); }
 
-		//	Split Data Buffer into chunks and construct a new RIO_BUF_EXT for each slice
-		//	Take a corresponding slice from our Address Buffer and construct a regular RIO_BUF
-		//	Queue up the amount of receives specified in our constructor
-		//	The left overs will be reserved for sends
-
 		DWORD ReceiveOffset = 0;
-		DWORD AddressOffset = 0;
 
 		//	Buffer slices in this loop are for SEND packets
 		for (DWORD i = 0; i < PN_MaxSendPackets; i++)
@@ -160,24 +151,16 @@ namespace PeerNet
 			pBuf->BufferId = Data_BufferID;
 			pBuf->Offset = ReceiveOffset;
 			pBuf->Length = PN_MaxPacketSize;
-			//
-			pBuf->pAddrBuff = new RIO_BUF;
-			pBuf->pAddrBuff->BufferId = Address_BufferID;
-			pBuf->pAddrBuff->Offset = AddressOffset;
-			pBuf->pAddrBuff->Length = sizeof(SOCKADDR_INET);
-			//
-			pBuf->ThreadNumber = (unsigned char)floor(i / SendsPerThread);
 			pBuf->completionKey = CK_SEND;
 			//
 			ReceiveOffset += PN_MaxPacketSize;
-			AddressOffset += sizeof(SOCKADDR_INET);
 			//	Figure out which thread we will belong to
-			pBuf->MyEnv = GetThreadEnv(pBuf->ThreadNumber);
+			pBuf->MyEnv = GetThreadEnv((unsigned char)floor(i/SendsPerThread));
 			pBuf->MyEnv->PushBuffer(pBuf);
 		}
 
 		//	Buffer slices in this loop are for RECEIVE packets
-		for (DWORD i = 0; i < PN_MaxReceivePackets; i++)
+		for (DWORD i = 0, AddressOffset = 0; i < PN_MaxReceivePackets; i++)
 		{
 			//
 			PRIO_BUF_EXT pBuf = new RIO_BUF_EXT;
@@ -189,9 +172,6 @@ namespace PeerNet
 			pBuf->pAddrBuff->BufferId = Address_BufferID;
 			pBuf->pAddrBuff->Offset = AddressOffset;
 			pBuf->pAddrBuff->Length = sizeof(SOCKADDR_INET);
-			//
-			pBuf->ThreadNumber = (unsigned char)floor(i / SendsPerThread);
-			pBuf->completionKey = CK_RECEIVE;
 			//	Save our Receive buffer so it can be cleaned up when the socket is destroyed
 			Recv_Buffers.push_back(pBuf);
 			//
@@ -205,7 +185,8 @@ namespace PeerNet
 		//	Finally bind our servers socket so we can listen for data
 		if (bind(Socket, Address->AddrInfo()->ai_addr, (int)Address->AddrInfo()->ai_addrlen) == SOCKET_ERROR) { printf("Bind Failed(%i)\n", WSAGetLastError()); }
 		//
-		if (RIO().RIONotify(CompletionQueue) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
+		if (RIO().RIONotify(CompletionQueue_Send) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
+		if (RIO().RIONotify(CompletionQueue_Recv) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
 		printf("\tListening On - %s\n", Address->FormattedAddress());
 	}
 
@@ -217,13 +198,15 @@ namespace PeerNet
 		this->ShutdownThreads();		//	Shutdown the threads in our Thread Pool
 		closesocket(Socket);			//	Shutdown Socket
 										//	Cleanup our Completion Queue
-		RIO().RIOCloseCompletionQueue(CompletionQueue);
+		RIO().RIOCloseCompletionQueue(CompletionQueue_Send);
+		RIO().RIOCloseCompletionQueue(CompletionQueue_Recv);
 		//	Cleanup our RIO Buffers
 		RIO().RIODeregisterBuffer(Address_BufferID);
 		RIO().RIODeregisterBuffer(Data_BufferID);
 		//	Cleanup other memory
 		//delete[] uncompressed_data;
-		delete Overlapped;
+		delete Overlapped_Send;
+		delete Overlapped_Recv;
 		while (!Recv_Buffers.empty())
 		{
 			PRIO_BUF_EXT Buff = Recv_Buffers.front();

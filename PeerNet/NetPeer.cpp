@@ -124,6 +124,7 @@ namespace PeerNet
 				delete IncomingPacket;
 			}
 		break;
+
 		case PN_Reliable:
 			if (CH_Reliable->Receive(IncomingPacket))
 			{
@@ -133,10 +134,12 @@ namespace PeerNet
 				delete IncomingPacket;
 			}
 		break;
+
 		//	Ordered packeds need processed inside their Receive function
 		case PN_Ordered:	CH_Ordered->Receive(IncomingPacket); break;
+
 		//	Default case for unknown packet type
-		default:			printf("Recv Unknown Packet Type\n");
+		default: printf("Recv Unknown Packet Type\n"); delete IncomingPacket;
 		}
 	}
 }

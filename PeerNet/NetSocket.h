@@ -11,7 +11,6 @@ namespace PeerNet
 		SendPacket* MyNetPacket;
 
 		ThreadEnvironment* MyEnv;
-		unsigned char ThreadNumber;
 
 		PRIO_BUF pAddrBuff;
 
@@ -39,7 +38,6 @@ namespace PeerNet
 			while (!Data_Buffers.empty())
 			{
 				PRIO_BUF_EXT Buff = Data_Buffers.front();
-				delete Buff->pAddrBuff;
 				delete Buff;
 				Data_Buffers.pop();
 			}
@@ -79,9 +77,11 @@ namespace PeerNet
 		std::mutex RioMutex_Send;
 		std::mutex RioMutex_Receive;
 
-		// Completion Queue
-		RIO_CQ CompletionQueue;
-		OVERLAPPED* Overlapped;
+		// Completion Queues
+		RIO_CQ CompletionQueue_Recv;
+		RIO_CQ CompletionQueue_Send;
+		OVERLAPPED* Overlapped_Recv;
+		OVERLAPPED* Overlapped_Send;
 		// Send/Receive Request Queue
 		RIO_RQ RequestQueue;
 		//	Address Buffer
