@@ -1,12 +1,14 @@
 #pragma once
 #include <thread>			// std::thread
 
+using std::chrono::milliseconds;
+using std::chrono::duration;
 using std::thread;
 
 class TimedEvent
 {
 protected:
-	std::chrono::duration<long long, std::milli> IntervalTime;
+	duration<long long, std::milli> IntervalTime;
 	const unsigned char MaxTicks;
 	unsigned char CurTicks;
 	bool Abort;
@@ -26,12 +28,10 @@ public:
 	//	ToDo: Multiply LastRTT here by some small percentage
 	//	Based on the variation between the last few values of LastRTT
 	//	This will smooth out random hiccups in the network
-	void NewInterval(const double LastRTT) {
-		IntervalTime = std::chrono::milliseconds((const unsigned int)ceil(LastRTT));
-	}
+	void NewInterval(duration<double, std::milli> LastRTT) { IntervalTime = milliseconds((const unsigned int)ceil(LastRTT.count())); }
 
 	//	Constructor
-	TimedEvent(std::chrono::milliseconds Interval, const unsigned char iMaxTicks) :
+	TimedEvent(milliseconds Interval, const unsigned char iMaxTicks) :
 		IntervalTime(Interval), MaxTicks(iMaxTicks), CurTicks(0), Abort(false), Running(false),
 		TimedThread([&]() {
 		SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_IDLE);

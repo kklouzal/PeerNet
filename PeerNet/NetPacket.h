@@ -6,14 +6,13 @@ namespace PeerNet
 	using cereal::PortableBinaryOutputArchive;
 	using cereal::PortableBinaryInputArchive;
 	using std::chrono::high_resolution_clock;
-	using std::chrono::time_point;
 	using std::stringstream;
 	using std::string;
 
 	class NetPacket : public OVERLAPPED
 	{
 	protected:
-		time_point<high_resolution_clock> CreationTime;
+		high_resolution_clock::time_point CreationTime;
 		unsigned long PacketID = 0;
 		PacketType TypeID = PN_NotInialized;
 
