@@ -1,5 +1,4 @@
 #include "PeerNet.h"
-#include "lz4.h"
 
 namespace PeerNet
 {
@@ -121,7 +120,6 @@ namespace PeerNet
 		Socket(WSASocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, NULL, WSA_FLAG_REGISTERED_IO)),
 		RioMutex_Send(), RioMutex_Receive(), ThreadPoolIOCP()
 	{
-		printf("Initialize Socket\n");
 		//	Make sure our socket was created properly
 		if (Socket == INVALID_SOCKET) { printf("Socket Failed(%i)\n", WSAGetLastError()); }
 
@@ -150,36 +148,58 @@ namespace PeerNet
 		//	Take a corresponding slice from our Address Buffer and construct a regular RIO_BUF
 		//	Queue up the amount of receives specified in our constructor
 		//	The left overs will be reserved for sends
-		for (DWORD i = 0, ReceiveOffset = 0, AddressOffset = 0; i < (PN_MaxSendPackets+PN_MaxReceivePackets); i++)
+
+		DWORD ReceiveOffset = 0;
+		DWORD AddressOffset = 0;
+
+		//	Buffer slices in this loop are for SEND packets
+		for (DWORD i = 0; i < PN_MaxSendPackets; i++)
 		{
+			//
 			PRIO_BUF_EXT pBuf = new RIO_BUF_EXT;
 			pBuf->BufferId = Data_BufferID;
 			pBuf->Offset = ReceiveOffset;
 			pBuf->Length = PN_MaxPacketSize;
+			//
 			pBuf->pAddrBuff = new RIO_BUF;
 			pBuf->pAddrBuff->BufferId = Address_BufferID;
 			pBuf->pAddrBuff->Offset = AddressOffset;
 			pBuf->pAddrBuff->Length = sizeof(SOCKADDR_INET);
-
+			//
 			pBuf->ThreadNumber = (unsigned char)floor(i / SendsPerThread);
-
+			pBuf->completionKey = CK_SEND;
+			//
 			ReceiveOffset += PN_MaxPacketSize;
 			AddressOffset += sizeof(SOCKADDR_INET);
+			//	Figure out which thread we will belong to
+			pBuf->MyEnv = GetThreadEnv(pBuf->ThreadNumber);
+			pBuf->MyEnv->PushBuffer(pBuf);
+		}
 
-			if (i < PN_MaxSendPackets)
-			{
-				//	This buffer will be used for sends so add it to our queue
-				pBuf->completionKey = CK_SEND;
-				//	Figure out which thread we will belong to
-				pBuf->MyEnv = GetThreadEnv(pBuf->ThreadNumber);
-				pBuf->MyEnv->PushBuffer(pBuf);
-			} else {
-				pBuf->completionKey = CK_RECEIVE;
-				if (!RIO().RIOReceiveEx(RequestQueue, pBuf, 1, NULL, pBuf->pAddrBuff, NULL, NULL, NULL, pBuf))
-				{
-					printf("RIO Receive %i Failed %i\n", (int)i, WSAGetLastError());
-				}
-			}
+		//	Buffer slices in this loop are for RECEIVE packets
+		for (DWORD i = 0; i < PN_MaxReceivePackets; i++)
+		{
+			//
+			PRIO_BUF_EXT pBuf = new RIO_BUF_EXT;
+			pBuf->BufferId = Data_BufferID;
+			pBuf->Offset = ReceiveOffset;
+			pBuf->Length = PN_MaxPacketSize;
+			//
+			pBuf->pAddrBuff = new RIO_BUF;
+			pBuf->pAddrBuff->BufferId = Address_BufferID;
+			pBuf->pAddrBuff->Offset = AddressOffset;
+			pBuf->pAddrBuff->Length = sizeof(SOCKADDR_INET);
+			//
+			pBuf->ThreadNumber = (unsigned char)floor(i / SendsPerThread);
+			pBuf->completionKey = CK_RECEIVE;
+			//	Save our Receive buffer so it can be cleaned up when the socket is destroyed
+			Recv_Buffers.push_back(pBuf);
+			//
+			ReceiveOffset += PN_MaxPacketSize;
+			AddressOffset += sizeof(SOCKADDR_INET);
+			//
+			if (!RIO().RIOReceiveEx(RequestQueue, pBuf, 1, NULL, pBuf->pAddrBuff, NULL, NULL, NULL, pBuf))
+			{ printf("RIO Receive %i Failed %i\n", (int)i, WSAGetLastError()); }
 		}
 
 		//	Finally bind our servers socket so we can listen for data
@@ -193,7 +213,6 @@ namespace PeerNet
 	//
 	NetSocket::~NetSocket()
 	{
-		printf("\tClose Socket - %s\n", Address->FormattedAddress());
 		shutdown(Socket, SD_BOTH);		//	Prohibit Socket from conducting any more Sends or Receives
 		this->ShutdownThreads();		//	Shutdown the threads in our Thread Pool
 		closesocket(Socket);			//	Shutdown Socket
@@ -205,18 +224,18 @@ namespace PeerNet
 		//	Cleanup other memory
 		//delete[] uncompressed_data;
 		delete Overlapped;
-		/*while (!Data_Buffers.empty())
+		while (!Recv_Buffers.empty())
 		{
-			PRIO_BUF_EXT Buff = Data_Buffers.front();
+			PRIO_BUF_EXT Buff = Recv_Buffers.front();
 			delete Buff->pAddrBuff;
 			delete Buff;
-			Data_Buffers.pop();
-		}*/
+			Recv_Buffers.pop_front();
+		}
 		delete Address_Buffer;
 		delete Data_Buffer;
-
+		
+		printf("\tShutdown Socket - %s\n", Address->FormattedAddress());
 		//	Cleanup our NetAddress
 		delete Address;
-		printf("\tSocket Closed\n");
 	}
 }

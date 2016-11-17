@@ -43,9 +43,7 @@ public:
 
 		//	Destructor
 		~TimedEvent() {
-			printf("\tDestroy Timed Event\n");
 			Abort = true;
 			TimedThread.join();
-			printf("\tTimed Event Destroyed\n");
 		}
 };

@@ -36,11 +36,11 @@ public:
 	ThreadPoolIOCP() :
 		IOCompletionPort(CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, NULL)),
 		MaxThreads(thread::hardware_concurrency()), Environments(), Threads() {
-		printf("\tThread Pool Opening %i Threads\n", MaxThreads);
+		printf("\tOpening %i Threads\n", MaxThreads);
 		//	Create our threads
 		for (unsigned char i = 0; i < MaxThreads; i++)
 		{
-			Environments.insert(std::make_pair(i, new T()));
+			Environments.insert(std::make_pair(i, new T(MaxThreads)));
 
 			Threads.emplace(thread([&]() {
 				T*const MyEnv = Environments[i];

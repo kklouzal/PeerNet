@@ -19,8 +19,13 @@ namespace PeerNet
 		bool Buffers_Init = false;
 		RIO_EXTENSION_FUNCTION_TABLE g_rio;
 
-		AddressPool<NetPeer*, MaxPeers>* PeerKeeper;
-		AddressPool<NetSocket*, MaxSockets>* SocketKeeper;
+		AddressPool<NetPeer*, MaxPeers>* PeerKeeper = nullptr;
+		AddressPool<NetSocket*, MaxSockets>* SocketKeeper = nullptr;
+
+		//	LoopBack Socket
+		NetSocket* Sock_LoopBack = nullptr;
+		//	LocalHost Peer
+		NetPeer* Peer_LocalHost = nullptr;
 	}
 
 	NetSocket*const OpenSocket(string StrIP, string StrPort)
@@ -38,6 +43,8 @@ namespace PeerNet
 		return ExistingSocket;
 	}
 
+	//	ToDo: The NetAddress created through NewAddress needs to be returned to PeerKeeper's Unused container
+	//	when this NetPeer is cleaned up
 	NetPeer*const ConnectPeer(string StrIP, string StrPort, NetSocket* DefaultSocket)
 	{
 		if (DefaultSocket == nullptr) { printf("Error: DefaultSocket NULL\n"); return nullptr; }
@@ -46,7 +53,6 @@ namespace PeerNet
 		//	Can we create a new NetPeer with this ip/port?
 		if (PeerKeeper->New(StrIP, StrPort, ExistingPeer, NewAddress))
 		{
-			printf("Can Create\n");
 			NetPeer* ThisPeer = new NetPeer(DefaultSocket, NewAddress);
 			PeerKeeper->InsertConnected(NewAddress, ThisPeer);
 			return ThisPeer;
@@ -55,6 +61,9 @@ namespace PeerNet
 		return ExistingPeer;
 	}
 
+	//	Need DisconnectPeer/CloseSocket to properly cleanup our internal containers
+	//	Or split those functions up into their respective files
+	//	And let their respective classes destructors handle it <--
 	void DisconnectPeer(SOCKADDR_INET* AddrBuff)
 	{
 
@@ -132,13 +141,22 @@ namespace PeerNet
 				AddressOffset += sizeof(SOCKADDR_INET);
 			}
 			printf("%I64u\n", SocketKeeper->UnusedAddr.size());
+			Sock_LoopBack = OpenSocket("127.0.0.1", to_string(PN_LoopBackPort));
+			Peer_LocalHost = ConnectPeer("127.0.0.1", to_string(PN_LoopBackPort), Sock_LoopBack);
 			printf("Initialization Complete\n");
 		}
 	}
 
+	NetSocket*const LoopBack() { return Sock_LoopBack; }
+	NetPeer*const LocalHost() { return Peer_LocalHost; }
+
 	void Deinitialize()
 	{
 		printf("Deinitializing PeerNet\n");
+
+		delete Peer_LocalHost;
+		delete Sock_LoopBack;
+
 		WSACleanup();
 		delete PeerKeeper;
 		delete SocketKeeper;

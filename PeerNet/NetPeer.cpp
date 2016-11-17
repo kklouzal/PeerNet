@@ -13,7 +13,7 @@ namespace PeerNet
 	{
 		//	Start the Keep-Alive sequence which will initiate the connection
 		this->StartTimer();
-		printf("Create Peer - %s\n", Address->FormattedAddress());
+		printf("\tConnect Peer - %s\n", Address->FormattedAddress());
 	}
 
 	NetPeer::~NetPeer()
@@ -23,7 +23,7 @@ namespace PeerNet
 		delete CH_Ordered;
 		delete CH_Reliable;
 		delete CH_Unreliable;
-		printf("Remove Peer - %s\n", Address->FormattedAddress());
+		printf("\tDisconnect Peer - %s\n", Address->FormattedAddress());
 	}
 
 	//	BaseClass TimedEvent OnTick function
@@ -54,7 +54,7 @@ namespace PeerNet
 	//	This should never call as a clients timed event infinitely ticks until the client is destroyed
 	void NetPeer::OnExpire()
 	{
-		printf("Client Tick Expire\n");
+		printf("\tClient Tick Expire\n");
 	}
 
 	//	Send a packet

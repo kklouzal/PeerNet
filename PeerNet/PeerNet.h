@@ -11,6 +11,7 @@
 
 // Cereal Serialization Headers
 #include "cereal\types\string.hpp"
+#include "cereal\archives\binary.hpp"
 #include "cereal\archives\portable_binary.hpp"
 
 // STD Headers
@@ -37,10 +38,12 @@
 
 enum
 {
+	PN_LoopBackPort = 9999,
+
 	PN_MaxPacketSize = 1472,		//	Max size of an outgoing or incoming packet
 	RIO_ResultsPerThread = 128,		//	How many results to dequeue from the stack per thread
-	PN_MaxSendPackets = 1024,		//	Max outgoing packets per socket before you run out of memory
-	PN_MaxReceivePackets = 1024		//	Max pending incoming packets before new packets are disgarded
+	PN_MaxSendPackets = 10240,		//	Max outgoing packets per socket before you run out of memory
+	PN_MaxReceivePackets = 10240	//	Max pending incoming packets before new packets are disgarded
 };
 
 // Core Classes
@@ -85,4 +88,7 @@ namespace PeerNet
 	//	Checks for an existing connected peer and returns it
 	//	Or returns a newly constructed NetPeer and immediatly sends the discovery packet
 	NetPeer*const GetPeer(SOCKADDR_INET* AddrBuff, NetSocket* DefaultSocket);
+
+	NetSocket*const LoopBack();
+	NetPeer*const LocalHost();
 }

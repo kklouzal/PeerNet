@@ -29,17 +29,30 @@ namespace PeerNet
 	public:
 		RIORESULT CompletionResults[RIO_ResultsPerThread];
 		char*const Uncompressed_Data;
-		ThreadEnvironment() : BuffersMutex(), Data_Buffers(), CompletionResults(), Uncompressed_Data(new char[PN_MaxPacketSize]) {}
-		~ThreadEnvironment() { delete[] Uncompressed_Data; }
+		const unsigned int ThreadsInPool;
+		ThreadEnvironment(const unsigned int MaxThreads)
+			: ThreadsInPool(MaxThreads), BuffersMutex(), Data_Buffers(), CompletionResults(), Uncompressed_Data(new char[PN_MaxPacketSize]) {}
+
+		~ThreadEnvironment()
+		{
+			delete[] Uncompressed_Data;
+			while (!Data_Buffers.empty())
+			{
+				PRIO_BUF_EXT Buff = Data_Buffers.front();
+				delete Buff->pAddrBuff;
+				delete Buff;
+				Data_Buffers.pop();
+			}
+		}
 
 		//	Will only be called by this thread
 		PRIO_BUF_EXT PopBuffer()
 		{
-			//	Always leave 1 buffer in the pool
+			//	Always leave 1 buffer in the pool for each running thread
 			//	Prevents popping the front buffer as it's being pushed
 			//	Eliminates the need to lock this function
 			BuffersMutex.lock();
-			if (Data_Buffers.size() <= 1) { BuffersMutex.unlock(); return nullptr; }
+			if (Data_Buffers.size() <= ThreadsInPool) { BuffersMutex.unlock(); return nullptr; }
 			PRIO_BUF_EXT Buffer = Data_Buffers.front();
 			Data_Buffers.pop();
 			BuffersMutex.unlock();
@@ -57,6 +70,8 @@ namespace PeerNet
 	class NetSocket : public ThreadPoolIOCP<ThreadEnvironment>
 	{
 		const DWORD SendsPerThread = PN_MaxSendPackets / MaxThreads;
+
+		std::deque<PRIO_BUF_EXT> Recv_Buffers;
 
 		NetAddress* Address;
 		SOCKET Socket;

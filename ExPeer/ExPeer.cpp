@@ -30,12 +30,15 @@ int main()
 	//	Add Socket to Peer -> This socket will be used for communication
 	//	
 
-
+	printf("Mark Startup Memory Here\n");
+	system("PAUSE");
 
 	PeerNet::Initialize();
 
-	PeerNet::NetSocket* Socket = nullptr;
-	PeerNet::NetPeer* Peer = nullptr;
+	//	Grab our LoopBack socket and LocalHost peer as reference
+	//	But DONT clean them up! :)
+	PeerNet::NetSocket* Socket = PeerNet::LoopBack();
+	PeerNet::NetPeer* Peer = PeerNet::LocalHost();
 
 	//	New Line before first command entry
 	printf("\n");
@@ -43,12 +46,12 @@ int main()
 	{
 		if (ConsoleInput == "quit")	{
 			//	1. Delete all your peers
-			if (Peer != nullptr)
+			if (Peer != nullptr && Peer != PeerNet::LocalHost())
 			{
 				delete Peer;
 			}
 			//	2. Delete all your sockets
-			if (Socket != nullptr)
+			if (Socket != nullptr && Socket != PeerNet::LoopBack())
 			{
 				delete Socket;
 			}
@@ -57,7 +60,7 @@ int main()
 			break;
 		}
 		else if (ConsoleInput == "open") {
-			if (Socket == nullptr)
+			if (Socket == nullptr || Socket == PeerNet::LoopBack())
 			{
 				printf("IP Address: ");
 				std::string InputIP;
@@ -71,7 +74,7 @@ int main()
 		}
 		else if (ConsoleInput == "close")
 		{
-			if (Socket != nullptr)
+			if (Socket != nullptr && Socket != PeerNet::LoopBack())
 			{
 				delete Socket;
 				Socket = nullptr;
@@ -79,7 +82,7 @@ int main()
 		}
 		else if (ConsoleInput == "discover")
 		{
-			if (Peer == nullptr && Socket != nullptr)
+			if ((Peer == nullptr || Peer == PeerNet::LocalHost()) && Socket != nullptr)
 			{
 				printf("IP Address: ");
 				std::string InputIP;
@@ -93,7 +96,7 @@ int main()
 		}
 		else if (ConsoleInput == "forget")
 		{
-			if (Peer != nullptr)
+			if (Peer != nullptr && Peer != PeerNet::LocalHost())
 			{
 				delete Peer;
 				Peer = nullptr;
@@ -149,6 +152,7 @@ int main()
 		//	New Line before next command entry
 		printf("\n");
 	}
-	std::system("PAUSE");
+	printf("Mark Shutdown Memory Here\n");
+	system("PAUSE");
 	return 0;
 }

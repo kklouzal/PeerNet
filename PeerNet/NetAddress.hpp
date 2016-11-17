@@ -75,7 +75,16 @@ public:
 		AddrMutex(), Objects(), Addr_BufferID(), Addr_Buffer(new char[sizeof(SOCKADDR_INET)*MaxObjects]), UsedAddr(), UnusedAddr()
 	{}
 
-	~AddressPool() { delete[] Addr_Buffer; }
+	~AddressPool()
+	{
+		delete[] Addr_Buffer;
+		while (!UnusedAddr.empty())
+		{
+			NetAddress* Addr = UnusedAddr.front();
+			delete Addr;
+			UnusedAddr.pop_front();
+		}
+	}
 
 	T GetExisting(SOCKADDR_INET* AddrBuff)
 	{
