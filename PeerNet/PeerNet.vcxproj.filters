@@ -20,9 +20,6 @@
     <ClInclude Include="NetPeer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="lz4.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="ThreadPool.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -59,9 +56,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="NetPeer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="lz4.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="NetSocket.cpp">

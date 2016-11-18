@@ -1,5 +1,9 @@
 #include "PeerNet.h"
-#pragma comment(lib, "PeerNet.lib")
+#ifdef _WIN64
+#pragma comment(lib, "PeerNet_x64.lib")
+#else
+#pragma comment(lib, "PeerNet_Win32.lib")
+#endif
 
 #include <iostream>
 #include <string>

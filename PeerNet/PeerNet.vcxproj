@@ -23,7 +23,6 @@
     <ClInclude Include="Channel_Ordered.hpp" />
     <ClInclude Include="Channel_Reliable.hpp" />
     <ClInclude Include="Channel_Unreliable.hpp" />
-    <ClInclude Include="lz4.h" />
     <ClInclude Include="NetAddress.hpp" />
     <ClInclude Include="NetPacket.h" />
     <ClInclude Include="NetPeer.h" />
@@ -35,7 +34,6 @@
     <ClInclude Include="TimedEvent.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="lz4.c" />
     <ClCompile Include="NetPeer.cpp" />
     <ClCompile Include="NetSocket.cpp" />
     <ClCompile Include="PeerNet.cpp" />
@@ -94,16 +92,24 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <IncludePath>$(IncludePath)</IncludePath>
+    <TargetName>$(ProjectName)_$(Platform)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <IncludePath>$(IncludePath)</IncludePath>
+    <TargetName>$(ProjectName)_$(Platform)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IncludePath>$(IncludePath)</IncludePath>
     <SourcePath>$(SourcePath)</SourcePath>
+    <TargetName>$(ProjectName)_$(Platform)</TargetName>
+    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir>$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LibraryPath>$(LibraryPath)</LibraryPath>
+    <IntDir>$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName)_$(Platform)</TargetName>
+    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
