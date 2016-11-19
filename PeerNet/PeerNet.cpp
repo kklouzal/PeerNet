@@ -1,9 +1,9 @@
 #include "PeerNet.h"
 #pragma comment(lib, "ws2_32.lib")
 #ifdef _WIN64
-#pragma comment(lib, "libzstd_static_x64.lib")
+//#pragma comment(lib, "libzstd_static_x64.lib")
 #else
-#pragma comment(lib, "libzstd_static_Win32.lib")
+//#pragma comment(lib, "libzstd_static_Win32.lib")
 #endif
 
 #include <unordered_map>
