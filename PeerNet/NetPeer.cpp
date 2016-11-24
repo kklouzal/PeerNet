@@ -3,12 +3,12 @@
 namespace PeerNet
 {
 	NetPeer::NetPeer(NetSocket*const DefaultSocket, NetAddress*const NetAddr)
-		: Address(NetAddr), Socket(DefaultSocket),
+		: Address(NetAddr), Socket(DefaultSocket), RollingRTT(6), Avg_RTT(300),
 		CH_KOL(new KeepAliveChannel(this, PN_KeepAlive)),
 		CH_Ordered(new OrderedChannel(this, PN_Ordered)),
 		CH_Reliable(new ReliableChannel(this, PN_Reliable)),
 		CH_Unreliable(new UnreliableChannel(this, PN_Unreliable)),
-		TimedEvent(std::chrono::milliseconds(25), 0)	//	Clients 'Tick' every 0.025 second until they're destroyed
+		TimedEvent(std::chrono::milliseconds(300), 0)	//	Start with value of Avg_RTT
 	{
 		//	Start the Keep-Alive sequence which will initiate the connection
 		this->StartTimer();
@@ -29,8 +29,14 @@ namespace PeerNet
 	//	Used for Keep-Alive and ACK sync
 	void NetPeer::OnTick()
 	{
+		//	Keep a rolling average of the last 6 values returned by CH_KOL->RTT()
+		//	This spreads our RTT up to about 30 seconds for a 250ms ping
+		//	And about 6 seconds for a 50ms ping
+		Avg_RTT -= Avg_RTT / RollingRTT;
+		Avg_RTT += CH_KOL->RTT() / RollingRTT;
+
 		//	Update our timed interval based on past Keep Alive RTT's
-		NewInterval(RTT_KOL());
+		NewInterval(Avg_RTT);
 		//	Keep-Alive Protocol:
 		//
 		//	(bool)				Is this not an Acknowledgement?

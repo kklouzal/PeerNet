@@ -53,6 +53,9 @@
     <ClInclude Include="Channel_KeepAlive.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="zstd\zstd.h">
+      <Filter>ZStd</Filter>
+    </ClInclude>
     <ClInclude Include="zstd\common\bitstream.h">
       <Filter>ZStd</Filter>
     </ClInclude>
@@ -87,9 +90,6 @@
       <Filter>ZStd</Filter>
     </ClInclude>
     <ClInclude Include="zstd\dictBuilder\zdict.h">
-      <Filter>ZStd</Filter>
-    </ClInclude>
-    <ClInclude Include="zstd\zstd.h">
       <Filter>ZStd</Filter>
     </ClInclude>
   </ItemGroup>

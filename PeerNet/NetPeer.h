@@ -8,6 +8,10 @@ namespace PeerNet
 	{
 		NetAddress*const Address;
 
+		const long long RollingRTT;			//	Keep a rolling average of the last estimated 6 Round Trip Times
+											//	- That should equate to about 30 seconds worth of averaging with a 250ms average RTT
+		duration<double, milli> Avg_RTT;	//	Start the system off assuming a 300ms ping. Let the algorythms adjust from that point.
+
 		KeepAliveChannel* CH_KOL;
 		OrderedChannel* CH_Ordered;
 		ReliableChannel* CH_Reliable;
@@ -47,7 +51,7 @@ namespace PeerNet
 
 		const size_t CompressPacket(SendPacket * const OUT_Packet, PCHAR DataBuffer, const size_t MaxDataSize, ZSTD_CCtx* CCtx);
 
-		const auto RTT_KOL() const { return CH_KOL->RTT(); }
+		const auto RTT_KOL() const { return Avg_RTT; }
 
 		NetAddress*const GetAddress() const { return Address; }
 		//const auto FormattedAddress() const { return Address->FormattedAddress(); }
