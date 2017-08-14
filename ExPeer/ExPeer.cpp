@@ -8,8 +8,17 @@
 #include <iostream>
 #include <string>
 
+class MyLogger : public Logger {
+	void Log(std::string strOut)
+	{
+		printf(strOut.c_str());
+	}
+};
+
 int main()
 {
+	MyLogger LogClass;
+
 	std::string ConsoleInput;
 	printf("[Example Peer]\nHelp commands->\n");
 	printf("\n");
@@ -37,7 +46,7 @@ int main()
 	printf("Mark Startup Memory Here\n");
 	system("PAUSE");
 
-	PeerNet::Initialize();
+	PeerNet::Initialize(&LogClass);
 
 	//	Grab our LoopBack socket and LocalHost peer as reference
 	//	But DONT clean them up! :)

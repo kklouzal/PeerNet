@@ -68,6 +68,12 @@ namespace PeerNet
 	RIO_EXTENSION_FUNCTION_TABLE RIO();
 }
 
+#include "Logger.hpp"
+namespace PeerNet
+{
+	void Log(std::string strLog);
+}
+
 #include "NetAddress.hpp"
 #include "NetPacket.h"
 #include "NetSocket.h"
@@ -76,13 +82,13 @@ namespace PeerNet
 namespace PeerNet
 {
 	//	Initialize PeerNet
-	void Initialize();
+	void Initialize(Logger* LoggingClass);
 	//	Deinitialize PeerNet
 	void Deinitialize();
 
 	//	Creates a socket and starts listening at the specified IP and Port
 	//	Returns socket if it already exists
-	NetSocket*const OpenSocket(string StrIP, string StrPort);
+	NetSocket*const OpenSocket(std::string StrIP, std::string StrPort);
 
 	//	Creates and connects to a peer at the specified IP and Port
 	//	Returns peer if it already exists

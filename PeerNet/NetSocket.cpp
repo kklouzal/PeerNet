@@ -1,4 +1,5 @@
 #include "PeerNet.h"
+#include <string>
 
 namespace PeerNet
 {
@@ -15,8 +16,8 @@ namespace PeerNet
 		case CK_RIO_RECV:
 		{
 			const ULONG NumResults = RIO().RIODequeueCompletion(CompletionQueue_Recv, Env->CompletionResults, RIO_ResultsPerThread);
-			if (RIO().RIONotify(CompletionQueue_Recv) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
-			if (RIO_CORRUPT_CQ == NumResults) { printf("RIO Corrupt Results\n"); return; }
+			if (RIO().RIONotify(CompletionQueue_Recv) != ERROR_SUCCESS) { Log("\tRIO Notify Failed\n"); return; }
+			if (RIO_CORRUPT_CQ == NumResults) { Log("RIO Corrupt Results\n"); return; }
 
 			//	Actually read the data from each received packet
 			for (ULONG CurResult = 0; CurResult < NumResults; CurResult++)
@@ -38,7 +39,7 @@ namespace PeerNet
 				RioMutex_Receive.lock();
 #endif
 				//	Push another read request into the queue
-				if (!RIO().RIOReceiveEx(RequestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, 0, pBuffer)) { printf("RIO Receive2 Failed\n"); }
+				if (!RIO().RIOReceiveEx(RequestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, 0, pBuffer)) { Log("RIO Receive2 Failed\n"); }
 				RioMutex_Receive.unlock();
 			}
 		}
@@ -47,8 +48,8 @@ namespace PeerNet
 		case CK_RIO_SEND:
 		{
 			const ULONG NumResults = RIO().RIODequeueCompletion(CompletionQueue_Send, Env->CompletionResults, RIO_ResultsPerThread);
-			if (RIO().RIONotify(CompletionQueue_Send) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
-			if (RIO_CORRUPT_CQ == NumResults) { printf("RIO Corrupt Results\n"); return; }
+			if (RIO().RIONotify(CompletionQueue_Send) != ERROR_SUCCESS) { Log("\tRIO Notify Failed\n"); return; }
+			if (RIO_CORRUPT_CQ == NumResults) { Log("RIO Corrupt Results\n"); return; }
 			//	Actually read the data from each received packet
 			for (ULONG CurResult = 0; CurResult < NumResults; CurResult++)
 			{
@@ -102,7 +103,7 @@ namespace PeerNet
 				RIO().RIOSendEx(RequestQueue, pBuffer, 1, NULL, OutPacket->GetPeer()->GetAddress(), NULL, NULL, NULL, pBuffer);
 				RioMutex_Send.unlock();
 			}
-			else { printf("Packet Compression Failed - %i\n", pBuffer->Length); }
+			else { Log("Packet Compression Failed - " + std::to_string(pBuffer->Length) + "\n"); }
 		}
 		break;
 		}
@@ -116,7 +117,7 @@ namespace PeerNet
 		RioMutex_Send(), RioMutex_Receive(), ThreadPoolIOCP()
 	{
 		//	Make sure our socket was created properly
-		if (Socket == INVALID_SOCKET) { printf("Socket Failed(%i)\n", WSAGetLastError()); }
+		if (Socket == INVALID_SOCKET) { Log("Socket Failed(" + std::to_string(WSAGetLastError()) + ")\n"); }
 
 		//	Create Receive Completion Type and Queue
 		RIO_NOTIFICATION_COMPLETION CompletionType_Recv;
@@ -125,7 +126,7 @@ namespace PeerNet
 		CompletionType_Recv.Iocp.CompletionKey = (void*)CK_RIO_RECV;
 		CompletionType_Recv.Iocp.Overlapped = Overlapped_Recv;
 		CompletionQueue_Recv = RIO().RIOCreateCompletionQueue(PN_MaxReceivePackets, &CompletionType_Recv);
-		if (CompletionQueue_Recv == RIO_INVALID_CQ) { printf("Create Completion Queue Failed: %i\n", WSAGetLastError()); }
+		if (CompletionQueue_Recv == RIO_INVALID_CQ) { Log("Create Completion Queue Failed: " + std::to_string(WSAGetLastError()) + "\n"); }
 
 		//	Create Send Completion Type and Queue
 		RIO_NOTIFICATION_COMPLETION CompletionType_Send;
@@ -134,19 +135,19 @@ namespace PeerNet
 		CompletionType_Send.Iocp.CompletionKey = (void*)CK_RIO_SEND;
 		CompletionType_Send.Iocp.Overlapped = Overlapped_Send;
 		CompletionQueue_Send = RIO().RIOCreateCompletionQueue(PN_MaxSendPackets + PN_MaxReceivePackets, &CompletionType_Send);
-		if (CompletionQueue_Send == RIO_INVALID_CQ) { printf("Create Completion Queue Failed: %i\n", WSAGetLastError()); }
+		if (CompletionQueue_Send == RIO_INVALID_CQ) { Log("Create Completion Queue Failed: " + std::to_string(WSAGetLastError()) + "\n"); }
 
 		//	Create Request Queue
 		RequestQueue = RIO().RIOCreateRequestQueue(Socket, PN_MaxReceivePackets, 1, PN_MaxSendPackets, 1, CompletionQueue_Recv, CompletionQueue_Send, NULL);
-		if (RequestQueue == RIO_INVALID_RQ) { printf("Request Queue Failed: %i\n", WSAGetLastError()); }
+		if (RequestQueue == RIO_INVALID_RQ) { Log("Request Queue Failed: " + std::to_string(WSAGetLastError()) + "\n"); }
 
 		//	Initialize Address Memory Buffer for our receive packets
 		Address_BufferID = RIO().RIORegisterBuffer(Address_Buffer, sizeof(SOCKADDR_INET)*PN_MaxReceivePackets);
-		if (Address_BufferID == RIO_INVALID_BUFFERID) { printf("Address_Buffer: Invalid BufferID\n"); }
+		if (Address_BufferID == RIO_INVALID_BUFFERID) { Log("Address_Buffer: Invalid BufferID\n"); }
 
 		//	Initialize Data Memory Buffer
 		Data_BufferID = RIO().RIORegisterBuffer(Data_Buffer, PN_MaxPacketSize*(PN_MaxSendPackets+PN_MaxReceivePackets));
-		if (Data_BufferID == RIO_INVALID_BUFFERID) { printf("Data_Buffer: Invalid BufferID\n"); }
+		if (Data_BufferID == RIO_INVALID_BUFFERID) { Log("Data_Buffer: Invalid BufferID\n"); }
 
 		DWORD ReceiveOffset = 0;
 
@@ -186,15 +187,15 @@ namespace PeerNet
 			AddressOffset += sizeof(SOCKADDR_INET);
 			//
 			if (!RIO().RIOReceiveEx(RequestQueue, pBuf, 1, NULL, pBuf->pAddrBuff, NULL, NULL, NULL, pBuf))
-			{ printf("RIO Receive %i Failed %i\n", (int)i, WSAGetLastError()); }
+			{	Log("RIO Receive " + std::to_string(i) + " Failed " + std::to_string(WSAGetLastError()) + "\n"); }
 		}
 
 		//	Finally bind our servers socket so we can listen for data
-		if (bind(Socket, Address->AddrInfo()->ai_addr, (int)Address->AddrInfo()->ai_addrlen) == SOCKET_ERROR) { printf("Bind Failed(%i)\n", WSAGetLastError()); }
+		if (bind(Socket, Address->AddrInfo()->ai_addr, (int)Address->AddrInfo()->ai_addrlen) == SOCKET_ERROR) { Log("Bind Failed(" + std::to_string(WSAGetLastError()) + ")\n"); }
 		//
-		if (RIO().RIONotify(CompletionQueue_Send) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
-		if (RIO().RIONotify(CompletionQueue_Recv) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
-		printf("\tListening On - %s\n", Address->FormattedAddress());
+		if (RIO().RIONotify(CompletionQueue_Send) != ERROR_SUCCESS) { Log("\tRIO Notify Failed\n"); return; }
+		if (RIO().RIONotify(CompletionQueue_Recv) != ERROR_SUCCESS) { Log("\tRIO Notify Failed\n"); return; }
+		Log("\tListening On - " + std::string(Address->FormattedAddress()) + "\n");
 	}
 
 	//	NetSocket Destructor
@@ -224,7 +225,7 @@ namespace PeerNet
 		delete Address_Buffer;
 		delete Data_Buffer;
 		
-		printf("\tShutdown Socket - %s\n", Address->FormattedAddress());
+		Log("\tShutdown Socket - " + std::string(Address->FormattedAddress()) + "\n");
 		//	Cleanup our NetAddress
 		delete Address;
 	}

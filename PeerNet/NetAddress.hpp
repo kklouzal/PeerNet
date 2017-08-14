@@ -31,7 +31,7 @@ struct NetAddress : public RIO_BUF
 		Hint.ai_protocol = IPPROTO_UDP;
 		Hint.ai_flags = AI_PASSIVE;
 		//	Resolve the End Hosts addrinfo
-		if (getaddrinfo(StrHost.c_str(), StrPort.c_str(), &Hint, &Results) != 0) { printf("NetAddress GetAddrInfo Failed %i\n", WSAGetLastError()); }
+		if (getaddrinfo(StrHost.c_str(), StrPort.c_str(), &Hint, &Results) != 0) { /*printf("NetAddress GetAddrInfo Failed " + std::to_string(WSAGetLastError()) + "\n");*/ }
 
 		//	Create our formatted address
 		if (Results->ai_family == AF_INET)

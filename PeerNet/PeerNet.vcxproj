@@ -23,6 +23,7 @@
     <ClInclude Include="Channel_Ordered.hpp" />
     <ClInclude Include="Channel_Reliable.hpp" />
     <ClInclude Include="Channel_Unreliable.hpp" />
+    <ClInclude Include="Logger.hpp" />
     <ClInclude Include="NetAddress.hpp" />
     <ClInclude Include="NetPacket.h" />
     <ClInclude Include="NetPeer.h" />

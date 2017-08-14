@@ -39,7 +39,7 @@ namespace PeerNet
 			{
 				++In_LastID;
 //#ifdef _DEBUG_PACKETS_ORDERED
-				printf("Ordered - %d - %s\tNew\n", IN_Packet->GetPacketID(), IN_Packet->ReadData<std::string>().c_str());
+				Log("Ordered - " + std::to_string(IN_Packet->GetPacketID()) + " - " + IN_Packet->ReadData<std::string>() + "\tNew\n");
 //#endif
 				delete IN_Packet;	//	Cleanup the NetPacket's memory
 				//	Check the container against our new counter value
@@ -52,7 +52,7 @@ namespace PeerNet
 					//	Found; increment counter; process packet; continue searching
 					++In_LastID;
 //#ifdef _DEBUG_PACKETS_ORDERED
-					printf("Ordered - %d - %s\tStored\n", got->first, got->second->ReadData<std::string>().c_str());
+					Log("Ordered - " + std::to_string(got->first) + " - " + got->second->ReadData<std::string>() + "\tStored\n");
 //#endif
 					IN_OrderedPkts.erase(got);
 				}

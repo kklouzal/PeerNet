@@ -16,7 +16,6 @@ namespace PeerNet
 	namespace
 	{
 		//	Main Variables
-		bool Buffers_Init = false;
 		RIO_EXTENSION_FUNCTION_TABLE g_rio;
 
 		AddressPool<NetPeer*, MaxPeers>* PeerKeeper = nullptr;
@@ -26,6 +25,10 @@ namespace PeerNet
 		NetSocket* Sock_LoopBack = nullptr;
 		//	LocalHost Peer
 		NetPeer* Peer_LocalHost = nullptr;
+
+		//	Logging
+		mutex LogMutex;
+		Logger* LogOut = nullptr;
 	}
 
 	NetSocket*const OpenSocket(string StrIP, string StrPort)
@@ -47,7 +50,7 @@ namespace PeerNet
 	//	when this NetPeer is cleaned up
 	NetPeer*const ConnectPeer(string StrIP, string StrPort, NetSocket* DefaultSocket)
 	{
-		if (DefaultSocket == nullptr) { printf("Error: DefaultSocket NULL\n"); return nullptr; }
+		if (DefaultSocket == nullptr) { LogOut->Log("Error: DefaultSocket NULL\n"); return nullptr; }
 		NetPeer* ExistingPeer = nullptr;
 		NetAddress* NewAddress = nullptr;
 		//	Can we create a new NetPeer with this ip/port?
@@ -85,13 +88,14 @@ namespace PeerNet
 	RIO_EXTENSION_FUNCTION_TABLE RIO() { return g_rio; }
 
 	// Public Implementation Methods
-	void Initialize()
+	void Initialize(Logger* LoggingClass)
 	{
-		printf("Initializing PeerNet\n");
+		LogOut = LoggingClass;
+		LogOut->Log("Initializing PeerNet\n");
 		//	Startup WinSock 2.2
 		const size_t iResult = WSAStartup(MAKEWORD(2, 2), &WSADATA());
 		if (iResult != 0) {
-			printf("\tWSAStartup Error: %i\n", (int)iResult);
+			LogOut->Log("\tWSAStartup Error: " + to_string(iResult) + "\n");
 		} else {
 			//	Create a dummy socket long enough to get our RIO Function Table pointer
 			SOCKET RioSocket = WSASocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, NULL, WSA_FLAG_REGISTERED_IO);
@@ -103,7 +107,7 @@ namespace PeerNet
 				(void**)&g_rio,
 				sizeof(g_rio),
 				&dwBytes, 0, 0) == SOCKET_ERROR) {
-				printf("RIO Failed(%i)\n", WSAGetLastError());
+				LogOut->Log("RIO Failed(" + to_string(WSAGetLastError()) + ")\n");
 			}
 			closesocket(RioSocket);
 
@@ -112,10 +116,10 @@ namespace PeerNet
 			SocketKeeper = new AddressPool<NetSocket*, MaxSockets>();
 
 			//	Initialize Peer Address Memory Buffer
-			printf("\tPeer Buffer: ");
+			LogOut->Log("\tPeer Buffer: ");
 			PeerKeeper->Addr_BufferID = g_rio.RIORegisterBuffer(PeerKeeper->Addr_Buffer, sizeof(SOCKADDR_INET)*MaxPeers);
-			if (PeerKeeper->Addr_BufferID == RIO_INVALID_BUFFERID) { printf("Peer Address Memory Buffer: Invalid BufferID\n"); }
-			for (DWORD i = 0, AddressOffset = 0; i < MaxPeers; i++/*, AddressOffset += sizeof(SOCKADDR_INET)*/)
+			if (PeerKeeper->Addr_BufferID == RIO_INVALID_BUFFERID) { LogOut->Log("Peer Address Memory Buffer: Invalid BufferID\n"); }
+			for (DWORD i = 0, AddressOffset = 0; i < MaxPeers; i++)
 			{
 				NetAddress* PeerAddress = new NetAddress();
 				PeerAddress->BufferId = PeerKeeper->Addr_BufferID;
@@ -125,12 +129,12 @@ namespace PeerNet
 
 				AddressOffset += sizeof(SOCKADDR_INET);
 			}
-			printf("%I64u\n", PeerKeeper->UnusedAddr.size());
+			LogOut->Log(to_string(PeerKeeper->UnusedAddr.size()) + "\n");
 			//	Initialize Socket Address Memory Buffer
-			printf("\tSocket Buffer: ");
+			LogOut->Log("\tSocket Buffer: ");
 			SocketKeeper->Addr_BufferID = g_rio.RIORegisterBuffer(SocketKeeper->Addr_Buffer, sizeof(SOCKADDR_INET)*MaxSockets);
-			if (SocketKeeper->Addr_BufferID == RIO_INVALID_BUFFERID) { printf("Socket Address Memory Buffer: Invalid BufferID\n"); }
-			for (DWORD i = 0, AddressOffset = 0; i < MaxSockets; i++/*, AddressOffset += sizeof(SOCKADDR_INET)*/)
+			if (SocketKeeper->Addr_BufferID == RIO_INVALID_BUFFERID) { LogOut->Log("Socket Address Memory Buffer: Invalid BufferID\n"); }
+			for (DWORD i = 0, AddressOffset = 0; i < MaxSockets; i++)
 			{
 				NetAddress* SocketAddress = new NetAddress();
 				SocketAddress->BufferId = SocketKeeper->Addr_BufferID;
@@ -140,19 +144,29 @@ namespace PeerNet
 
 				AddressOffset += sizeof(SOCKADDR_INET);
 			}
-			printf("%I64u\n", SocketKeeper->UnusedAddr.size());
+			LogOut->Log(to_string(SocketKeeper->UnusedAddr.size()) + "\n");
 			Sock_LoopBack = OpenSocket("127.0.0.1", to_string(PN_LoopBackPort));
 			Peer_LocalHost = ConnectPeer("127.0.0.1", to_string(PN_LoopBackPort), Sock_LoopBack);
-			printf("Initialization Complete\n");
+			LogOut->Log("Initialization Complete\n");
 		}
 	}
 
 	NetSocket*const LoopBack() { return Sock_LoopBack; }
 	NetPeer*const LocalHost() { return Peer_LocalHost; }
 
+	void Log(string strLog)
+	{
+		//
+		//	ToDo:
+		//	Check if LogOut exists.
+		LogMutex.lock();
+		LogOut->Log(strLog);
+		LogMutex.unlock();
+	}
+
 	void Deinitialize()
 	{
-		printf("Deinitializing PeerNet\n");
+		LogOut->Log("Deinitializing PeerNet\n");
 
 		delete Peer_LocalHost;
 		delete Sock_LoopBack;
@@ -160,6 +174,6 @@ namespace PeerNet
 		WSACleanup();
 		delete PeerKeeper;
 		delete SocketKeeper;
-		printf("Deinitialization Complete\n");
+		LogOut->Log("Deinitialization Complete\n");
 	}
 }

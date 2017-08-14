@@ -12,7 +12,7 @@ namespace PeerNet
 	{
 		//	Start the Keep-Alive sequence which will initiate the connection
 		this->StartTimer();
-		printf("\tConnect Peer - %s\n", Address->FormattedAddress());
+		Log("\tConnect Peer - " + string(Address->FormattedAddress()) + "\n");
 	}
 
 	NetPeer::~NetPeer()
@@ -22,7 +22,7 @@ namespace PeerNet
 		delete CH_Ordered;
 		delete CH_Reliable;
 		delete CH_Unreliable;
-		printf("\tDisconnect Peer - %s\n", Address->FormattedAddress());
+		Log("\tDisconnect Peer - " + string(Address->FormattedAddress()) + "\n");
 	}
 
 	//	BaseClass TimedEvent OnTick function
@@ -61,7 +61,7 @@ namespace PeerNet
 	//	This should never call as a clients timed event infinitely ticks until the client is destroyed
 	void NetPeer::OnExpire()
 	{
-		printf("\tClient Tick Expire\n");
+		Log("\tClient Tick Expire\n");
 	}
 
 	//	Send a packet
@@ -97,7 +97,7 @@ namespace PeerNet
 		const size_t DecompressResult = ZSTD_decompressDCtx(DCtx, CBuff, MaxDataSize, IncomingData, DataSize);
 
 		//	Return if decompression fails
-		if (DecompressResult < 0) { printf("Receive Packet - Decompression Failed!\n"); return; }
+		if (DecompressResult < 0) { Log("Receive Packet - Decompression Failed!\n"); return; }
 
 		//	Instantiate a NetPacket from our decompressed data
 		ReceivePacket*const IncomingPacket = new ReceivePacket(std::string(CBuff, DecompressResult));
@@ -128,7 +128,7 @@ namespace PeerNet
 			if (CH_Unreliable->Receive(IncomingPacket))
 			{
 				//	Call packet's callback function?
-				printf("Unreliable - %d - %s\n", IncomingPacket->GetPacketID(), IncomingPacket->ReadData<std::string>().c_str());
+				Log("Unreliable - " + std::to_string(IncomingPacket->GetPacketID()) + " - " + IncomingPacket->ReadData<std::string>() + "\n");
 				//	For now just delete the IncomingPacket
 				delete IncomingPacket;
 			}
@@ -138,7 +138,7 @@ namespace PeerNet
 			if (CH_Reliable->Receive(IncomingPacket))
 			{
 				//	Call packet's callback function?
-				printf("Reliable - %d - %s\n", IncomingPacket->GetPacketID(), IncomingPacket->ReadData<std::string>().c_str());
+				Log("Reliable - " + std::to_string(IncomingPacket->GetPacketID()) + " - " + IncomingPacket->ReadData<std::string>() + "\n");
 				//	For now just delete the IncomingPacket
 				delete IncomingPacket;
 			}
@@ -148,7 +148,7 @@ namespace PeerNet
 		case PN_Ordered:	CH_Ordered->Receive(IncomingPacket); break;
 
 		//	Default case for unknown packet type
-		default: printf("Recv Unknown Packet Type\n"); delete IncomingPacket;
+		default: Log("Recv Unknown Packet Type\n"); delete IncomingPacket;
 		}
 	}
 }

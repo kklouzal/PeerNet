@@ -34,10 +34,16 @@ public:
 	auto const GetThreadEnv(const unsigned char ThreadNum) const { return Environments.at(ThreadNum); }
 
 	//	Constructor
-	ThreadPoolIOCP() : MaxThreads(thread::hardware_concurrency()),
+	//
+	//	Allocate one third as many threads for the socket as the system physically has available
+	//	odd values are rounded up
+	//
+	//	ToDo:
+	//	Round-Down and ensure minimum value of 1.
+	ThreadPoolIOCP() : MaxThreads(ceil(thread::hardware_concurrency()/3)),
 		IOCompletionPort(CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, MaxThreads)),
 		Environments(), Threads() {
-		printf("\tOpening %i Threads\n", MaxThreads);
+		PeerNet::Log("\tOpening " + std::to_string(MaxThreads) + " Threads\n");
 		//	Create our threads
 		for (unsigned char i = 0; i < MaxThreads; i++)
 		{
@@ -68,7 +74,7 @@ public:
 	~ThreadPoolIOCP() {
 		//	Close the IO Completion Port
 		CloseHandle(IOCompletionPort);
-		printf("\tClose Thread Pool\n");
+		PeerNet::Log("\tClose Thread Pool\n");
 	}
 
 	void ShutdownThreads()
@@ -85,7 +91,7 @@ public:
 	void PostCompletion(const ULONG_PTR Key) const {
 		if (!PostQueuedCompletionStatus(IOCompletionPort, NULL, Key, NULL))
 		{
-			printf("PostQueuedCompletionStatus Error: %i\n", GetLastError());
+			PeerNet::Log("PostQueuedCompletionStatus Error: " + std::to_string(GetLastError()) + "\n");
 			//exit(0);	//	Terminate the application
 		}
 	}
@@ -94,7 +100,7 @@ public:
 	void PostCompletion(const ULONG_PTR Key, T OverlappedData) const {
 		if (!PostQueuedCompletionStatus(IOCompletionPort, NULL, Key, reinterpret_cast<LPOVERLAPPED>(OverlappedData)))
 		{
-			printf("PostQueuedCompletionStatus Error: %i\n", GetLastError());
+			PeerNet::Log("PostQueuedCompletionStatus Error: " + std::to_string(GetLastError()) + "\n");
 			//exit(0);	//	Terminate the application
 		}
 	}
