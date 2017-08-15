@@ -29,9 +29,6 @@
     <ClInclude Include="NetPacket.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="NetPeer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="NetAddress.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -113,12 +110,12 @@
     <ClInclude Include="ThreadPool.hpp">
       <Filter>Header Files\NetSocket</Filter>
     </ClInclude>
+    <ClInclude Include="NetPeer.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="PeerNet.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="NetPeer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="NetSocket.cpp">

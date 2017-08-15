@@ -26,7 +26,7 @@
     <ClInclude Include="Logger.hpp" />
     <ClInclude Include="NetAddress.hpp" />
     <ClInclude Include="NetPacket.h" />
-    <ClInclude Include="NetPeer.h" />
+    <ClInclude Include="NetPeer.hpp" />
     <ClInclude Include="OrderedSequence.hpp" />
     <ClInclude Include="PeerNet.h" />
     <ClInclude Include="NetSocket.h" />
@@ -51,7 +51,6 @@
     <ClInclude Include="zstd\zstd.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="NetPeer.cpp" />
     <ClCompile Include="NetSocket.cpp" />
     <ClCompile Include="PeerNet.cpp" />
     <ClCompile Include="zstd\common\entropy_common.c" />
