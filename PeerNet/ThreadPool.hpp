@@ -1,6 +1,4 @@
 #pragma once
-//#define WIN32_LEAN_AND_MEAN
-//#include <Windows.h>		// IOCP functions and HANDLE
 #include <stack>			// std::stack
 #include <thread>			// std::thread
 #include <unordered_map>	// std::unordered_map

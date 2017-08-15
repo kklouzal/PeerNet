@@ -22,9 +22,7 @@ namespace PeerNet
 
 			if (IN_Packet->GetPacketID() > In_LastID + 1)
 			{
-#ifdef _DEBUG_PACKETS_ORDERED
-				printf("Store Ordered Packet %u - Needed %u\n", IN_Packet->GetPacketID(), In_LastID + 1);
-#endif
+				//printf("Store Ordered Packet %u - Needed %u\n", IN_Packet->GetPacketID(), In_LastID + 1);
 				if (IN_Packet->GetPacketID() > IN_HighestID) { IN_HighestID = IN_Packet->GetPacketID(); }
 				IN_OrderedPkts.emplace(IN_Packet->GetPacketID(), IN_Packet);
 				//	Recalculate our Missing ID's
@@ -38,9 +36,7 @@ namespace PeerNet
 			else if (IN_Packet->GetPacketID() == In_LastID + 1)
 			{
 				++In_LastID;
-//#ifdef _DEBUG_PACKETS_ORDERED
 				Log("Ordered - " + std::to_string(IN_Packet->GetPacketID()) + " - " + IN_Packet->ReadData<std::string>() + "\tNew\n");
-//#endif
 				delete IN_Packet;	//	Cleanup the NetPacket's memory
 				//	Check the container against our new counter value
 				while (!IN_OrderedPkts.empty())
@@ -51,9 +47,7 @@ namespace PeerNet
 					if (got == IN_OrderedPkts.end()) { In_Mutex.unlock(); return true; }
 					//	Found; increment counter; process packet; continue searching
 					++In_LastID;
-//#ifdef _DEBUG_PACKETS_ORDERED
 					Log("Ordered - " + std::to_string(got->first) + " - " + got->second->ReadData<std::string>() + "\tStored\n");
-//#endif
 					IN_OrderedPkts.erase(got);
 				}
 			}
