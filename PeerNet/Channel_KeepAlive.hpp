@@ -12,7 +12,7 @@ namespace PeerNet
 		duration<double, milli> Out_RTT;	//	Start the system off assuming a 300ms ping. Let the algorythms adjust from that point.
 	public:
 		//	Default constructor initializes us and our base class
-		KeepAliveChannel(NetPeer* ThisPeer, PacketType ChannelID) : RollingRTT(20), Out_RTT(300), Channel(ThisPeer, ChannelID) {}
+		KeepAliveChannel(PacketType ChannelID) : RollingRTT(20), Out_RTT(300), Channel(ChannelID) {}
 
 		//	Receives a packet
 		const bool Receive(ReceivePacket* IN_Packet)

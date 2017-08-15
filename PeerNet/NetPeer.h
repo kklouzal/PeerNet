@@ -32,18 +32,26 @@ namespace PeerNet
 		auto NetPeer::CreateNewPacket(const PacketType pType) {
 			if (pType == PN_KeepAlive)
 			{
-				return CH_KOL->NewPacket();
+				auto NewPacket = CH_KOL->NewPacket();
+				NewPacket->SetDestination(this);
+				return NewPacket;
 			}
 			else if (pType == PN_Ordered)
 			{
-				return CH_Ordered->NewPacket();
+				auto NewPacket = CH_Ordered->NewPacket();
+				NewPacket->SetDestination(this);
+				return NewPacket;
 			}
 			else if (pType == PN_Reliable)
 			{
-				return CH_Reliable->NewPacket();
+				auto NewPacket = CH_Reliable->NewPacket();
+				NewPacket->SetDestination(this);
+				return NewPacket;
 			}
 
-			return CH_Unreliable->NewPacket();
+			auto NewPacket = CH_Unreliable->NewPacket();
+			NewPacket->SetDestination(this);
+			return NewPacket;
 		}
 
 		void Receive_Packet(u_short TypeID, const PCHAR IncomingData, const size_t DataSize, const size_t MaxDataSize, char*const CBuff, ZSTD_DCtx* DCtx);

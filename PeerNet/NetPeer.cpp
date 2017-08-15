@@ -4,10 +4,10 @@ namespace PeerNet
 {
 	NetPeer::NetPeer(NetSocket*const DefaultSocket, NetAddress*const NetAddr)
 		: Address(NetAddr), Socket(DefaultSocket), RollingRTT(6), Avg_RTT(300),
-		CH_KOL(new KeepAliveChannel(this, PN_KeepAlive)),
-		CH_Ordered(new OrderedChannel(this, PN_Ordered)),
-		CH_Reliable(new ReliableChannel(this, PN_Reliable)),
-		CH_Unreliable(new UnreliableChannel(this, PN_Unreliable)),
+		CH_KOL(new KeepAliveChannel(PN_KeepAlive)),
+		CH_Ordered(new OrderedChannel(PN_Ordered)),
+		CH_Reliable(new ReliableChannel(PN_Reliable)),
+		CH_Unreliable(new UnreliableChannel(PN_Unreliable)),
 		TimedEvent(std::chrono::milliseconds(300), 0)	//	Start with value of Avg_RTT
 	{
 		//	Start the Keep-Alive sequence which will initiate the connection
@@ -110,7 +110,8 @@ namespace PeerNet
 			{
 				//	Process this Keep-Alive Packet
 				//	Memory for the ACK is cleaned up by the NetSocket that sends it
-				SendPacket* ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, this, true);
+				SendPacket* ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, true);
+				ACK->SetDestination(this);
 				ACK->WriteData<bool>(false);
 				Send_Packet(ACK);
 

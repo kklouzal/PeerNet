@@ -10,7 +10,7 @@ namespace PeerNet
 		unsigned int IN_HighestID;	//	Highest received ID
 	public:
 		//	Default constructor initializes us and our base class
-		OrderedChannel(NetPeer* ThisPeer, PacketType ChannelID) : IN_OrderedPkts(), IN_MissingIDs(), IN_HighestID(0), Channel(ThisPeer, ChannelID) {}
+		OrderedChannel(PacketType ChannelID) : IN_OrderedPkts(), IN_MissingIDs(), IN_HighestID(0), Channel(ChannelID) {}
 
 		//	Receives an ordered packet
 		//	LastID+1 here is the 'next expected packet'

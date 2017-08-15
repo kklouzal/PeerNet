@@ -16,14 +16,11 @@ using std::chrono::high_resolution_clock;
 
 namespace PeerNet
 {
-	class NetPeer;	// ToDo: Eliminate need to pass down NetPeer.
-
 	//	Base Class Channel	-	Foundation for the other Channel types
 	class Channel
 	{
 	protected:
 		//	Main Variables
-		NetPeer*const MyPeer;		//	ToDo: Eliminate need to pass down NetPeer
 		PacketType ChannelID;
 
 		//	Outgoing Variables
@@ -39,15 +36,15 @@ namespace PeerNet
 		unsigned long In_LastID;	//	The largest received ID so far
 	public:
 		//	Constructor initializes our base class
-		Channel(NetPeer*const ThisPeer, PacketType ChanID)
-			: MyPeer(ThisPeer), ChannelID(ChanID), Out_Mutex(), Out_NextID(1), Out_Packets(), Out_LastACK(0), In_Mutex(), In_LastID(0) {}
+		Channel(PacketType ChanID)
+			: ChannelID(ChanID), Out_Mutex(), Out_NextID(1), Out_Packets(), Out_LastACK(0), In_Mutex(), In_LastID(0) {}
 		//
 		const auto GetChannelID() const { return ChannelID; }
 		//	Initialize and return a new packet for sending
 		shared_ptr<SendPacket> NewPacket()
 		{
 			Out_Mutex.lock();
-			shared_ptr<SendPacket> Packet = std::make_shared<SendPacket>(Out_NextID, GetChannelID(), MyPeer);
+			shared_ptr<SendPacket> Packet = std::make_shared<SendPacket>(Out_NextID, GetChannelID());
 			Out_Packets[Out_NextID++] = Packet;
 			Out_Mutex.unlock();
 			return Packet;

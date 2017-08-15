@@ -31,13 +31,13 @@ namespace PeerNet
 	{
 		stringstream DataStream;					//	DataStream holds our serialized binary data
 		bool InternallyManaged;						//	If the data held by MyNetPacket is deleted or not
-		NetPeer*const MyPeer;						//	The destination peer for this SendPacket
+		NetPeer* MyPeer;							//	The destination peer for this SendPacket
 		PortableBinaryOutputArchive*const BinaryIn;	//	Putting binary into the archive to send out
 
 	public:
 		//	Managed == true ONLY for non-user accessible packets
-		SendPacket(const unsigned long pID, const PacketType pType, NetPeer*const Peer, const bool Managed = false)
-			: DataStream(std::ios::in | std::ios::out | std::ios::binary), InternallyManaged(Managed), MyPeer(Peer),
+		SendPacket(const unsigned long pID, const PacketType pType, const bool Managed = false)
+			: DataStream(std::ios::in | std::ios::out | std::ios::binary), InternallyManaged(Managed),
 			BinaryIn(new PortableBinaryOutputArchive(DataStream))
 		{
 			PacketID = pID;
@@ -48,6 +48,9 @@ namespace PeerNet
 		}
 
 		~SendPacket() { delete BinaryIn; }
+
+		// Set destination peer
+		void SetDestination(NetPeer* DestPeer) { MyPeer = DestPeer; }
 
 		// Write data into the packet
 		template <typename T> void WriteData(T Data) const { BinaryIn->operator()(Data); }
