@@ -12,6 +12,15 @@
     <Filter Include="ZStd">
       <UniqueIdentifier>{67882f86-ac9d-4dd1-9baa-d35977c3df0e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Channels">
+      <UniqueIdentifier>{80f43458-ea8c-4a66-8e30-2c70d044ef3e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Helpers">
+      <UniqueIdentifier>{135d9750-f1b6-4fc9-a1dd-9897bf9f979a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\NetSocket">
+      <UniqueIdentifier>{cc72a350-ad91-4b54-8500-4c9d11c04b37}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="PeerNet.h">
@@ -23,34 +32,7 @@
     <ClInclude Include="NetPeer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ThreadPool.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="NetAddress.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="NetSocket.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="TimedEvent.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="OrderedSequence.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Channel_Unreliable.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Channel_Reliable.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Channel_Ordered.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Channel.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Channel_KeepAlive.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="zstd\common\bitstream.h">
@@ -98,8 +80,38 @@
     <ClInclude Include="zstd\zstd.h">
       <Filter>ZStd</Filter>
     </ClInclude>
+    <ClInclude Include="Channel.hpp">
+      <Filter>Header Files\Channels</Filter>
+    </ClInclude>
+    <ClInclude Include="Channel_KeepAlive.hpp">
+      <Filter>Header Files\Channels</Filter>
+    </ClInclude>
+    <ClInclude Include="Channel_Ordered.hpp">
+      <Filter>Header Files\Channels</Filter>
+    </ClInclude>
+    <ClInclude Include="Channel_Reliable.hpp">
+      <Filter>Header Files\Channels</Filter>
+    </ClInclude>
+    <ClInclude Include="Channel_Unreliable.hpp">
+      <Filter>Header Files\Channels</Filter>
+    </ClInclude>
     <ClInclude Include="Logger.hpp">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="OrderedSequence.hpp">
+      <Filter>Header Files\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="TimedEvent.hpp">
+      <Filter>Header Files\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="NetSocket.h">
+      <Filter>Header Files\NetSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="ThreadEnvironment.hpp">
+      <Filter>Header Files\NetSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="ThreadPool.hpp">
+      <Filter>Header Files\NetSocket</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

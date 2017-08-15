@@ -31,6 +31,7 @@
     <ClInclude Include="PeerNet.h" />
     <ClInclude Include="NetSocket.h" />
     <ClInclude Include="Channel.hpp" />
+    <ClInclude Include="ThreadEnvironment.hpp" />
     <ClInclude Include="ThreadPool.hpp" />
     <ClInclude Include="TimedEvent.hpp" />
     <ClInclude Include="zstd\common\bitstream.h" />
