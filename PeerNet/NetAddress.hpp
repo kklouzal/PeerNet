@@ -58,11 +58,9 @@ struct NetAddress : public RIO_BUF
 //	Manages a pool of addresses in memory
 //	Which are handed out to objects of type T
 //	Supporting a maximum of MaxObjects addresses
-template <typename T, unsigned long long MaxObjects>
+template <typename T>
 class AddressPool
 {
-
-public:
 	mutex AddrMutex;
 	//unordered_map<SOCKADDR_INET, T> Objects;
 	unordered_map<string, T> Objects;
@@ -71,9 +69,32 @@ public:
 	RIO_BUFFERID Addr_BufferID;
 	PCHAR Addr_Buffer;
 
-	AddressPool() :
-		AddrMutex(), Objects(), Addr_BufferID(), Addr_Buffer(new char[sizeof(SOCKADDR_INET)*MaxObjects]), UsedAddr(), UnusedAddr()
-	{}
+public:
+
+	AddressPool(RIO_EXTENSION_FUNCTION_TABLE &RIO, unsigned int MaxObjects) :
+		AddrMutex(), Objects(), Addr_BufferID(), Addr_Buffer(new char[MaxObjects * sizeof(SOCKADDR_INET)]), UsedAddr(), UnusedAddr()
+	{
+		//	Initialize Address Memory Buffer
+		printf("Address Buffer: ");
+		Addr_BufferID = RIO.RIORegisterBuffer(Addr_Buffer, sizeof(SOCKADDR_INET)*MaxObjects);
+		if (Addr_BufferID == RIO_INVALID_BUFFERID)
+		{
+			printf("Invalid Memory BufferID\n");
+		}
+		else {
+			for (DWORD i = 0, AddressOffset = 0; i < MaxObjects; i++/*, AddressOffset += sizeof(SOCKADDR_INET)*/)
+			{
+				NetAddress* Address = new NetAddress();
+				Address->BufferId = Addr_BufferID;
+				Address->Offset = AddressOffset;
+				Address->Length = sizeof(SOCKADDR_INET);
+				UnusedAddr.push_front(Address);
+
+				AddressOffset += sizeof(SOCKADDR_INET);
+			}
+			printf("%zu\n", UnusedAddr.size());
+		}
+	}
 
 	~AddressPool()
 	{
@@ -90,7 +111,7 @@ public:
 	{
 		//	Check if we already have a connected object with this address
 		AddrMutex.lock();
-		const string Formatted = inet_ntoa(AddrBuff->Ipv4.sin_addr) + string(":") + to_string(ntohs(AddrBuff->Ipv4.sin_port));
+		const string Formatted = inet_ntoa(AddrBuff->Ipv4.sin_addr) + string(":") + std::to_string(ntohs(AddrBuff->Ipv4.sin_port));
 		//if (Objects.count(AddrBuff))
 		if (Objects.count(Formatted))
 		{

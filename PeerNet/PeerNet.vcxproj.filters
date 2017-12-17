@@ -9,9 +9,6 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
     </Filter>
-    <Filter Include="ZStd">
-      <UniqueIdentifier>{67882f86-ac9d-4dd1-9baa-d35977c3df0e}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="PeerNet.h">
@@ -53,51 +50,6 @@
     <ClInclude Include="Channel_KeepAlive.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="zstd\common\bitstream.h">
-      <Filter>ZStd</Filter>
-    </ClInclude>
-    <ClInclude Include="zstd\common\error_private.h">
-      <Filter>ZStd</Filter>
-    </ClInclude>
-    <ClInclude Include="zstd\common\fse.h">
-      <Filter>ZStd</Filter>
-    </ClInclude>
-    <ClInclude Include="zstd\common\huf.h">
-      <Filter>ZStd</Filter>
-    </ClInclude>
-    <ClInclude Include="zstd\common\mem.h">
-      <Filter>ZStd</Filter>
-    </ClInclude>
-    <ClInclude Include="zstd\common\pool.h">
-      <Filter>ZStd</Filter>
-    </ClInclude>
-    <ClInclude Include="zstd\common\threading.h">
-      <Filter>ZStd</Filter>
-    </ClInclude>
-    <ClInclude Include="zstd\common\xxhash.h">
-      <Filter>ZStd</Filter>
-    </ClInclude>
-    <ClInclude Include="zstd\common\zstd_errors.h">
-      <Filter>ZStd</Filter>
-    </ClInclude>
-    <ClInclude Include="zstd\common\zstd_internal.h">
-      <Filter>ZStd</Filter>
-    </ClInclude>
-    <ClInclude Include="zstd\compress\zstdmt_compress.h">
-      <Filter>ZStd</Filter>
-    </ClInclude>
-    <ClInclude Include="zstd\compress\zstd_opt.h">
-      <Filter>ZStd</Filter>
-    </ClInclude>
-    <ClInclude Include="zstd\dictBuilder\divsufsort.h">
-      <Filter>ZStd</Filter>
-    </ClInclude>
-    <ClInclude Include="zstd\dictBuilder\zdict.h">
-      <Filter>ZStd</Filter>
-    </ClInclude>
-    <ClInclude Include="zstd\zstd.h">
-      <Filter>ZStd</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="PeerNet.cpp">
@@ -108,54 +60,6 @@
     </ClCompile>
     <ClCompile Include="NetSocket.cpp">
       <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="zstd\common\entropy_common.c">
-      <Filter>ZStd</Filter>
-    </ClCompile>
-    <ClCompile Include="zstd\common\error_private.c">
-      <Filter>ZStd</Filter>
-    </ClCompile>
-    <ClCompile Include="zstd\common\fse_decompress.c">
-      <Filter>ZStd</Filter>
-    </ClCompile>
-    <ClCompile Include="zstd\common\pool.c">
-      <Filter>ZStd</Filter>
-    </ClCompile>
-    <ClCompile Include="zstd\common\threading.c">
-      <Filter>ZStd</Filter>
-    </ClCompile>
-    <ClCompile Include="zstd\common\xxhash.c">
-      <Filter>ZStd</Filter>
-    </ClCompile>
-    <ClCompile Include="zstd\common\zstd_common.c">
-      <Filter>ZStd</Filter>
-    </ClCompile>
-    <ClCompile Include="zstd\compress\fse_compress.c">
-      <Filter>ZStd</Filter>
-    </ClCompile>
-    <ClCompile Include="zstd\compress\huf_compress.c">
-      <Filter>ZStd</Filter>
-    </ClCompile>
-    <ClCompile Include="zstd\compress\zstdmt_compress.c">
-      <Filter>ZStd</Filter>
-    </ClCompile>
-    <ClCompile Include="zstd\compress\zstd_compress.c">
-      <Filter>ZStd</Filter>
-    </ClCompile>
-    <ClCompile Include="zstd\decompress\huf_decompress.c">
-      <Filter>ZStd</Filter>
-    </ClCompile>
-    <ClCompile Include="zstd\decompress\zstd_decompress.c">
-      <Filter>ZStd</Filter>
-    </ClCompile>
-    <ClCompile Include="zstd\dictBuilder\cover.c">
-      <Filter>ZStd</Filter>
-    </ClCompile>
-    <ClCompile Include="zstd\dictBuilder\divsufsort.c">
-      <Filter>ZStd</Filter>
-    </ClCompile>
-    <ClCompile Include="zstd\dictBuilder\zdict.c">
-      <Filter>ZStd</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

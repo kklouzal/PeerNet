@@ -100,6 +100,9 @@ namespace PeerNet
 
 		void OnCompletion(ThreadEnvironment*const Env, const DWORD numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED* pOverlapped);
 
+		//	RIO Function Table
+		RIO_EXTENSION_FUNCTION_TABLE RIO;
+
 	public:
 		NetSocket(NetAddress* MyAddress);
 		~NetSocket();

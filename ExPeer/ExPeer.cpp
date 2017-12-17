@@ -35,14 +35,16 @@ int main()
 	//	
 
 	printf("Mark Startup Memory Here\n");
-	system("PAUSE");
+	std::system("PAUSE");
 
-	PeerNet::Initialize();
+	PeerNet::PeerNet::Initialize(1024, 16);
+
+	PeerNet::PeerNet *_PeerNet = PeerNet::PeerNet::getInstance();
 
 	//	Grab our LoopBack socket and LocalHost peer as reference
 	//	But DONT clean them up! :)
-	PeerNet::NetSocket* Socket = PeerNet::LoopBack();
-	PeerNet::NetPeer* Peer = PeerNet::LocalHost();
+	PeerNet::NetSocket* Socket = nullptr;
+	PeerNet::NetPeer* Peer = nullptr;
 
 	//	New Line before first command entry
 	printf("\n");
@@ -50,21 +52,21 @@ int main()
 	{
 		if (ConsoleInput == "quit")	{
 			//	1. Delete all your peers
-			if (Peer != nullptr && Peer != PeerNet::LocalHost())
+			if (Peer != nullptr)
 			{
 				delete Peer;
 			}
 			//	2. Delete all your sockets
-			if (Socket != nullptr && Socket != PeerNet::LoopBack())
+			if (Socket != nullptr)
 			{
 				delete Socket;
 			}
 			//	3. Shutdown PeerNet
-			PeerNet::Deinitialize();
+			PeerNet::PeerNet::Deinitialize();
 			break;
 		}
 		else if (ConsoleInput == "open") {
-			if (Socket == nullptr || Socket == PeerNet::LoopBack())
+			if (Socket == nullptr)
 			{
 				printf("IP Address: ");
 				std::string InputIP;
@@ -73,12 +75,12 @@ int main()
 				std::string InputPort;
 				std::getline(std::cin, InputPort);
 				if (InputIP.empty() || InputPort.empty()) { printf("Invalid Arguments\n"); continue; }
-				Socket = PeerNet::OpenSocket(InputIP, InputPort);
+				Socket = _PeerNet->OpenSocket(InputIP, InputPort);
 			}
 		}
 		else if (ConsoleInput == "close")
 		{
-			if (Socket != nullptr && Socket != PeerNet::LoopBack())
+			if (Socket != nullptr)
 			{
 				delete Socket;
 				Socket = nullptr;
@@ -86,7 +88,7 @@ int main()
 		}
 		else if (ConsoleInput == "discover")
 		{
-			if ((Peer == nullptr || Peer == PeerNet::LocalHost()) && Socket != nullptr)
+			if ((Peer == nullptr) && Socket != nullptr)
 			{
 				printf("IP Address: ");
 				std::string InputIP;
@@ -95,12 +97,12 @@ int main()
 				std::string InputPort;
 				std::getline(std::cin, InputPort);
 				if (InputIP.empty() || InputPort.empty()) { printf("Invalid Arguments\n"); continue; }
-				Peer = PeerNet::ConnectPeer(InputIP, InputPort, Socket);
+				Peer = _PeerNet->ConnectPeer(InputIP, InputPort, Socket);
 			}
 		}
 		else if (ConsoleInput == "forget")
 		{
-			if (Peer != nullptr && Peer != PeerNet::LocalHost())
+			if (Peer != nullptr)
 			{
 				delete Peer;
 				Peer = nullptr;

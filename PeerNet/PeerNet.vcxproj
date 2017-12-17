@@ -32,48 +32,17 @@
     <ClInclude Include="Channel.hpp" />
     <ClInclude Include="ThreadPool.hpp" />
     <ClInclude Include="TimedEvent.hpp" />
-    <ClInclude Include="zstd\common\bitstream.h" />
-    <ClInclude Include="zstd\common\error_private.h" />
-    <ClInclude Include="zstd\common\fse.h" />
-    <ClInclude Include="zstd\common\huf.h" />
-    <ClInclude Include="zstd\common\mem.h" />
-    <ClInclude Include="zstd\common\pool.h" />
-    <ClInclude Include="zstd\common\threading.h" />
-    <ClInclude Include="zstd\common\xxhash.h" />
-    <ClInclude Include="zstd\common\zstd_errors.h" />
-    <ClInclude Include="zstd\common\zstd_internal.h" />
-    <ClInclude Include="zstd\compress\zstdmt_compress.h" />
-    <ClInclude Include="zstd\compress\zstd_opt.h" />
-    <ClInclude Include="zstd\dictBuilder\divsufsort.h" />
-    <ClInclude Include="zstd\dictBuilder\zdict.h" />
-    <ClInclude Include="zstd\zstd.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="NetPeer.cpp" />
     <ClCompile Include="NetSocket.cpp" />
     <ClCompile Include="PeerNet.cpp" />
-    <ClCompile Include="zstd\common\entropy_common.c" />
-    <ClCompile Include="zstd\common\error_private.c" />
-    <ClCompile Include="zstd\common\fse_decompress.c" />
-    <ClCompile Include="zstd\common\pool.c" />
-    <ClCompile Include="zstd\common\threading.c" />
-    <ClCompile Include="zstd\common\xxhash.c" />
-    <ClCompile Include="zstd\common\zstd_common.c" />
-    <ClCompile Include="zstd\compress\fse_compress.c" />
-    <ClCompile Include="zstd\compress\huf_compress.c" />
-    <ClCompile Include="zstd\compress\zstdmt_compress.c" />
-    <ClCompile Include="zstd\compress\zstd_compress.c" />
-    <ClCompile Include="zstd\decompress\huf_decompress.c" />
-    <ClCompile Include="zstd\decompress\zstd_decompress.c" />
-    <ClCompile Include="zstd\dictBuilder\cover.c" />
-    <ClCompile Include="zstd\dictBuilder\divsufsort.c" />
-    <ClCompile Include="zstd\dictBuilder\zdict.c" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{BF1491FC-4B94-4641-8A2C-99B4EA7E28BB}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>PeerNet</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
