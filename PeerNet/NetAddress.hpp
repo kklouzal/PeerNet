@@ -107,18 +107,16 @@ public:
 		}
 	}
 
-	T GetExisting(SOCKADDR_INET* AddrBuff)
+	inline T GetExisting(SOCKADDR_INET* AddrBuff)
 	{
 		//	Check if we already have a connected object with this address
-		AddrMutex.lock();
 		const string Formatted = inet_ntoa(AddrBuff->Ipv4.sin_addr) + string(":") + std::to_string(ntohs(AddrBuff->Ipv4.sin_port));
-		//if (Objects.count(AddrBuff))
-		if (Objects.count(Formatted))
+		AddrMutex.lock();
+		auto it = Objects.find(Formatted);
+		if (it != Objects.end())
 		{
-			//T ThisObject = Objects.at(AddrBuff);
-			T ThisObject = Objects.at(Formatted);
 			AddrMutex.unlock();
-			return ThisObject;	//	Already have a connected object for this ip/port
+			return it->second;	//	Already have a connected object for this ip/port
 		}
 		AddrMutex.unlock();
 		return nullptr;	//	No connected object exists

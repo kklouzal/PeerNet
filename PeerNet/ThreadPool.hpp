@@ -29,7 +29,7 @@ protected:
 	stack<thread> Threads;
 
 private:
-	virtual void OnCompletion(T*const ThreadEnv, const DWORD numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED* pOverlapped) = 0;
+	virtual void OnCompletion(T*const ThreadEnv, const DWORD& numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED* pOverlapped) = 0;
 public:
 	auto const GetThreadEnv(const unsigned char ThreadNum) const { return Environments.at(ThreadNum); }
 
@@ -49,6 +49,8 @@ public:
 				ULONG_PTR completionKey = 0;
 				OVERLAPPED* pOverlapped = 0;
 
+				//	Lock our thread to its own core
+				SetThreadAffinityMask(GetCurrentThread(), i);
 				//	Set our scheduling priority
 				SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 
@@ -86,7 +88,6 @@ public:
 		if (!PostQueuedCompletionStatus(IOCompletionPort, NULL, Key, NULL))
 		{
 			printf("PostQueuedCompletionStatus Error: %i\n", GetLastError());
-			//exit(0);	//	Terminate the application
 		}
 	}
 
@@ -95,7 +96,6 @@ public:
 		if (!PostQueuedCompletionStatus(IOCompletionPort, NULL, Key, reinterpret_cast<LPOVERLAPPED>(OverlappedData)))
 		{
 			printf("PostQueuedCompletionStatus Error: %i\n", GetLastError());
-			//exit(0);	//	Terminate the application
 		}
 	}
 

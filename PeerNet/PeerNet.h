@@ -10,9 +10,9 @@
 #include <MSWSock.h>
 
 // Cereal Serialization Headers
-#include "cereal\types\string.hpp"
-#include "cereal\archives\binary.hpp"
-#include "cereal\archives\portable_binary.hpp"
+#include <cereal\types\string.hpp>
+#include <cereal\archives\binary.hpp>
+#include <cereal\archives\portable_binary.hpp>
 
 //	Compression Headers
 #include <zstd.h>
@@ -141,7 +141,7 @@ namespace PeerNet
 			}
 		}
 
-		static PeerNet* getInstance()
+		inline static PeerNet* getInstance()
 		{
 			return _instance;
 		}

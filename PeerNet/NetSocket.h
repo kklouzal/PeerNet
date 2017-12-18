@@ -25,6 +25,7 @@ namespace PeerNet
 	{
 		std::queue<PRIO_BUF_EXT> Data_Buffers;
 		std::mutex BuffersMutex;
+
 	public:
 		RIORESULT CompletionResults[RIO_ResultsPerThread];
 		char*const Uncompressed_Data;
@@ -98,7 +99,7 @@ namespace PeerNet
 		RIO_BUFFERID Data_BufferID;
 		PCHAR const Data_Buffer;
 
-		void OnCompletion(ThreadEnvironment*const Env, const DWORD numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED* pOverlapped);
+		void OnCompletion(ThreadEnvironment*const Env, const DWORD& numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED* pOverlapped);
 
 		//	RIO Function Table
 		RIO_EXTENSION_FUNCTION_TABLE RIO;

@@ -2,7 +2,7 @@
 
 namespace PeerNet
 {
-	void NetSocket::OnCompletion(ThreadEnvironment*const Env, const DWORD numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED* pOverlapped)
+	void NetSocket::OnCompletion(ThreadEnvironment*const Env, const DWORD& numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED* pOverlapped)
 	{
 		//
 		//	Thread Completion Function
@@ -62,17 +62,16 @@ namespace PeerNet
 					delete pBuffer->MyNetPacket;
 					//	Reset the completion key
 					pBuffer->completionKey = CK_SEND;
-					//	Send this pBuffer back to the correct Thread Environment
-					pBuffer->MyEnv->PushBuffer(pBuffer);
-				} 
-				else { pBuffer->MyEnv->PushBuffer(pBuffer); }
+				}
+				//	Send this pBuffer back to the correct Thread Environment
+				pBuffer->MyEnv->PushBuffer(pBuffer);
 			}
 		}
 		break;
 
 		case CK_SEND:
 		{
-			SendPacket* OutPacket = reinterpret_cast<SendPacket*>(pOverlapped);
+			SendPacket* OutPacket = static_cast<SendPacket*>(pOverlapped);
 			PRIO_BUF_EXT pBuffer = Env->PopBuffer();
 			//	If we are out of buffers push the request back out for another thread to pick up
 			if (pBuffer == nullptr) { PostCompletion<SendPacket*>(CK_SEND, OutPacket); return; }
@@ -85,7 +84,7 @@ namespace PeerNet
 
 			//	Copy our TypeID into the beginning of the data buffer
 			u_short TypeID = htons(OutPacket->GetType());
-			std::memcpy(&Data_Buffer[pBuffer->Offset], &TypeID, sizeof(u_short));
+			std::memmove(&Data_Buffer[pBuffer->Offset], &TypeID, sizeof(u_short));
 
 			//	Compress our outgoing packets data payload into the rest of the data buffer
 			pBuffer->Length = (ULONG)OutPacket->GetPeer()->CompressPacket(OutPacket, &Data_Buffer[pBuffer->Offset + sizeof(u_short)],

@@ -54,7 +54,7 @@ namespace PeerNet
 		// Get the packets data buffer
 		const auto GetData() const { return DataStream.rdbuf(); }
 		//	Return our underlying destination NetPeer
-		auto const GetPeer() const { return MyPeer; }
+		inline auto const GetPeer() const { return MyPeer; }
 		auto const GetManaged() const { return InternallyManaged; }
 	};
 

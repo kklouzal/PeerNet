@@ -75,7 +75,7 @@ namespace PeerNet
 	//	DataBuffer = Preallocated buffer to store our compressed data
 	//	MaxDataSize = Maximum allowed size after compression
 	//	Return Value - Any integer greater than 0 for success
-	const size_t NetPeer::CompressPacket(SendPacket*const OUT_Packet, PCHAR DataBuffer, const size_t MaxDataSize, ZSTD_CCtx* CCtx)
+	const size_t NetPeer::CompressPacket(SendPacket*const OUT_Packet, PCHAR DataBuffer, const size_t& MaxDataSize, ZSTD_CCtx* CCtx)
 	{
 		//return LZ4_compress_default(OUT_Packet->GetData()->str().c_str(), DataBuffer, (int)OUT_Packet->GetData()->str().size(), MaxDataSize);
 		return ZSTD_compressCCtx(CCtx, DataBuffer, MaxDataSize, OUT_Packet->GetData()->str().c_str(), OUT_Packet->GetData()->str().size(), 1);
@@ -87,7 +87,7 @@ namespace PeerNet
 	//	DataSize = IncomingData size
 	//	MaxDataSize = Maximum allowed size after decompression
 	//	CompressionBuffer = Preallocated buffer for use during decompression
-	void NetPeer::Receive_Packet(u_short TypeID, const PCHAR IncomingData, const size_t DataSize, const size_t MaxDataSize, char*const CBuff, ZSTD_DCtx* DCtx )
+	void NetPeer::Receive_Packet(const u_short& TypeID, const PCHAR IncomingData, const size_t& DataSize, const size_t& MaxDataSize, char*const CBuff, ZSTD_DCtx* DCtx )
 	{
 		//	Disreguard any incoming packets for this peer if our Keep-Alive sequence isnt active
 		if (!TimerRunning()) { return; }
@@ -97,7 +97,8 @@ namespace PeerNet
 		const size_t DecompressResult = ZSTD_decompressDCtx(DCtx, CBuff, MaxDataSize, IncomingData, DataSize);
 
 		//	Return if decompression fails
-		if (DecompressResult < 0) { printf("Receive Packet - Decompression Failed!\n"); return; }
+		//	TODO: Should be < 0; Will randomly crash at 0 though.
+		if (DecompressResult < 1) { printf("Receive Packet - Decompression Failed!\n"); return; }
 
 		//	Instantiate a NetPacket from our decompressed data
 		ReceivePacket*const IncomingPacket = new ReceivePacket(std::string(CBuff, DecompressResult));
