@@ -13,13 +13,13 @@ install:
 - cmd: cd C:\ && git clone https://github.com/Microsoft/vcpkg.git && cd vcpkg && bootstrap-vcpkg.bat && cd %APPVEYOR_BUILD_FOLDER%
 
 build_script:
-- cmd: C:\vcpkg\vcpkg install cereal:x64-windows zstd:x64-windows
+- cmd: C:\vcpkg\vcpkg install cereal:x32-windows zstd:x32-windows
 - cmd: C:\vcpkg\vcpkg integrate install
 - ps: |
     & cov-build.exe --dir cov-int msbuild "$Env:APPVEYOR_BUILD_FOLDER\PeerNet.sln" `
       /verbosity:normal `
       /p:Configuration=Release `
-      /p:Platform=x64 `
+      /p:Platform=x32 `
       /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
       
 on_success:
