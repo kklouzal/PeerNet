@@ -46,10 +46,10 @@ namespace PeerNet
 			return CH_Unreliable->NewPacket();
 		}
 
-		void Receive_Packet(const u_short& TypeID, const PCHAR IncomingData, const size_t& DataSize, const size_t& MaxDataSize, char*const CBuff, ZSTD_DCtx* DCtx);
+		void Receive_Packet(const u_short& TypeID, const PCHAR IncomingData, const size_t& DataSize, const size_t& MaxDataSize, char*const CBuff, ZSTD_DCtx*const DCtx);
 		void Send_Packet(SendPacket* Packet);
 
-		const size_t CompressPacket(SendPacket * const OUT_Packet, PCHAR DataBuffer, const size_t& MaxDataSize, ZSTD_CCtx* CCtx);
+		const size_t CompressPacket(SendPacket*const OUT_Packet, PCHAR DataBuffer, const size_t& MaxDataSize, ZSTD_CCtx*const CCtx);
 
 		const auto RTT_KOL() const { return Avg_RTT; }
 

@@ -52,10 +52,10 @@ namespace PeerNet
 		// Write data into the packet
 		template <typename T> void WriteData(T Data) const { BinaryIn->operator()(Data); }
 		// Get the packets data buffer
-		const auto GetData() const { return DataStream.rdbuf(); }
+		inline const auto GetData() const { return DataStream.rdbuf(); }
 		//	Return our underlying destination NetPeer
 		inline auto const GetPeer() const { return MyPeer; }
-		auto const GetManaged() const { return InternallyManaged; }
+		inline auto const GetManaged() const { return InternallyManaged; }
 	};
 
 	//
@@ -87,6 +87,6 @@ namespace PeerNet
 			return Temp;
 		}
 		// Get the packets data buffer
-		const auto GetData() const { return DataStream.rdbuf(); }
+		inline const auto GetData() const { return DataStream.rdbuf(); }
 	};
 }
