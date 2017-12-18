@@ -20,8 +20,8 @@ build_script:
         $buildArgs = @(
           "/m",
           "/l:C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll",
-          "/p:Configuration=$env:CONFIGURATION",
-          "/p:Platform=$env:PLATFORM")
+          "/p:Configuration=Release",
+          "/p:Platform=x64")
 
         "Building project with Coverity Scan..."
         & "cov-build.exe" `
