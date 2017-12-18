@@ -1,5 +1,7 @@
 version: 1.0.{build}
 
+image: Visual Studio 2017
+
 environment:
   COVERITY_TOKEN:
     secure: WhwjmR5SADRwFkBX06kWsl1SNdovILcyr0hlXerox6I=
