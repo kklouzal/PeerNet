@@ -15,11 +15,7 @@ install:
 build_script:
 - cmd: C:\vcpkg\vcpkg install cereal:x64-windows zstd:x64-windows
 - cmd: C:\vcpkg\vcpkg integrate install
-- ps: cov-build.exe --dir cov-int msbuild "C:\projects\peernet\PeerNet.sln" `
-      /verbosity:normal `
-      /p:Configuration=Release `
-      /p:Platform=x64 `
-      /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
+- ps: cov-build.exe --dir cov-int msbuild "C:\projects\peernet\PeerNet.sln" /p:Configuration=Release /p:Platform=x64 /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
       
 on_success:
   7z a "PeerNet.zip" "cov-int"
