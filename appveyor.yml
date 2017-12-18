@@ -1,5 +1,7 @@
 version: 1.0.{build}
 
+image: Visual Studio 2017
+
 environment:
   COVERITY_TOKEN:
     secure: WhwjmR5SADRwFkBX06kWsl1SNdovILcyr0hlXerox6I=
@@ -8,15 +10,24 @@ environment:
     
 install:
 - ps: cinst curl -y
+- cmd: cd C:\ && git clone https://github.com/Microsoft/vcpkg.git && cd vcpkg && bootstrap-vcpkg.bat && cd %APPVEYOR_BUILD_FOLDER%
+- cmd: C:\vcpkg\vcpkg integrate install
 
 build_script:
+- cmd: C:\vcpkg\vcpkg install cereal:x64-windows zstd:x64-windows
+#- ps: cov-build.exe --dir cov-int msbuild "C:\projects\peernet\PeerNet.sln" /p:Configuration=Release /p:Platform=x64 /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
 - ps: |
-    & cov-build.exe --dir cov-int msbuild "$Env:APPVEYOR_BUILD_FOLDER\PeerNet.sln" `
-      /verbosity:normal `
-      /p:Configuration=Release `
-      /p:Platform=x86 `
-      /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
-      
+        $buildArgs = @(
+          "/m",
+          "/l:C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll",
+          "/p:Configuration=Release",
+          "/p:Platform=x64")
+
+        "Building project with Coverity Scan..."
+        & "cov-build.exe" `
+          --dir cov-int `
+          msbuild $buildArgs
+
 on_success:
   7z a "PeerNet.zip" "cov-int"
   
