@@ -14,6 +14,7 @@ install:
 
 build_script:
 - cmd: C:\vcpkg\vcpkg install cereal:x64-windows zstd:x64-windows
+- cmd: C:\vcpkg\vcpkg integrate install
 - ps: |
     & cov-build.exe --dir cov-int msbuild "$Env:APPVEYOR_BUILD_FOLDER\PeerNet.sln" `
       /verbosity:normal `
