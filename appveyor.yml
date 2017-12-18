@@ -11,12 +11,23 @@ environment:
 install:
 - ps: cinst curl -y
 - cmd: cd C:\ && git clone https://github.com/Microsoft/vcpkg.git && cd vcpkg && bootstrap-vcpkg.bat && cd %APPVEYOR_BUILD_FOLDER%
+- cmd: C:\vcpkg\vcpkg integrate install
 
 build_script:
 - cmd: C:\vcpkg\vcpkg install cereal:x64-windows zstd:x64-windows
-- cmd: C:\vcpkg\vcpkg integrate install
-- ps: cov-build.exe --dir cov-int msbuild "C:\projects\peernet\PeerNet.sln" /p:Configuration=Release /p:Platform=x64 /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
-      
+#- ps: cov-build.exe --dir cov-int msbuild "C:\projects\peernet\PeerNet.sln" /p:Configuration=Release /p:Platform=x64 /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
+- ps: |
+        $buildArgs = @(
+          "/m",
+          "/l:C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll",
+          "/p:Configuration=$env:CONFIGURATION",
+          "/p:Platform=$env:PLATFORM")
+
+        "Building project with Coverity Scan..."
+        & "cov-build.exe" `
+          --dir cov-int `
+          msbuild $buildArgs
+
 on_success:
   7z a "PeerNet.zip" "cov-int"
   
