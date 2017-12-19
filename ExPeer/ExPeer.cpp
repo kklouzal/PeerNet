@@ -41,8 +41,6 @@ int main()
 
 	PeerNet::PeerNet *_PeerNet = PeerNet::PeerNet::getInstance();
 
-	//	Grab our LoopBack socket and LocalHost peer as reference
-	//	But DONT clean them up! :)
 	PeerNet::NetSocket* Socket = nullptr;
 	PeerNet::NetPeer* Peer = nullptr;
 
@@ -97,6 +95,7 @@ int main()
 				std::string InputPort;
 				std::getline(std::cin, InputPort);
 				if (InputIP.empty() || InputPort.empty()) { printf("Invalid Arguments\n"); continue; }
+				
 				Peer = _PeerNet->ConnectPeer(InputIP, InputPort, Socket);
 			}
 		}

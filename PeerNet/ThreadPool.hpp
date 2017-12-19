@@ -31,7 +31,7 @@ protected:
 private:
 	virtual void OnCompletion(T*const ThreadEnv, const DWORD& numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED* pOverlapped) = 0;
 public:
-	auto const GetThreadEnv(const unsigned char ThreadNum) const { return Environments.at(ThreadNum); }
+	auto const GetThreadEnv(const unsigned char& ThreadNum) const { return Environments.at(ThreadNum); }
 
 	//	Constructor
 	ThreadPoolIOCP() : MaxThreads(thread::hardware_concurrency()),
@@ -100,5 +100,5 @@ public:
 	}
 
 	const auto IOCP() const { return IOCompletionPort; }
-	const auto HardwareConcurrency() const { return MaxThreads; }
+	const auto& HardwareConcurrency() const { return MaxThreads; }
 };

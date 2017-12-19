@@ -25,7 +25,7 @@ namespace PeerNet
 				PRIO_BUF_EXT pBuffer = reinterpret_cast<PRIO_BUF_EXT>(Env->CompletionResults[CurResult].RequestContext);
 
 				//	Determine which peer this packet belongs to and pass the data payload off to our NetPeer so they can decompress it according to the TypeID
-				PeerNet::getInstance()->GetPeer((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset], this)->Receive_Packet(
+				_PeerNet->GetPeer((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset], this)->Receive_Packet(
 					ntohs((u_short)&Data_Buffer[pBuffer->Offset]),
 					&Data_Buffer[pBuffer->Offset + sizeof(u_short)],
 					Env->CompletionResults[CurResult].BytesTransferred - sizeof(u_short),
@@ -106,8 +106,8 @@ namespace PeerNet
 		break;
 		}
 	}
-
-	NetSocket::NetSocket(NetAddress* MyAddress) : Address(MyAddress),
+	
+	NetSocket::NetSocket(PeerNet* PNInstance, NetAddress* MyAddress) : _PeerNet(PNInstance), Address(MyAddress), RIO(_PeerNet->RIO()),
 		Address_Buffer(new char[sizeof(SOCKADDR_INET)*(PN_MaxSendPackets + PN_MaxReceivePackets)]),
 		Data_Buffer(new char[PN_MaxPacketSize*(PN_MaxSendPackets + PN_MaxReceivePackets)]),
 		Overlapped_Recv(new OVERLAPPED()), Overlapped_Send(new OVERLAPPED()),
@@ -116,8 +116,6 @@ namespace PeerNet
 	{
 		//	Make sure our socket was created properly
 		if (Socket == INVALID_SOCKET) { printf("Socket Failed(%i)\n", WSAGetLastError()); }
-
-		RIO = PeerNet::getInstance()->RIO();
 
 		//	Create Receive Completion Type and Queue
 		RIO_NOTIFICATION_COMPLETION CompletionType_Recv;

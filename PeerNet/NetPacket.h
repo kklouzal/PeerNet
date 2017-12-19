@@ -9,6 +9,8 @@ namespace PeerNet
 	using std::stringstream;
 	using std::string;
 
+	//
+	//	Base NetPacket
 	class NetPacket : public OVERLAPPED
 	{
 	protected:
@@ -18,11 +20,11 @@ namespace PeerNet
 
 	public:
 		//	Get the creation time
-		const auto GetCreationTime() const	{ return CreationTime; }
+		inline const auto& GetCreationTime() const	{ return CreationTime; }
 		// Get the packets ID
-		const auto GetPacketID() const		{ return PacketID; }
+		inline const auto& GetPacketID() const		{ return PacketID; }
 		// Get the packets type
-		const auto GetType() const			{ return TypeID; }
+		inline const auto& GetType() const			{ return TypeID; }
 	};
 
 	//
@@ -36,7 +38,7 @@ namespace PeerNet
 
 	public:
 		//	Managed == true ONLY for non-user accessible packets
-		SendPacket(const unsigned long pID, const PacketType pType, NetPeer*const Peer, const bool Managed = false)
+		SendPacket(const unsigned long& pID, const PacketType& pType, NetPeer*const Peer, const bool& Managed = false)
 			: DataStream(std::ios::in | std::ios::out | std::ios::binary), InternallyManaged(Managed), MyPeer(Peer),
 			BinaryIn(new PortableBinaryOutputArchive(DataStream))
 		{
@@ -67,7 +69,7 @@ namespace PeerNet
 
 	public:
 		//	Managed == true ONLY for non-user accessible packets
-		ReceivePacket(const string Data)
+		ReceivePacket(const string& Data)
 			: DataStream(Data, std::ios::in | std::ios::out | std::ios::binary),
 			BinaryOut(new PortableBinaryInputArchive(DataStream))
 		{

@@ -5,22 +5,24 @@ namespace PeerNet
 {
 	class ThreadEnvironment;
 
+	//	Data Buffer Struct
+	//	Holds raw data for a packet and it's address buffer
 	struct RIO_BUF_EXT : public RIO_BUF
 	{
 		//	Reserved to alow RIO CK_SEND completions to cleanup its initiating NetPacket under certain circumstances
 		SendPacket* MyNetPacket;
-
+		//	Owning ThreadEnvironment for this buffer
 		ThreadEnvironment* MyEnv;
-
+		//	Address Buffer for this data buffer
 		PRIO_BUF pAddrBuff;
-
-		//	Values Filled Upon Call To GetQueuedCompletionStatus
-		//	Unused and basically just a way to allocate these variables upfront and only once
+		//	Preallocated variables used in calls To GetQueuedCompletionStatus
 		DWORD numberOfBytes = 0;
 		ULONG_PTR completionKey = 0;
-		//
 	}; typedef RIO_BUF_EXT* PRIO_BUF_EXT;
 
+	//
+	//	Thread Environment Class
+	//	Each thread gets assigned an instance of this class
 	class ThreadEnvironment
 	{
 		std::queue<PRIO_BUF_EXT> Data_Buffers;
@@ -29,8 +31,8 @@ namespace PeerNet
 	public:
 		RIORESULT CompletionResults[RIO_ResultsPerThread];
 		char*const Uncompressed_Data;
-		ZSTD_CCtx* Compression_Context;
-		ZSTD_DCtx* Decompression_Context;
+		ZSTD_CCtx*const Compression_Context;
+		ZSTD_DCtx*const Decompression_Context;
 		const unsigned int ThreadsInPool;
 		ThreadEnvironment(const unsigned int MaxThreads)
 			: ThreadsInPool(MaxThreads), BuffersMutex(), Data_Buffers(), CompletionResults(),
@@ -79,6 +81,7 @@ namespace PeerNet
 
 		std::deque<PRIO_BUF_EXT> Recv_Buffers;
 
+		PeerNet* _PeerNet;
 		NetAddress* Address;
 		SOCKET Socket;
 
@@ -105,7 +108,7 @@ namespace PeerNet
 		RIO_EXTENSION_FUNCTION_TABLE RIO;
 
 	public:
-		NetSocket(NetAddress* MyAddress);
+		NetSocket(PeerNet* PNInstance, NetAddress* MyAddress);
 		~NetSocket();
 	};
 }

@@ -37,7 +37,7 @@ public:
 		TimedThread([&]() {
 		//
 		//	Make sure this thread uses the least amount of resources possible
-		SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_IDLE);
+		SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_BEGIN);
 
 		while (!Abort)
 		{
