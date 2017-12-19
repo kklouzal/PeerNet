@@ -64,6 +64,7 @@ namespace PeerNet
 }
 
 #include "NetAddress.hpp"
+
 #include "NetPacket.h"
 #include "NetSocket.h"
 #include "NetPeer.h"
@@ -77,8 +78,15 @@ namespace PeerNet
 
 		RIO_EXTENSION_FUNCTION_TABLE g_rio;
 
-		AddressPool<NetPeer*>* PeerKeeper = nullptr;
-		AddressPool<NetSocket*>* SocketKeeper = nullptr;
+		AddressPool* Addresses = nullptr;
+
+		unordered_map<string, NetSocket*const> Sockets;
+		unordered_map<string, NetPeer*const> Peers;
+
+		mutex SocketMutex;
+		mutex PeerMutex;
+
+		NetSocket* DefaultSocket = nullptr;
 
 		//	Private Constructor/Destructor to force Singleton Design Pattern
 		PeerNet(unsigned int MaxPeers, unsigned int MaxSockets);
@@ -92,6 +100,9 @@ namespace PeerNet
 		//	Deinitialize PeerNet
 		static void Deinitialize();
 
+		//	Sets the default socket used by new peers
+		void SetDefaultSocket(NetSocket* Socket) { DefaultSocket = Socket; }
+
 		//	Return our Instance
 		static inline PeerNet* getInstance() { return _instance; }
 
@@ -100,22 +111,41 @@ namespace PeerNet
 
 		//	Creates a socket and starts listening at the specified IP and Port
 		//	Returns socket if it already exists
-		NetSocket*const OpenSocket(string StrIP, string StrPort);
-
-		//	Creates and connects to a peer at the specified IP and Port
-		//	Returns peer if it already exists
-		//
-		//	ToDo: The NetAddress created through NewAddress needs to be returned to PeerKeeper's Unused container
-		//	when this NetPeer is cleaned up
-		NetPeer*const ConnectPeer(string StrIP, string StrPort, NetSocket* DefaultSocket);
+		NetSocket*const OpenSocket(string IP, string Port);
 
 		//	Need DisconnectPeer/CloseSocket to properly cleanup our internal containers
 		//	Or split those functions up into their respective files
 		//	And let their respective classes destructors handle it <--
 		void DisconnectPeer(SOCKADDR_INET* AddrBuff);
 
-		//	Checks for an existing connected peer and returns it
-		//	Or returns a newly constructed NetPeer and immediatly sends the discovery packet
-		NetPeer*const GetPeer(SOCKADDR_INET* AddrBuff, NetSocket* DefaultSocket);
+		//	Gets an existing peer from a provided AddrBuff
+		//	Creates a new peer if one does not exist
+		inline NetPeer*const PeerNet::GetPeer(SOCKADDR_INET*const AddrBuff)
+		{
+			//	Check if we already have a connected object with this address
+			//const string Formatted(IP + string(":") + Port);
+			const string IP(inet_ntoa(AddrBuff->Ipv4.sin_addr));
+			const string Port(std::to_string(ntohs(AddrBuff->Ipv4.sin_port)));
+			const string Formatted(IP + ":" + Port);
+			//PeerMutex.lock();
+			auto it = Peers.find(Formatted);
+			if (it != Peers.end())
+			{
+				//PeerMutex.unlock();
+				return it->second;	//	Already have a connected object for this ip/port
+			}
+			else {
+				//NetAddress* NewAddr = Addresses->FreeAddress(AddrBuff);
+				NetAddress*const NewAddr = Addresses->FreeAddress();
+				NewAddr->Resolve(IP, Port);
+				Addresses->WriteAddress(NewAddr);
+				NetPeer*const ThisPeer = new NetPeer(DefaultSocket, NewAddr);
+				PeerMutex.lock();	//	Only need to lock here?
+				Peers.emplace(Formatted, ThisPeer);
+				PeerMutex.unlock();
+				return ThisPeer;
+			}
+		}
+		NetPeer*const GetPeer(string IP, string Port);
 	};
 }

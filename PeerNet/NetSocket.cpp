@@ -22,10 +22,10 @@ namespace PeerNet
 			for (ULONG CurResult = 0; CurResult < NumResults; CurResult++)
 			{
 				//	Get the raw packet data into our buffer
-				PRIO_BUF_EXT pBuffer = reinterpret_cast<PRIO_BUF_EXT>(Env->CompletionResults[CurResult].RequestContext);
+				const PRIO_BUF_EXT pBuffer = reinterpret_cast<PRIO_BUF_EXT>(Env->CompletionResults[CurResult].RequestContext);
 
 				//	Determine which peer this packet belongs to and pass the data payload off to our NetPeer so they can decompress it according to the TypeID
-				_PeerNet->GetPeer((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset], this)->Receive_Packet(
+				_PeerNet->GetPeer((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset]/*, this*/)->Receive_Packet(
 					ntohs((u_short)&Data_Buffer[pBuffer->Offset]),
 					&Data_Buffer[pBuffer->Offset + sizeof(u_short)],
 					Env->CompletionResults[CurResult].BytesTransferred - sizeof(u_short),
@@ -71,7 +71,7 @@ namespace PeerNet
 
 		case CK_SEND:
 		{
-			SendPacket* OutPacket = static_cast<SendPacket*>(pOverlapped);
+			SendPacket*const OutPacket = static_cast<SendPacket*>(pOverlapped);
 			PRIO_BUF_EXT pBuffer = Env->PopBuffer();
 			//	If we are out of buffers push the request back out for another thread to pick up
 			if (pBuffer == nullptr) { PostCompletion<SendPacket*>(CK_SEND, OutPacket); return; }
@@ -83,7 +83,7 @@ namespace PeerNet
 			}
 
 			//	Copy our TypeID into the beginning of the data buffer
-			u_short TypeID = htons(OutPacket->GetType());
+			const u_short TypeID = htons(OutPacket->GetType());
 			std::memmove(&Data_Buffer[pBuffer->Offset], &TypeID, sizeof(u_short));
 
 			//	Compress our outgoing packets data payload into the rest of the data buffer
@@ -225,6 +225,7 @@ namespace PeerNet
 		
 		printf("\tShutdown Socket - %s\n", Address->FormattedAddress());
 		//	Cleanup our NetAddress
+		//	TODO: Need to return this address back into the Unused Address Pool instead of deleting it
 		delete Address;
 	}
 }

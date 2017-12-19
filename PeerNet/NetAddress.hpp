@@ -1,9 +1,7 @@
 #pragma once
-#include <unordered_map>
 #include <string>
 #include <deque>
 #include <mutex>
-using std::unordered_map;
 using std::string;
 using std::deque;
 using std::mutex;
@@ -48,6 +46,8 @@ struct NetAddress : public RIO_BUF
 
 	~NetAddress() { freeaddrinfo(Results); }
 
+	inline const string& GetFormatted() const { return Address; }
+	//get rid of this next one!
 	const char*const FormattedAddress() const { return Address.c_str(); }
 	const addrinfo*const AddrInfo() const { return Results; }
 };
@@ -56,14 +56,10 @@ struct NetAddress : public RIO_BUF
 //
 //	AddressPool
 //	Manages a pool of addresses in memory
-//	Which are handed out to objects of type T
 //	Supporting a maximum of MaxObjects addresses
-template <typename T>
 class AddressPool
 {
 	mutex AddrMutex;
-	//unordered_map<SOCKADDR_INET, T> Objects;
-	unordered_map<string, T> Objects;
 	deque<NetAddress*> UsedAddr;
 	deque<NetAddress*> UnusedAddr;
 	RIO_BUFFERID Addr_BufferID;
@@ -72,7 +68,7 @@ class AddressPool
 public:
 
 	AddressPool(RIO_EXTENSION_FUNCTION_TABLE &RIO, unsigned int MaxObjects) :
-		AddrMutex(), Objects(), Addr_BufferID(), Addr_Buffer(new char[MaxObjects * sizeof(SOCKADDR_INET)]), UsedAddr(), UnusedAddr()
+		AddrMutex(), Addr_BufferID(), Addr_Buffer(new char[MaxObjects * sizeof(SOCKADDR_INET)]), UsedAddr(), UnusedAddr()
 	{
 		//	Initialize Address Memory Buffer
 		printf("Address Buffer: ");
@@ -84,7 +80,7 @@ public:
 		else {
 			for (DWORD i = 0, AddressOffset = 0; i < MaxObjects; i++/*, AddressOffset += sizeof(SOCKADDR_INET)*/)
 			{
-				NetAddress* Address = new NetAddress();
+				NetAddress*const Address = new NetAddress();
 				Address->BufferId = Addr_BufferID;
 				Address->Offset = AddressOffset;
 				Address->Length = sizeof(SOCKADDR_INET);
@@ -107,65 +103,36 @@ public:
 		}
 	}
 
-	inline T GetExisting(SOCKADDR_INET* AddrBuff)
+	//	Must be called after ->Resolve to write the resolved data to the address buffer
+	void WriteAddress(NetAddress*const Addr)
 	{
-		//	Check if we already have a connected object with this address
-		const string Formatted = inet_ntoa(AddrBuff->Ipv4.sin_addr) + string(":") + std::to_string(ntohs(AddrBuff->Ipv4.sin_port));
-		AddrMutex.lock();
-		auto it = Objects.find(Formatted);
-		if (it != Objects.end())
-		{
-			AddrMutex.unlock();
-			return it->second;	//	Already have a connected object for this ip/port
-		}
-		AddrMutex.unlock();
-		return nullptr;	//	No connected object exists
+		std::memcpy(&Addr_Buffer[Addr->Offset], Addr->AddrInfo()->ai_addr, sizeof(SOCKADDR_INET));
 	}
 
-	NetAddress* FreeAddress()
+	//	Returns a free and empty address
+	NetAddress*const FreeAddress()
 	{
 		AddrMutex.lock();
 		if (UnusedAddr.empty()) { AddrMutex.unlock(); return nullptr; }
 
-		NetAddress* NewAddress = UnusedAddr.back();
+		NetAddress*const NewAddress = UnusedAddr.back();
 		UsedAddr.push_front(UnusedAddr.back());
 		UnusedAddr.pop_back();
 		AddrMutex.unlock();
 		return NewAddress;
 	}
 
-	const bool New(string StrIP, string StrPort, T& ExistingObj, NetAddress*& NewAddr)
+	//	Returns a free address from an existing SOCKADDR_INET
+	NetAddress*const FreeAddress(SOCKADDR_INET*const AddrBuff)
 	{
 		AddrMutex.lock();
-		if (UnusedAddr.empty()) { AddrMutex.unlock(); return false; }	//	No available objects to hand out
+		if (UnusedAddr.empty()) { AddrMutex.unlock(); return nullptr; }
 
-		NewAddr = UnusedAddr.back();
+		NetAddress*const NewAddress = UnusedAddr.back();
 		UsedAddr.push_front(UnusedAddr.back());
 		UnusedAddr.pop_back();
-
-		//	resolve our Address from the supplied IP and Port
-		NewAddr->Resolve(StrIP, StrPort);
-
-		std::memcpy(&Addr_Buffer[NewAddr->Offset], NewAddr->AddrInfo()->ai_addr, sizeof(SOCKADDR_INET));
-
-		//	Check if we already have a connected object with this address
-		//if (Objects.count((SOCKADDR_INET*)NewAddr->AddrInfo()->ai_addr))
-		if (Objects.count(NewAddr->FormattedAddress()))
-		{
-			//ExistingObj = Objects.at((SOCKADDR_INET*)NewAddr->AddrInfo()->ai_addr);
-			ExistingObj = Objects.at(NewAddr->FormattedAddress());
-			AddrMutex.unlock();
-			return false;	//	Already have a connected object for this ip/port
-		}
 		AddrMutex.unlock();
-		return true;	//	Go ahead and create a new object
-	}
-
-	void InsertConnected(NetAddress* Address, T NewObject)
-	{
-		AddrMutex.lock();
-		//Objects.emplace((SOCKADDR_INET*)Address->AddrInfo()->ai_addr, NewObject);
-		Objects.emplace(Address->FormattedAddress(), NewObject);
-		AddrMutex.unlock();
+		std::memcpy(&Addr_Buffer[NewAddress->Offset], AddrBuff, sizeof(SOCKADDR_INET));
+		return NewAddress;
 	}
 };

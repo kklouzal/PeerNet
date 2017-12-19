@@ -52,12 +52,12 @@ int main()
 			//	1. Delete all your peers
 			if (Peer != nullptr)
 			{
-				delete Peer;
+				//delete Peer;
 			}
 			//	2. Delete all your sockets
 			if (Socket != nullptr)
 			{
-				delete Socket;
+				//delete Socket;
 			}
 			//	3. Shutdown PeerNet
 			PeerNet::PeerNet::Deinitialize();
@@ -74,6 +74,7 @@ int main()
 				std::getline(std::cin, InputPort);
 				if (InputIP.empty() || InputPort.empty()) { printf("Invalid Arguments\n"); continue; }
 				Socket = _PeerNet->OpenSocket(InputIP, InputPort);
+				_PeerNet->SetDefaultSocket(Socket);
 			}
 		}
 		else if (ConsoleInput == "close")
@@ -86,7 +87,7 @@ int main()
 		}
 		else if (ConsoleInput == "discover")
 		{
-			if ((Peer == nullptr) && Socket != nullptr)
+			if ((Peer == nullptr) /*&& Socket != nullptr*/)
 			{
 				printf("IP Address: ");
 				std::string InputIP;
@@ -96,7 +97,7 @@ int main()
 				std::getline(std::cin, InputPort);
 				if (InputIP.empty() || InputPort.empty()) { printf("Invalid Arguments\n"); continue; }
 				
-				Peer = _PeerNet->ConnectPeer(InputIP, InputPort, Socket);
+				Peer = _PeerNet->GetPeer(InputIP, InputPort/*, Socket*/);
 			}
 		}
 		else if (ConsoleInput == "forget")

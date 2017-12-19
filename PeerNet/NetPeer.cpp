@@ -23,6 +23,9 @@ namespace PeerNet
 		delete CH_Reliable;
 		delete CH_Unreliable;
 		printf("\tDisconnect Peer - %s\n", Address->FormattedAddress());
+		//	Cleanup our NetAddress
+		//	TODO: Need to return this address back into the Unused Address Pool instead of deleting it
+		delete Address;
 	}
 
 	//	BaseClass TimedEvent OnTick function
