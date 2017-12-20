@@ -39,8 +39,6 @@
 // Core Classes
 namespace PeerNet
 {
-	class PeerNet;
-
 	enum PacketType : unsigned short
 	{
 		PN_KeepAlive = 0,
@@ -51,11 +49,9 @@ namespace PeerNet
 	};
 	class NetPeer;
 	class NetSocket;
-	class NetPacket;
 }
 
 #include "NetAddress.hpp"
-
 #include "NetPacket.hpp"
 
 namespace PeerNet
