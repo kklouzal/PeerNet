@@ -1,10 +1,11 @@
 #pragma once
-//#include "lz4.h"	//	Compression/Decompression Library
 
+#include <atomic>
 #include <mutex>
 #include <memory>
 #include <unordered_map>
 
+using std::atomic;
 using std::mutex;
 using std::string;
 using std::shared_ptr;
@@ -28,15 +29,15 @@ namespace PeerNet
 
 		//	Outgoing Variables
 		mutex Out_Mutex;			//	Synchronize this channels Outgoing vars and funcs
-		unsigned long Out_NextID;	//	Next packet ID we'll use
+		atomic<unsigned long> Out_NextID;	//	Next packet ID we'll use
 		//	Since we use shared pointers to manage memory cleanup for our packets
 		//	Unreliable packets need to be held onto long enough to actually get sent
 		unordered_map<unsigned long, shared_ptr<NetPacket>> Out_Packets;
-		unsigned long Out_LastACK;	//	Most recent acknowledged ID
+		atomic<unsigned long> Out_LastACK;	//	Most recent acknowledged ID
 
 		//	Incoming Variables
 		mutex In_Mutex;				//	Synchronize this channels Incoming vars and funcs
-		unsigned long In_LastID;	//	The largest received ID so far
+		atomic<unsigned long> In_LastID;	//	The largest received ID so far
 	public:
 		//	Constructor initializes our base class
 		Channel(NetPeer*const ThisPeer, PacketType ChanID)
@@ -46,35 +47,36 @@ namespace PeerNet
 		//	Initialize and return a new packet for sending
 		shared_ptr<SendPacket> NewPacket()
 		{
+			shared_ptr<SendPacket> Packet = std::make_shared<SendPacket>(Out_NextID.load(), GetChannelID(), MyPeer);
 			Out_Mutex.lock();
-			shared_ptr<SendPacket> Packet = std::make_shared<SendPacket>(Out_NextID, GetChannelID(), MyPeer);
 			Out_Packets[Out_NextID++] = Packet;
 			Out_Mutex.unlock();
 			return Packet;
 		}
 		//	Receives a packet
-		virtual const bool Receive(ReceivePacket* IN_Packet) = 0;
+		virtual const bool Receive(ReceivePacket*const IN_Packet) = 0;
 		//	Get the largest received ID so far
-		const auto GetLastID() const { return In_LastID; }
+		const auto GetLastID() const { return In_LastID.load(); }
 		//	Acknowledge delivery and processing of all packets up to this ID
-		void ACK(const unsigned long ID)
+		void ACK(const unsigned long& ID)
 		{
 			//	We hold onto all the sent packets with an ID higher than that of
 			//	Which our remote peer has not confirmed delivery for as those
 			//	Packets may still be going through their initial sending process
-			Out_Mutex.lock();
 			if (ID > Out_LastACK)
 			{
 				Out_LastACK = ID;
+				Out_Mutex.lock();
 				auto Out_Itr = Out_Packets.begin();
 				while (Out_Itr != Out_Packets.end()) {
-					if (Out_Itr->first <= Out_LastACK) {
+					if (Out_Itr->first <= Out_LastACK.load()) {
 						Out_Packets.erase(Out_Itr++);
 					}
 					else {
 						++Out_Itr;
 					}
 				}
+				Out_Mutex.unlock();
 			}
 			//	If their last received reliable ID is less than our last sent reliable id
 			//	Send the most recently sent reliable packet to them again
@@ -82,7 +84,6 @@ namespace PeerNet
 			//	ToDo:	Hold off on resending the packet until it's creation time
 			//			is greater than this clients RTT
 			//if (ID < Out_NextID - 1 && Out_Packets.count(Out_NextID - 1)) { MyPeer->Socket->PostCompletion<NetPacket*>(CK_SEND, Out_Packets[Out_NextID - 1].get()); }
-			Out_Mutex.unlock();
 		}
 
 		/*virtual const string CompressPacket(NetPacket* OUT_Packet) = 0;

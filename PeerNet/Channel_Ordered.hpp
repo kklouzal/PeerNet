@@ -14,7 +14,7 @@ namespace PeerNet
 
 		//	Receives an ordered packet
 		//	LastID+1 here is the 'next expected packet'
-		const bool Receive(ReceivePacket* IN_Packet)
+		const bool Receive(ReceivePacket*const IN_Packet)
 		{
 			In_Mutex.lock();
 			//	If this ID was missing, remove it from the MissingIDs container

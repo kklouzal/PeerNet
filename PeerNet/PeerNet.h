@@ -66,7 +66,6 @@ namespace PeerNet
 #include "NetAddress.hpp"
 
 #include "NetPacket.h"
-#include "NetSocket.h"
 #include "NetPeer.h"
 
 namespace PeerNet
@@ -120,13 +119,11 @@ namespace PeerNet
 
 		//	Gets an existing peer from a provided AddrBuff
 		//	Creates a new peer if one does not exist
-		inline NetPeer*const PeerNet::GetPeer(SOCKADDR_INET*const AddrBuff)
+		inline NetPeer*const PeerNet::GetPeer(const SOCKADDR_INET*const AddrBuff)
 		{
 			//	Check if we already have a connected object with this address
 			//const string Formatted(IP + string(":") + Port);
-			const string IP(inet_ntoa(AddrBuff->Ipv4.sin_addr));
-			const string Port(std::to_string(ntohs(AddrBuff->Ipv4.sin_port)));
-			const string Formatted(IP + ":" + Port);
+			const string Formatted(inet_ntoa(AddrBuff->Ipv4.sin_addr) + std::string(":") + std::to_string(ntohs(AddrBuff->Ipv4.sin_port)));
 			//PeerMutex.lock();
 			auto it = Peers.find(Formatted);
 			if (it != Peers.end())
@@ -137,6 +134,8 @@ namespace PeerNet
 			else {
 				//NetAddress* NewAddr = Addresses->FreeAddress(AddrBuff);
 				NetAddress*const NewAddr = Addresses->FreeAddress();
+				const string IP(inet_ntoa(AddrBuff->Ipv4.sin_addr));
+				const string Port(std::to_string(ntohs(AddrBuff->Ipv4.sin_port)));
 				NewAddr->Resolve(IP, Port);
 				Addresses->WriteAddress(NewAddr);
 				NetPeer*const ThisPeer = new NetPeer(DefaultSocket, NewAddr);
@@ -149,3 +148,5 @@ namespace PeerNet
 		NetPeer*const GetPeer(string IP, string Port);
 	};
 }
+
+#include "NetSocket.h"

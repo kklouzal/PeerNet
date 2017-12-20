@@ -2,117 +2,16 @@
 
 namespace PeerNet
 {
-	void NetSocket::OnCompletion(ThreadEnvironment*const Env, const DWORD& numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED* pOverlapped)
-	{
-		//
-		//	Thread Completion Function
-		//	Process Sends and Receives
-		//	(Executed via the Thread Pool)
-		//
 
-		switch (completionKey)
-		{
-		case CK_RIO_RECV:
-		{
-			const ULONG NumResults = RIO.RIODequeueCompletion(CompletionQueue_Recv, Env->CompletionResults, RIO_ResultsPerThread);
-			if (RIO.RIONotify(CompletionQueue_Recv) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
-			if (RIO_CORRUPT_CQ == NumResults) { printf("RIO Corrupt Results\n"); return; }
-
-			//	Actually read the data from each received packet
-			for (ULONG CurResult = 0; CurResult < NumResults; CurResult++)
-			{
-				//	Get the raw packet data into our buffer
-				const PRIO_BUF_EXT pBuffer = reinterpret_cast<PRIO_BUF_EXT>(Env->CompletionResults[CurResult].RequestContext);
-
-				//	Determine which peer this packet belongs to and pass the data payload off to our NetPeer so they can decompress it according to the TypeID
-				_PeerNet->GetPeer((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset]/*, this*/)->Receive_Packet(
-					ntohs((u_short)&Data_Buffer[pBuffer->Offset]),
-					&Data_Buffer[pBuffer->Offset + sizeof(u_short)],
-					Env->CompletionResults[CurResult].BytesTransferred - sizeof(u_short),
-					PN_MaxPacketSize - sizeof(u_short),
-					Env->Uncompressed_Data,
-					Env->Decompression_Context);
-#ifdef _PERF_SPINLOCK
-				while (!RioMutex.try_lock()) {}
-#else
-				RioMutex_Receive.lock();
-#endif
-				//	Push another read request into the queue
-				if (!RIO.RIOReceiveEx(RequestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, 0, pBuffer)) { printf("RIO Receive2 Failed\n"); }
-				RioMutex_Receive.unlock();
-			}
-		}
-		break;
-
-		case CK_RIO_SEND:
-		{
-			const ULONG NumResults = RIO.RIODequeueCompletion(CompletionQueue_Send, Env->CompletionResults, RIO_ResultsPerThread);
-			if (RIO.RIONotify(CompletionQueue_Send) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
-			if (RIO_CORRUPT_CQ == NumResults) { printf("RIO Corrupt Results\n"); return; }
-			//	Actually read the data from each received packet
-			for (ULONG CurResult = 0; CurResult < NumResults; CurResult++)
-			{
-				//	Get the raw packet data into our buffer
-				PRIO_BUF_EXT pBuffer = reinterpret_cast<PRIO_BUF_EXT>(Env->CompletionResults[CurResult].RequestContext);
-
-				//	Completion of a send request with the delete flag set
-				if (pBuffer->completionKey == CK_SEND_DELETE)
-				{
-					//	cleanup the NetPacket that initiated this CK_SEND
-					delete pBuffer->MyNetPacket;
-					//	Reset the completion key
-					pBuffer->completionKey = CK_SEND;
-				}
-				//	Send this pBuffer back to the correct Thread Environment
-				pBuffer->MyEnv->PushBuffer(pBuffer);
-			}
-		}
-		break;
-
-		case CK_SEND:
-		{
-			SendPacket*const OutPacket = static_cast<SendPacket*>(pOverlapped);
-			PRIO_BUF_EXT pBuffer = Env->PopBuffer();
-			//	If we are out of buffers push the request back out for another thread to pick up
-			if (pBuffer == nullptr) { PostCompletion<SendPacket*>(CK_SEND, OutPacket); return; }
-			//	This will allow the CK_SEND RIO completion to cleanup SendPacket when IsManaged() == true
-			if (OutPacket->GetManaged())
-			{
-				pBuffer->MyNetPacket = OutPacket;
-				pBuffer->completionKey = CK_SEND_DELETE;
-			}
-
-			//	Copy our TypeID into the beginning of the data buffer
-			const u_short TypeID = htons(OutPacket->GetType());
-			std::memmove(&Data_Buffer[pBuffer->Offset], &TypeID, sizeof(u_short));
-
-			//	Compress our outgoing packets data payload into the rest of the data buffer
-			pBuffer->Length = (ULONG)OutPacket->GetPeer()->CompressPacket(OutPacket, &Data_Buffer[pBuffer->Offset + sizeof(u_short)],
-				PN_MaxPacketSize-sizeof(u_short), Env->Compression_Context)+sizeof(u_short);
-
-			//	If compression was successful, actually transmit our packet
-			if (pBuffer->Length > 0) {
-				//printf("Compressed: %i->%i\n", SendPacket->GetData().size(), pBuffer->Length);
-#ifdef _PERF_SPINLOCK
-				while (!RioMutex.try_lock()) {}
-#else
-				RioMutex_Send.lock();
-#endif
-				RIO.RIOSendEx(RequestQueue, pBuffer, 1, NULL, OutPacket->GetPeer()->GetAddress(), NULL, NULL, NULL, pBuffer);
-				RioMutex_Send.unlock();
-			}
-			else { printf("Packet Compression Failed - %i\n", pBuffer->Length); }
-		}
-		break;
-		}
-	}
-	
-	NetSocket::NetSocket(PeerNet* PNInstance, NetAddress* MyAddress) : _PeerNet(PNInstance), Address(MyAddress), RIO(_PeerNet->RIO()),
+	//
+	//	NetSocket Constructor
+	//
+	NetSocket::NetSocket(PeerNet* PNInstance, NetAddress* MyAddress) : _PeerNet(PNInstance), Address(MyAddress),
 		Address_Buffer(new char[sizeof(SOCKADDR_INET)*(PN_MaxSendPackets + PN_MaxReceivePackets)]),
 		Data_Buffer(new char[PN_MaxPacketSize*(PN_MaxSendPackets + PN_MaxReceivePackets)]),
 		Overlapped_Recv(new OVERLAPPED()), Overlapped_Send(new OVERLAPPED()),
 		Socket(WSASocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, NULL, WSA_FLAG_REGISTERED_IO)),
-		RioMutex_Send(), RioMutex_Receive(), ThreadPoolIOCP()
+		RioMutex_Send(), RioMutex_Receive(), RIO(_PeerNet->RIO()), ThreadPoolIOCP()
 	{
 		//	Make sure our socket was created properly
 		if (Socket == INVALID_SOCKET) { printf("Socket Failed(%i)\n", WSAGetLastError()); }
@@ -144,7 +43,7 @@ namespace PeerNet
 		if (Address_BufferID == RIO_INVALID_BUFFERID) { printf("Address_Buffer: Invalid BufferID\n"); }
 
 		//	Initialize Data Memory Buffer
-		Data_BufferID = RIO.RIORegisterBuffer(Data_Buffer, PN_MaxPacketSize*(PN_MaxSendPackets+PN_MaxReceivePackets));
+		Data_BufferID = RIO.RIORegisterBuffer(Data_Buffer, PN_MaxPacketSize*(PN_MaxSendPackets + PN_MaxReceivePackets));
 		if (Data_BufferID == RIO_INVALID_BUFFERID) { printf("Data_Buffer: Invalid BufferID\n"); }
 
 		DWORD ReceiveOffset = 0;
@@ -161,7 +60,7 @@ namespace PeerNet
 			//
 			ReceiveOffset += PN_MaxPacketSize;
 			//	Figure out which thread we will belong to
-			pBuf->MyEnv = GetThreadEnv((unsigned char)floor(i/SendsPerThread));
+			pBuf->MyEnv = GetThreadEnv((unsigned char)floor(i / SendsPerThread));
 			pBuf->MyEnv->PushBuffer(pBuf);
 		}
 
@@ -185,7 +84,9 @@ namespace PeerNet
 			AddressOffset += sizeof(SOCKADDR_INET);
 			//
 			if (!RIO.RIOReceiveEx(RequestQueue, pBuf, 1, NULL, pBuf->pAddrBuff, NULL, NULL, NULL, pBuf))
-			{ printf("RIO Receive %i Failed %i\n", (int)i, WSAGetLastError()); }
+			{
+				printf("RIO Receive %i Failed %i\n", (int)i, WSAGetLastError());
+			}
 		}
 
 		//	Finally bind our servers socket so we can listen for data
@@ -196,6 +97,7 @@ namespace PeerNet
 		printf("\tListening On - %s\n", Address->FormattedAddress());
 	}
 
+	//
 	//	NetSocket Destructor
 	//
 	NetSocket::~NetSocket()
@@ -222,7 +124,7 @@ namespace PeerNet
 		}
 		delete Address_Buffer;
 		delete Data_Buffer;
-		
+
 		printf("\tShutdown Socket - %s\n", Address->FormattedAddress());
 		//	Cleanup our NetAddress
 		//	TODO: Need to return this address back into the Unused Address Pool instead of deleting it

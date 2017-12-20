@@ -1,6 +1,6 @@
 #pragma once
-//#define WIN32_LEAN_AND_MEAN
-//#include <Windows.h>		// IOCP functions and HANDLE
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>		// IOCP functions and HANDLE
 #include <stack>			// std::stack
 #include <thread>			// std::thread
 #include <unordered_map>	// std::unordered_map
@@ -29,7 +29,7 @@ protected:
 	stack<thread> Threads;
 
 private:
-	virtual void OnCompletion(T*const ThreadEnv, const DWORD& numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED* pOverlapped) = 0;
+	virtual inline void OnCompletion(T*const ThreadEnv, const DWORD& numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED*const pOverlapped) = 0;
 public:
 	auto const GetThreadEnv(const unsigned char& ThreadNum) const { return Environments.at(ThreadNum); }
 
@@ -84,7 +84,7 @@ public:
 		while (!Threads.empty()) { Threads.top().join(); Threads.pop(); }
 	}
 
-	void PostCompletion(const ULONG_PTR Key) const {
+	inline void PostCompletion(const ULONG_PTR Key) const {
 		if (!PostQueuedCompletionStatus(IOCompletionPort, NULL, Key, NULL))
 		{
 			printf("PostQueuedCompletionStatus Error: %i\n", GetLastError());
@@ -92,7 +92,7 @@ public:
 	}
 
 	template <typename T>
-	void PostCompletion(const ULONG_PTR Key, T OverlappedData) const {
+	inline void PostCompletion(const ULONG_PTR Key, T OverlappedData) const {
 		if (!PostQueuedCompletionStatus(IOCompletionPort, NULL, Key, reinterpret_cast<LPOVERLAPPED>(OverlappedData)))
 		{
 			printf("PostQueuedCompletionStatus Error: %i\n", GetLastError());
