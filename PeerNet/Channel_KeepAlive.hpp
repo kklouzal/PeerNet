@@ -12,29 +12,31 @@ namespace PeerNet
 		duration<double, milli> Out_RTT;	//	Start the system off assuming a 300ms ping. Let the algorythms adjust from that point.
 	public:
 		//	Default constructor initializes us and our base class
-		KeepAliveChannel(NetPeer* ThisPeer, PacketType ChannelID) : RollingRTT(20), Out_RTT(300), Channel(ThisPeer, ChannelID) {}
+		KeepAliveChannel(NetAddress* Address, PacketType ChannelID) : RollingRTT(20), Out_RTT(300), Channel(Address, ChannelID) {}
 
 		//	Receives a packet
-		const bool Receive(ReceivePacket* IN_Packet)
+		const bool Receive(ReceivePacket*const IN_Packet)
 		{
 			if (IN_Packet->ReadData<bool>())
 			{
-				In_Mutex.lock();
-				if (IN_Packet->GetPacketID() <= In_LastID) { In_Mutex.unlock(); delete IN_Packet; return false; }
-				In_LastID = IN_Packet->GetPacketID();
-				In_Mutex.unlock();
+				//In_Mutex.lock();
+				if (IN_Packet->GetPacketID() <= In_LastID.load()) { /*In_Mutex.unlock();*/ delete IN_Packet; return false; }
+				In_LastID.store(IN_Packet->GetPacketID());
+				//In_Mutex.unlock();
 				return true;
 			}
 			else
 			{
-				Out_Mutex.lock();
-				if (Out_Packets.count(IN_Packet->GetPacketID()))
+				auto it = Out_Packets.find(IN_Packet->GetPacketID());
+				if (it != Out_Packets.end())
 				{
-					duration<double> RTT = duration_cast<duration<double>>(IN_Packet->GetCreationTime() - Out_Packets.at(IN_Packet->GetPacketID())->GetCreationTime());
+					duration<double> RTT = duration_cast<duration<double>>(IN_Packet->GetCreationTime() - it->second->GetCreationTime());
+					Out_Mutex.lock();
 					Out_RTT -= Out_RTT / RollingRTT;
 					Out_RTT += RTT / RollingRTT;
+					Out_Mutex.unlock();
 				}
-				Out_Mutex.unlock(); delete IN_Packet; return false;
+				delete IN_Packet; return false;
 			}
 		}
 

@@ -26,10 +26,10 @@ namespace PeerNet
 			}
 			closesocket(RioSocket);
 
-			//	Create the Address Pool handlers
-			PeerKeeper = new AddressPool<NetPeer*>(g_rio, MaxPeers);
-			SocketKeeper = new AddressPool<NetSocket*>(g_rio, MaxSockets);
+			//	Create the Address Pool
+			Addresses = new AddressPool(g_rio, MaxPeers+MaxSockets);
 
+			//SetDefaultSocket(OpenSocket("127.0.0.1", "9999"));
 			//	TODO: Initialize our send/receive packets
 			printf("Initialization Complete\n");
 		}
@@ -38,10 +38,14 @@ namespace PeerNet
 	PeerNet::~PeerNet()
 	{
 		printf("Deinitializing PeerNet\n");
-
+		for (auto Peer : Peers) {
+			delete Peer.second;
+		}
+		for (auto Socket : Sockets) {
+			delete Socket.second;
+		}
 		WSACleanup();
-		delete PeerKeeper;
-		delete SocketKeeper;
+		delete Addresses;
 		printf("Deinitialization Complete\n");
 	}
 
@@ -68,43 +72,11 @@ namespace PeerNet
 		}
 	}
 
-	//	Creates a socket and starts listening at the specified IP and Port
-	//	Returns socket if it already exists
-	NetSocket*const PeerNet::OpenSocket(string StrIP, string StrPort)
-	{
-		NetSocket* ExistingSocket = NULL;
-		NetAddress* NewAddress;
-		//	Can we create a new NetSocket with this ip/port?
-		if (SocketKeeper->New(StrIP, StrPort, ExistingSocket, NewAddress))
-		{
-			NetSocket* ThisSocket = new NetSocket(this, NewAddress);
-			SocketKeeper->InsertConnected(NewAddress, ThisSocket);
-			return ThisSocket;
-		}
-		//	No available connections or object already connected
-		return ExistingSocket;
-	}
-
 	//	Creates and connects to a peer at the specified IP and Port
 	//	Returns peer if it already exists
 	//
 	//	ToDo: The NetAddress created through NewAddress needs to be returned to PeerKeeper's Unused container
 	//	when this NetPeer is cleaned up
-	NetPeer*const PeerNet::ConnectPeer(string StrIP, string StrPort, NetSocket* DefaultSocket)
-	{
-		if (DefaultSocket == nullptr) { printf("Error: DefaultSocket NULL\n"); return nullptr; }
-		NetPeer* ExistingPeer = nullptr;
-		NetAddress* NewAddress = nullptr;
-		//	Can we create a new NetPeer with this ip/port?
-		if (PeerKeeper->New(StrIP, StrPort, ExistingPeer, NewAddress))
-		{
-			NetPeer* ThisPeer = new NetPeer(DefaultSocket, NewAddress);
-			PeerKeeper->InsertConnected(NewAddress, ThisPeer);
-			return ThisPeer;
-		}
-		//	No available connections or object already connected
-		return ExistingPeer;
-	}
 
 	//	Need DisconnectPeer/CloseSocket to properly cleanup our internal containers
 	//	Or split those functions up into their respective files
@@ -114,17 +86,51 @@ namespace PeerNet
 
 	}
 
-	//	Checks for an existing connected peer and returns it
-	//	Or returns a newly constructed NetPeer and immediatly sends the discovery packet
-	NetPeer*const PeerNet::GetPeer(SOCKADDR_INET* AddrBuff, NetSocket* DefaultSocket)
+	//	Creates a socket and starts listening at the specified IP and Port
+	//	Returns socket if it already exists
+	NetSocket*const PeerNet::OpenSocket(string IP, string Port)
 	{
-		//	See if we already have an existing peer
-		NetPeer* ThisPeer = PeerKeeper->GetExisting(AddrBuff);
-		if (ThisPeer != nullptr) { return ThisPeer; }
+		//	Check if we already have a connected object with this address
+		const string Formatted(IP + string(":") + Port);
+		//SocketMutex.lock();
+		auto it = Sockets.find(Formatted);
+		if (it != Sockets.end())
+		{
+			//SocketMutex.unlock();
+			return it->second;	//	Already have a connected object for this ip/port
+		}
+		else {
+			NetAddress*const NewAddr = Addresses->FreeAddress();
+			NewAddr->Resolve(IP, Port);
+			NetSocket*const ThisSocket = new NetSocket(this, NewAddr);
+			SocketMutex.lock();	//	Only need to lock here?
+			Sockets.emplace(Formatted, ThisSocket);
+			SocketMutex.unlock();
+			return ThisSocket;
+		}
+	}
 
-		const string SenderIP(inet_ntoa(AddrBuff->Ipv4.sin_addr));
-		const string SenderPort(std::to_string(ntohs(AddrBuff->Ipv4.sin_port)));
 
-		return ConnectPeer(SenderIP, SenderPort, DefaultSocket);
+	NetPeer*const PeerNet::GetPeer(string IP, string Port)
+	{
+		//	Check if we already have a connected object with this address
+		const string Formatted(IP + string(":") + Port);
+		//PeerMutex.lock();
+		auto it = Peers.find(Formatted);
+		if (it != Peers.end())
+		{
+			//PeerMutex.unlock();
+			return it->second;	//	Already have a connected object for this ip/port
+		}
+		else {
+			NetAddress*const NewAddr = Addresses->FreeAddress();
+			NewAddr->Resolve(IP, Port);
+			Addresses->WriteAddress(NewAddr);
+			NetPeer*const ThisPeer = new NetPeer(DefaultSocket, NewAddr);
+			PeerMutex.lock();	//	Only need to lock here?
+			Peers.emplace(Formatted, ThisPeer);
+			PeerMutex.unlock();
+			return ThisPeer;
+		}
 	}
 }

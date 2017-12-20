@@ -32,14 +32,15 @@ namespace PeerNet
 	class SendPacket : public NetPacket
 	{
 		stringstream DataStream;					//	DataStream holds our serialized binary data
-		bool InternallyManaged;						//	If the data held by MyNetPacket is deleted or not
-		NetPeer*const MyPeer;						//	The destination peer for this SendPacket
+		const bool InternallyManaged;				//	If the data held by MyNetPacket is deleted or not
+		//NetPeer*const MyPeer;						//	The destination peer for this SendPacket
+		NetAddress*const MyAddress;
 		PortableBinaryOutputArchive*const BinaryIn;	//	Putting binary into the archive to send out
 
 	public:
 		//	Managed == true ONLY for non-user accessible packets
-		SendPacket(const unsigned long& pID, const PacketType& pType, NetPeer*const Peer, const bool& Managed = false)
-			: DataStream(std::ios::in | std::ios::out | std::ios::binary), InternallyManaged(Managed), MyPeer(Peer),
+		inline SendPacket(const unsigned long& pID, const PacketType& pType, NetAddress*const Address, const bool& Managed = false)
+			: DataStream(std::ios::in | std::ios::out | std::ios::binary), InternallyManaged(Managed), MyAddress(Address),
 			BinaryIn(new PortableBinaryOutputArchive(DataStream))
 		{
 			PacketID = pID;
@@ -49,15 +50,15 @@ namespace PeerNet
 			if (pType == PN_KeepAlive) { CreationTime = high_resolution_clock::now(); }
 		}
 
-		~SendPacket() { delete BinaryIn; }
+		inline ~SendPacket() { delete BinaryIn; }
 
 		// Write data into the packet
-		template <typename T> void WriteData(T Data) const { BinaryIn->operator()(Data); }
+		template <typename T> inline void WriteData(T Data) const { BinaryIn->operator()(Data); }
 		// Get the packets data buffer
 		inline const auto GetData() const { return DataStream.rdbuf(); }
 		//	Return our underlying destination NetPeer
-		inline auto const GetPeer() const { return MyPeer; }
-		inline auto const GetManaged() const { return InternallyManaged; }
+		inline auto const GetAddress() const { return MyAddress; }
+		inline const auto& GetManaged() const { return InternallyManaged; }
 	};
 
 	//
@@ -69,7 +70,7 @@ namespace PeerNet
 
 	public:
 		//	Managed == true ONLY for non-user accessible packets
-		ReceivePacket(const string& Data)
+		inline ReceivePacket(const string& Data)
 			: DataStream(Data, std::ios::in | std::ios::out | std::ios::binary),
 			BinaryOut(new PortableBinaryInputArchive(DataStream))
 		{
@@ -78,11 +79,11 @@ namespace PeerNet
 			if (TypeID == PN_KeepAlive) { CreationTime = high_resolution_clock::now(); }
 		}
 
-		~ReceivePacket() { delete BinaryOut; }
+		inline ~ReceivePacket() { delete BinaryOut; }
 
 		// Read data from the packet
 		// MUST be read in the same order it was written
-		template <typename T> auto ReadData() const
+		template <typename T> inline auto ReadData() const
 		{
 			T Temp;
 			BinaryOut->operator()(Temp);
