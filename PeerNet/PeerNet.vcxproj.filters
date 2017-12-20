@@ -14,9 +14,6 @@
     <ClInclude Include="PeerNet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="NetPacket.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="NetPeer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -48,6 +45,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Channel_KeepAlive.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NetPacket.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,5 +1,6 @@
 #pragma once
-#include <Processthreadsapi.h>	// SetThreadPriority 
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>	// SetThreadPriority 
 #include <thread>				// std::thread
 
 using std::chrono::milliseconds;

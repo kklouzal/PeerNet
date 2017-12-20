@@ -15,8 +15,7 @@ enum COMPLETION_KEY
 	CK_RIO_RECV		=	1,	//	RIO Receive completions
 	CK_RIO_SEND		=	2,	//	RIO Send completions
 	CK_SEND			=	3,	//	used during send operation
-	CK_SEND_DELETE	=	4,	//	used during send operation (deletes the SendPacket*)
-	CK_RECEIVE		=	5	//	used during receive operation
+	CK_RECEIVE		=	4	//	used during receive operation
 };
 
 template <typename T>

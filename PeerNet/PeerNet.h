@@ -65,7 +65,7 @@ namespace PeerNet
 
 #include "NetAddress.hpp"
 
-#include "NetPacket.h"
+#include "NetPacket.hpp"
 #include "NetPeer.h"
 
 namespace PeerNet

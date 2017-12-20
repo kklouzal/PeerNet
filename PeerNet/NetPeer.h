@@ -57,7 +57,9 @@ namespace PeerNet
 
 			//	Return if decompression fails
 			//	TODO: Should be < 0; Will randomly crash at 0 though.
-			if (DecompressResult < 1) { printf("Receive Packet - Decompression Failed!\n"); return; }
+			if (DecompressResult < 1) {
+				printf("Receive Packet - Decompression Failed!\n"); return;
+			}
 
 			//	Instantiate a NetPacket from our decompressed data
 			ReceivePacket*const IncomingPacket = new ReceivePacket(std::string(CBuff, DecompressResult));
