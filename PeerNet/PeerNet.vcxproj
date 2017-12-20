@@ -34,8 +34,6 @@
     <ClInclude Include="TimedEvent.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="NetPeer.cpp" />
-    <ClCompile Include="NetSocket.cpp" />
     <ClCompile Include="PeerNet.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

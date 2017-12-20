@@ -35,15 +35,6 @@
 //	Performance Tuning
 //#define _PERF_SPINLOCK	//	Higher CPU Usage for more responsive packet handling; lower latencies
 
-enum
-{
-	PN_LoopBackPort = 9999,
-
-	PN_MaxPacketSize = 1472,		//	Max size of an outgoing or incoming packet
-	RIO_ResultsPerThread = 128,		//	How many results to dequeue from the stack per thread
-	PN_MaxSendPackets = 14336,		//	Max outgoing packets per socket before you run out of memory
-	PN_MaxReceivePackets = 14336	//	Max pending incoming packets before new packets are disgarded
-};
 
 // Core Classes
 namespace PeerNet
@@ -66,7 +57,6 @@ namespace PeerNet
 #include "NetAddress.hpp"
 
 #include "NetPacket.hpp"
-#include "NetPeer.h"
 
 namespace PeerNet
 {
@@ -79,11 +69,11 @@ namespace PeerNet
 
 		AddressPool* Addresses = nullptr;
 
-		unordered_map<string, NetSocket*const> Sockets;
-		unordered_map<string, NetPeer*const> Peers;
+		std::unordered_map<string, NetSocket*const> Sockets;
+		std::unordered_map<string, NetPeer*const> Peers;
 
-		mutex SocketMutex;
-		mutex PeerMutex;
+		std::mutex SocketMutex;
+		std::mutex PeerMutex;
 
 		NetSocket* DefaultSocket = nullptr;
 
@@ -117,36 +107,57 @@ namespace PeerNet
 		//	And let their respective classes destructors handle it <--
 		void DisconnectPeer(SOCKADDR_INET* AddrBuff);
 
+		//	Transmits a packet over the specified socket
+		inline void TransmitPacket(SendPacket*const Packet, NetSocket*const Socket);
+
+		//	Takes raw incoming uncompressed data and an address buffer
+		//	Gets a peer from the buffer and passes the data to them for processing
+		inline void TranslateData(const SOCKADDR_INET*const AddrBuff, const string& IncomingData);
+
 		//	Gets an existing peer from a provided AddrBuff
 		//	Creates a new peer if one does not exist
-		inline NetPeer*const PeerNet::GetPeer(const SOCKADDR_INET*const AddrBuff)
-		{
-			//	Check if we already have a connected object with this address
-			//const string Formatted(IP + string(":") + Port);
-			const string Formatted(inet_ntoa(AddrBuff->Ipv4.sin_addr) + std::string(":") + std::to_string(ntohs(AddrBuff->Ipv4.sin_port)));
-			//PeerMutex.lock();
-			auto it = Peers.find(Formatted);
-			if (it != Peers.end())
-			{
-				//PeerMutex.unlock();
-				return it->second;	//	Already have a connected object for this ip/port
-			}
-			else {
-				//NetAddress* NewAddr = Addresses->FreeAddress(AddrBuff);
-				NetAddress*const NewAddr = Addresses->FreeAddress();
-				const string IP(inet_ntoa(AddrBuff->Ipv4.sin_addr));
-				const string Port(std::to_string(ntohs(AddrBuff->Ipv4.sin_port)));
-				NewAddr->Resolve(IP, Port);
-				Addresses->WriteAddress(NewAddr);
-				NetPeer*const ThisPeer = new NetPeer(DefaultSocket, NewAddr);
-				PeerMutex.lock();	//	Only need to lock here?
-				Peers.emplace(Formatted, ThisPeer);
-				PeerMutex.unlock();
-				return ThisPeer;
-			}
-		}
+		inline NetPeer*const PeerNet::GetPeer(const SOCKADDR_INET*const AddrBuff);
 		NetPeer*const GetPeer(string IP, string Port);
 	};
 }
 
 #include "NetSocket.h"
+#include "NetPeer.h"
+
+namespace PeerNet
+{
+	inline void PeerNet::TransmitPacket(SendPacket*const Packet, NetSocket*const Socket)
+	{
+		Socket->PostCompletion<SendPacket*const>(CK_SEND, Packet);
+	}
+	inline void PeerNet::TranslateData(const SOCKADDR_INET*const AddrBuff, const string& IncomingData)
+	{
+		GetPeer(AddrBuff)->Receive_Packet(IncomingData);
+	}
+	inline NetPeer*const PeerNet::GetPeer(const SOCKADDR_INET*const AddrBuff)
+	{
+		//	Check if we already have a connected object with this address
+		//const string Formatted(IP + string(":") + Port);
+		const string Formatted(inet_ntoa(AddrBuff->Ipv4.sin_addr) + std::string(":") + std::to_string(ntohs(AddrBuff->Ipv4.sin_port)));
+		//PeerMutex.lock();
+		auto it = Peers.find(Formatted);
+		if (it != Peers.end())
+		{
+			//PeerMutex.unlock();
+			return it->second;	//	Already have a connected object for this ip/port
+		}
+		else {
+			//NetAddress* NewAddr = Addresses->FreeAddress(AddrBuff);
+			NetAddress*const NewAddr = Addresses->FreeAddress();
+			const string IP(inet_ntoa(AddrBuff->Ipv4.sin_addr));
+			const string Port(std::to_string(ntohs(AddrBuff->Ipv4.sin_port)));
+			NewAddr->Resolve(IP, Port);
+			Addresses->WriteAddress(NewAddr);
+			NetPeer*const ThisPeer = new NetPeer(DefaultSocket, NewAddr);
+			PeerMutex.lock();	//	Only need to lock here?
+			Peers.emplace(Formatted, ThisPeer);
+			PeerMutex.unlock();
+			return ThisPeer;
+		}
+	}
+}

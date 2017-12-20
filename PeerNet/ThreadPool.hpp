@@ -98,6 +98,6 @@ public:
 		}
 	}
 
-	const auto IOCP() const { return IOCompletionPort; }
-	const auto& HardwareConcurrency() const { return MaxThreads; }
+	inline const auto IOCP() const { return IOCompletionPort; }
+	inline const auto& HardwareConcurrency() const { return MaxThreads; }
 };

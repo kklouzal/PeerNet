@@ -55,11 +55,5 @@
     <ClCompile Include="PeerNet.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="NetPeer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="NetSocket.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
 </Project>

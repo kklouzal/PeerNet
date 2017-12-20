@@ -10,26 +10,80 @@ namespace PeerNet
 
 		const long long RollingRTT;			//	Keep a rolling average of the last estimated 6 Round Trip Times
 											//	- That should equate to about 30 seconds worth of averaging with a 250ms average RTT
-		duration<double, milli> Avg_RTT;	//	Start the system off assuming a 300ms ping. Let the algorythms adjust from that point.
+		duration<double, std::milli> Avg_RTT;	//	Start the system off assuming a 300ms ping. Let the algorythms adjust from that point.
 
 		KeepAliveChannel* CH_KOL;
 		OrderedChannel* CH_Ordered;
 		ReliableChannel* CH_Reliable;
 		UnreliableChannel* CH_Unreliable;
 
-		void OnTick();
-		void OnExpire();
+		inline void OnTick()
+		{
+			//	Keep a rolling average of the last 6 values returned by CH_KOL->RTT()
+			//	This spreads our RTT up to about 30 seconds for a 250ms ping
+			//	And about 6 seconds for a 50ms ping
+			Avg_RTT -= Avg_RTT / RollingRTT;
+			Avg_RTT += CH_KOL->RTT() / RollingRTT;
+
+			//	Update our timed interval based on past Keep Alive RTT's
+			NewInterval(Avg_RTT);
+			//	Keep-Alive Protocol:
+			//
+			//	(bool)				Is this not an Acknowledgement?
+			//	(unsigned long)		Highest Received KOL Packet ID
+			//	(unsigned long)		Highest Received Reliable Packet ID
+			//	(unsigned long)		Highest Received Unreliable Packet ID
+			//	(unsigned long)		Highest Received && Processed Ordered Packet ID
+			//	(unordered_map)*					Missing Ordered Reliable Packet ID's
+			//	(std::chrono::milliseconds)*		My Reliable RTT
+			//	(std::chrono::milliseconds)	*		My Reliable Ordered RTT
+			//
+			auto KeepAlive = CreateNewPacket(PacketType::PN_KeepAlive);
+			KeepAlive->WriteData<bool>(true);
+			KeepAlive->WriteData<unsigned long>(CH_KOL->GetLastID());
+			KeepAlive->WriteData<unsigned long>(CH_Reliable->GetLastID());
+			KeepAlive->WriteData<unsigned long>(CH_Unreliable->GetLastID());
+			KeepAlive->WriteData<unsigned long>(CH_Ordered->GetLastID());
+			Send_Packet(KeepAlive.get());
+		}
+		inline void NetPeer::OnExpire()
+		{
+			printf("\tClient Tick Expire\n");
+		}
 
 	public:
 		NetSocket*const Socket;
 
-		NetPeer(NetSocket*const DefaultSocket, NetAddress*const NetAddr);
+		//	Constructor
+		inline NetPeer(NetSocket*const DefaultSocket, NetAddress*const NetAddr)
+			: Address(NetAddr), Socket(DefaultSocket), RollingRTT(6), Avg_RTT(300),
+			CH_KOL(new KeepAliveChannel(Address, PN_KeepAlive)),
+			CH_Ordered(new OrderedChannel(Address, PN_Ordered)),
+			CH_Reliable(new ReliableChannel(Address, PN_Reliable)),
+			CH_Unreliable(new UnreliableChannel(Address, PN_Unreliable)),
+			TimedEvent(std::chrono::milliseconds(300), 0)	//	Start with value of Avg_RTT
+		{
+			//	Start the Keep-Alive sequence which will initiate the connection
+			this->StartTimer();
+			printf("\tConnect Peer - %s\n", Address->FormattedAddress());
+		}
 
-		//NetPeer(const std::string StrIP, const std::string StrPort, NetSocket*const DefaultSocket);
-		~NetPeer();
+		//	Destructor
+		inline ~NetPeer()
+		{
+			this->StopTimer();
+			delete CH_KOL;
+			delete CH_Ordered;
+			delete CH_Reliable;
+			delete CH_Unreliable;
+			printf("\tDisconnect Peer - %s\n", Address->FormattedAddress());
+			//	Cleanup our NetAddress
+			//	TODO: Need to return this address back into the Unused Address Pool instead of deleting it
+			delete Address;
+		}
 
 		//	Construct and return a NetPacket to fill and send to this NetPeer
-		inline auto NetPeer::CreateNewPacket(const PacketType pType) {
+		inline shared_ptr<SendPacket> NetPeer::CreateNewPacket(const PacketType pType) {
 			if (pType == PN_KeepAlive)
 			{
 				return CH_KOL->NewPacket();
@@ -46,23 +100,13 @@ namespace PeerNet
 			return CH_Unreliable->NewPacket();
 		}
 
-		inline void Receive_Packet(const PCHAR IncomingData, const size_t& DataSize, const size_t& MaxDataSize, char*const CBuff, ZSTD_DCtx*const DCtx)
+		inline void Receive_Packet(const string& IncomingData)
 		{
 			//	Disreguard any incoming packets for this peer if our Keep-Alive sequence isnt active
 			if (!TimerRunning()) { return; }
 
-			//	Decompress the incoming data payload
-			//const int DecompressResult = LZ4_decompress_safe(IncomingData, CompressionBuffer, DataSize, MaxDataSize);
-			const size_t DecompressResult = ZSTD_decompressDCtx(DCtx, CBuff, MaxDataSize, IncomingData, DataSize);
-
-			//	Return if decompression fails
-			//	TODO: Should be < 0; Will randomly crash at 0 though.
-			if (DecompressResult < 1) {
-				printf("Receive Packet - Decompression Failed!\n"); return;
-			}
-
 			//	Instantiate a NetPacket from our decompressed data
-			ReceivePacket*const IncomingPacket = new ReceivePacket(std::string(CBuff, DecompressResult));
+			ReceivePacket*const IncomingPacket = new ReceivePacket(IncomingData);
 
 			//	Process the packet as needed
 			switch (IncomingPacket->GetType()) {
@@ -72,7 +116,7 @@ namespace PeerNet
 				{
 					//	Process this Keep-Alive Packet
 					//	Memory for the ACK is cleaned up by the NetSocket that sends it
-					SendPacket*const ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, this, true);
+					SendPacket*const ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, Address, true);
 					ACK->WriteData<bool>(false);
 					Send_Packet(ACK);
 
@@ -113,12 +157,8 @@ namespace PeerNet
 			default: printf("Recv Unknown Packet Type\n"); delete IncomingPacket;
 			}
 		}
-		void Send_Packet(SendPacket*const Packet);
-
-		inline const size_t CompressPacket(SendPacket*const OUT_Packet, PCHAR DataBuffer, const size_t& MaxDataSize, ZSTD_CCtx*const CCtx)
-		{
-			//return LZ4_compress_default(OUT_Packet->GetData()->str().c_str(), DataBuffer, (int)OUT_Packet->GetData()->str().size(), MaxDataSize);
-			return ZSTD_compressCCtx(CCtx, DataBuffer, MaxDataSize, OUT_Packet->GetData()->str().c_str(), OUT_Packet->GetData()->str().size(), 1);
+		inline void Send_Packet(SendPacket*const Packet) {
+			Socket->PostCompletion<SendPacket*const>(CK_SEND, Packet);
 		}
 
 		inline const auto RTT_KOL() const { return Avg_RTT; }

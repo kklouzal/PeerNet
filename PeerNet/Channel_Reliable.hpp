@@ -5,7 +5,7 @@ namespace PeerNet
 	class ReliableChannel : public Channel
 	{
 	public:
-		ReliableChannel(NetPeer* ThisPeer, PacketType ChannelID) : Channel(ThisPeer, ChannelID) {}
+		ReliableChannel(NetAddress* Address, PacketType ChannelID) : Channel(Address, ChannelID) {}
 
 		//	Receives a packet
 		const bool Receive(ReceivePacket*const IN_Packet)

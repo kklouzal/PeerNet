@@ -2,9 +2,6 @@
 #include <string>
 #include <deque>
 #include <mutex>
-using std::string;
-using std::deque;
-using std::mutex;
 
 //
 //
@@ -13,13 +10,13 @@ using std::mutex;
 //	This can be mapped to a local network adapter or point to a remote host
 struct NetAddress : public RIO_BUF
 {
-	string Address;
+	std::string Address;
 	addrinfo* Results = nullptr;
 
 	NetAddress() : Address(), RIO_BUF() {}
 
 	//	Resolve initializes the NetAddress from an IP address or hostname along with a port number
-	void Resolve(string StrHost, string StrPort)
+	void Resolve(std::string StrHost, std::string StrPort)
 	{
 		//	Describe the End Hosts Protocol
 		addrinfo Hint;
@@ -36,7 +33,7 @@ struct NetAddress : public RIO_BUF
 		{
 			char*const ResolvedIP = new char[16];
 			inet_ntop(AF_INET, &(((sockaddr_in*)((sockaddr*)Results->ai_addr))->sin_addr), ResolvedIP, 16);
-			Address = string(ResolvedIP) + string(":") + StrPort;
+			Address = std::string(ResolvedIP) + std::string(":") + StrPort;
 			delete[] ResolvedIP;
 		}
 		else {
@@ -46,7 +43,7 @@ struct NetAddress : public RIO_BUF
 
 	~NetAddress() { freeaddrinfo(Results); }
 
-	inline const string& GetFormatted() const { return Address; }
+	inline const std::string& GetFormatted() const { return Address; }
 	//get rid of this next one!
 	const char*const FormattedAddress() const { return Address.c_str(); }
 	const addrinfo*const AddrInfo() const { return Results; }
@@ -59,9 +56,9 @@ struct NetAddress : public RIO_BUF
 //	Supporting a maximum of MaxObjects addresses
 class AddressPool
 {
-	mutex AddrMutex;
-	deque<NetAddress*> UsedAddr;
-	deque<NetAddress*> UnusedAddr;
+	std::mutex AddrMutex;
+	std::deque<NetAddress*> UsedAddr;
+	std::deque<NetAddress*> UnusedAddr;
 	RIO_BUFFERID Addr_BufferID;
 	PCHAR Addr_Buffer;
 

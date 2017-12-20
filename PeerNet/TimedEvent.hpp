@@ -18,8 +18,8 @@ protected:
 	thread TimedThread;
 
 private:
-	virtual void OnTick() = 0;
-	virtual void OnExpire() = 0;
+	virtual inline void OnTick() = 0;
+	virtual inline void OnExpire() = 0;
 
 public:
 
