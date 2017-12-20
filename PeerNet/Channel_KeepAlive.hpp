@@ -12,10 +12,10 @@ namespace PeerNet
 		duration<double, milli> Out_RTT;	//	Start the system off assuming a 300ms ping. Let the algorythms adjust from that point.
 	public:
 		//	Default constructor initializes us and our base class
-		KeepAliveChannel(NetAddress* Address, PacketType ChannelID) : RollingRTT(20), Out_RTT(300), Channel(Address, ChannelID) {}
+		KeepAliveChannel(const NetAddress*const Address, const PacketType &ChannelID) : RollingRTT(20), Out_RTT(300), Channel(Address, ChannelID) {}
 
 		//	Receives a packet
-		const bool Receive(ReceivePacket*const IN_Packet)
+		inline const bool Receive(ReceivePacket*const IN_Packet)
 		{
 			if (IN_Packet->ReadData<bool>())
 			{
@@ -41,6 +41,6 @@ namespace PeerNet
 		}
 
 		//	Returns the Round-Trip-Time for Keep-Alive packets in milliseconds
-		const auto RTT() const { return Out_RTT; }
+		inline const auto RTT() const { return Out_RTT; }
 	};
 }

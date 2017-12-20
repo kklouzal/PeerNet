@@ -34,12 +34,12 @@ namespace PeerNet
 		stringstream DataStream;					//	DataStream holds our serialized binary data
 		const bool InternallyManaged;				//	If the data held by MyNetPacket is deleted or not
 		//NetPeer*const MyPeer;						//	The destination peer for this SendPacket
-		NetAddress*const MyAddress;
+		const NetAddress*const MyAddress;
 		PortableBinaryOutputArchive*const BinaryIn;	//	Putting binary into the archive to send out
 
 	public:
 		//	Managed == true ONLY for non-user accessible packets
-		inline SendPacket(const unsigned long& pID, const PacketType& pType, NetAddress*const Address, const bool& Managed = false)
+		inline SendPacket(const unsigned long& pID, const PacketType& pType, const NetAddress*const Address, const bool& Managed = false)
 			: DataStream(std::ios::in | std::ios::out | std::ios::binary), InternallyManaged(Managed), MyAddress(Address),
 			BinaryIn(new PortableBinaryOutputArchive(DataStream))
 		{

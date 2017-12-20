@@ -10,11 +10,11 @@ namespace PeerNet
 		unsigned int IN_HighestID;	//	Highest received ID
 	public:
 		//	Default constructor initializes us and our base class
-		OrderedChannel(NetAddress* Address, PacketType ChannelID) : IN_OrderedPkts(), IN_MissingIDs(), IN_HighestID(0), Channel(Address, ChannelID) {}
+		OrderedChannel(const NetAddress*const Address, const PacketType &ChannelID) : IN_OrderedPkts(), IN_MissingIDs(), IN_HighestID(0), Channel(Address, ChannelID) {}
 
 		//	Receives an ordered packet
 		//	LastID+1 here is the 'next expected packet'
-		const bool Receive(ReceivePacket*const IN_Packet)
+		inline const bool Receive(ReceivePacket*const IN_Packet)
 		{
 			In_Mutex.lock();
 			//	If this ID was missing, remove it from the MissingIDs container
@@ -63,6 +63,6 @@ namespace PeerNet
 			return true;
 		}
 		//	Returns an unordered map of all the missing id's (this could include id's currently in transit)
-		const unordered_map<unsigned long, bool> GetMissingIDs() const { return IN_MissingIDs; }
+		inline const unordered_map<unsigned long, bool> &GetMissingIDs() const { return IN_MissingIDs; }
 	};
 }

@@ -117,8 +117,8 @@ namespace PeerNet
 	};
 }
 
-#include "NetSocket.h"
-#include "NetPeer.h"
+#include "NetSocket.hpp"
+#include "NetPeer.hpp"
 
 namespace PeerNet
 {

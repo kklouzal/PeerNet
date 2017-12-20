@@ -25,10 +25,10 @@
     <ClInclude Include="Channel_Unreliable.hpp" />
     <ClInclude Include="NetAddress.hpp" />
     <ClInclude Include="NetPacket.hpp" />
-    <ClInclude Include="NetPeer.h" />
+    <ClInclude Include="NetPeer.hpp" />
     <ClInclude Include="OrderedSequence.hpp" />
     <ClInclude Include="PeerNet.h" />
-    <ClInclude Include="NetSocket.h" />
+    <ClInclude Include="NetSocket.hpp" />
     <ClInclude Include="Channel.hpp" />
     <ClInclude Include="ThreadPool.hpp" />
     <ClInclude Include="TimedEvent.hpp" />

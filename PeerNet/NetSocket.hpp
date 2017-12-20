@@ -207,7 +207,7 @@ namespace PeerNet
 #else
 					RioMutex_Send.lock();
 #endif
-					RIO.RIOSendEx(RequestQueue, pBuffer, 1, NULL, OutPacket->GetAddress(), NULL, NULL, NULL, pBuffer);
+					RIO.RIOSendEx(RequestQueue, pBuffer, 1, NULL, const_cast<NetAddress*const>(OutPacket->GetAddress()), NULL, NULL, NULL, pBuffer);
 					RioMutex_Send.unlock();
 					//	Cleanup managed SendPackets
 					if (OutPacket->GetManaged())
