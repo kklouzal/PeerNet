@@ -81,6 +81,21 @@ namespace PeerNet
 	//	Need DisconnectPeer/CloseSocket to properly cleanup our internal containers
 	//	Or split those functions up into their respective files
 	//	And let their respective classes destructors handle it <--
+	void PeerNet::DisconnectPeer(NetPeer*const Peer)
+	{
+		auto it = Peers.find(Peer->GetAddress()->GetFormatted());
+		if (it != Peers.end())
+		{
+#ifdef _PERF_SPINLOCK
+			while (!PeerMutex.try_lock()) {}
+#else
+			PeerMutex.lock();
+#endif
+			Peers.erase(it);
+			PeerMutex.unlock();
+			delete Peer;
+		}
+	}
 	void PeerNet::DisconnectPeer(SOCKADDR_INET* AddrBuff)
 	{
 
@@ -92,18 +107,20 @@ namespace PeerNet
 	{
 		//	Check if we already have a connected object with this address
 		const string Formatted(IP + string(":") + Port);
-		//SocketMutex.lock();
 		auto it = Sockets.find(Formatted);
 		if (it != Sockets.end())
 		{
-			//SocketMutex.unlock();
 			return it->second;	//	Already have a connected object for this ip/port
 		}
 		else {
 			NetAddress*const NewAddr = Addresses->FreeAddress();
 			NewAddr->Resolve(IP, Port);
 			NetSocket*const ThisSocket = new NetSocket(this, NewAddr);
-			SocketMutex.lock();	//	Only need to lock here?
+#ifdef _PERF_SPINLOCK
+			while (!SocketMutex.try_lock()) {}
+#else
+			SocketMutex.lock();
+#endif
 			Sockets.emplace(Formatted, ThisSocket);
 			SocketMutex.unlock();
 			return ThisSocket;
@@ -115,19 +132,21 @@ namespace PeerNet
 	{
 		//	Check if we already have a connected object with this address
 		const string Formatted(IP + string(":") + Port);
-		//PeerMutex.lock();
 		auto it = Peers.find(Formatted);
 		if (it != Peers.end())
 		{
-			//PeerMutex.unlock();
 			return it->second;	//	Already have a connected object for this ip/port
 		}
 		else {
 			NetAddress*const NewAddr = Addresses->FreeAddress();
 			NewAddr->Resolve(IP, Port);
 			Addresses->WriteAddress(NewAddr);
-			NetPeer*const ThisPeer = new NetPeer(DefaultSocket, NewAddr);
-			PeerMutex.lock();	//	Only need to lock here?
+			NetPeer*const ThisPeer = new NetPeer(this, DefaultSocket, NewAddr);
+#ifdef _PERF_SPINLOCK
+			while (!PeerMutex.try_lock()) {}
+#else
+			PeerMutex.lock();
+#endif
 			Peers.emplace(Formatted, ThisPeer);
 			PeerMutex.unlock();
 			return ThisPeer;

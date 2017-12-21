@@ -22,15 +22,16 @@ namespace PeerNet
 	{
 	protected:
 		//	Main Variables
-		NetAddress*const MyAddress;		//	ToDo: Eliminate need to pass down NetPeer
-		PacketType ChannelID;
+		const NetAddress*const MyAddress;
+		const PacketType ChannelID;
 
 		//	Outgoing Variables
 		mutex Out_Mutex;			//	Synchronize this channels Outgoing vars and funcs
 		atomic<unsigned long> Out_NextID;	//	Next packet ID we'll use
 		//	Since we use shared pointers to manage memory cleanup for our packets
 		//	Unreliable packets need to be held onto long enough to actually get sent
-		unordered_map<unsigned long, shared_ptr<NetPacket>> Out_Packets;
+		unordered_map<unsigned long, const shared_ptr<NetPacket>> Out_Packets;
+		atomic<size_t> Out_CurAmount;	//	Current amount of unacknowledged packets
 		atomic<unsigned long> Out_LastACK;	//	Most recent acknowledged ID
 
 		//	Incoming Variables
@@ -38,25 +39,32 @@ namespace PeerNet
 		atomic<unsigned long> In_LastID;	//	The largest received ID so far
 	public:
 		//	Constructor initializes our base class
-		Channel(NetAddress*const Address, PacketType ChanID)
-			: MyAddress(Address), ChannelID(ChanID), Out_Mutex(), Out_NextID(1), Out_Packets(), Out_LastACK(0), In_Mutex(), In_LastID(0) {}
+		Channel(const NetAddress*const Address, const PacketType &ChanID)
+			: MyAddress(Address), ChannelID(ChanID), Out_Mutex(), Out_NextID(1), Out_Packets(), Out_CurAmount(0), Out_LastACK(0), In_Mutex(), In_LastID(0) {}
 		//
-		const auto GetChannelID() const { return ChannelID; }
+		inline const auto GetChannelID() const { return ChannelID; }
 		//	Initialize and return a new packet for sending
-		shared_ptr<SendPacket> NewPacket()
+		inline shared_ptr<SendPacket> NewPacket()
 		{
 			shared_ptr<SendPacket> Packet = std::make_shared<SendPacket>(Out_NextID.load(), GetChannelID(), MyAddress);
+#ifdef _PERF_SPINLOCK
+			while (!Out_Mutex.try_lock()) {}
+#else
 			Out_Mutex.lock();
-			Out_Packets[Out_NextID++] = Packet;
+#endif
+			Out_Packets.emplace(Out_NextID++, Packet);
+			Out_CurAmount.store(Out_Packets.size());
 			Out_Mutex.unlock();
 			return Packet;
 		}
 		//	Receives a packet
-		virtual const bool Receive(ReceivePacket*const IN_Packet) = 0;
+		inline virtual const bool Receive(ReceivePacket*const IN_Packet) = 0;
+		//	Gets the current amount of unacknowledged packets
+		inline const auto GetUnacknowledgedCount() { return Out_CurAmount.load(); }
 		//	Get the largest received ID so far
-		const auto GetLastID() const { return In_LastID.load(); }
+		inline const auto GetLastID() const { return In_LastID.load(); }
 		//	Acknowledge delivery and processing of all packets up to this ID
-		void ACK(const unsigned long& ID)
+		inline void ACK(const unsigned long& ID)
 		{
 			//	We hold onto all the sent packets with an ID higher than that of
 			//	Which our remote peer has not confirmed delivery for as those
@@ -64,7 +72,11 @@ namespace PeerNet
 			if (ID > Out_LastACK)
 			{
 				Out_LastACK = ID;
+#ifdef _PERF_SPINLOCK
+				while (!Out_Mutex.try_lock()) {}
+#else
 				Out_Mutex.lock();
+#endif
 				auto Out_Itr = Out_Packets.begin();
 				while (Out_Itr != Out_Packets.end()) {
 					if (Out_Itr->first <= Out_LastACK.load()) {
@@ -74,6 +86,7 @@ namespace PeerNet
 						++Out_Itr;
 					}
 				}
+				Out_CurAmount.store(Out_Packets.size());
 				Out_Mutex.unlock();
 			}
 			//	If their last received reliable ID is less than our last sent reliable id

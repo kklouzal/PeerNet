@@ -109,7 +109,11 @@ public:
 	//	Returns a free and empty address
 	NetAddress*const FreeAddress()
 	{
+#ifdef _PERF_SPINLOCK
+		while (!AddrMutex.try_lock()) {}
+#else
 		AddrMutex.lock();
+#endif
 		if (UnusedAddr.empty()) { AddrMutex.unlock(); return nullptr; }
 
 		NetAddress*const NewAddress = UnusedAddr.back();
@@ -122,7 +126,11 @@ public:
 	//	Returns a free address from an existing SOCKADDR_INET
 	NetAddress*const FreeAddress(SOCKADDR_INET*const AddrBuff)
 	{
+#ifdef _PERF_SPINLOCK
+		while (!AddrMutex.try_lock()) {}
+#else
 		AddrMutex.lock();
+#endif
 		if (UnusedAddr.empty()) { AddrMutex.unlock(); return nullptr; }
 
 		NetAddress*const NewAddress = UnusedAddr.back();

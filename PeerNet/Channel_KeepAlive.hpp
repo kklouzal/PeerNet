@@ -12,17 +12,15 @@ namespace PeerNet
 		duration<double, milli> Out_RTT;	//	Start the system off assuming a 300ms ping. Let the algorythms adjust from that point.
 	public:
 		//	Default constructor initializes us and our base class
-		KeepAliveChannel(NetAddress* Address, PacketType ChannelID) : RollingRTT(20), Out_RTT(300), Channel(Address, ChannelID) {}
+		KeepAliveChannel(const NetAddress*const Address, const PacketType &ChannelID) : RollingRTT(20), Out_RTT(300), Channel(Address, ChannelID) {}
 
 		//	Receives a packet
-		const bool Receive(ReceivePacket*const IN_Packet)
+		inline const bool Receive(ReceivePacket*const IN_Packet)
 		{
 			if (IN_Packet->ReadData<bool>())
 			{
-				//In_Mutex.lock();
 				if (IN_Packet->GetPacketID() <= In_LastID.load()) { /*In_Mutex.unlock();*/ delete IN_Packet; return false; }
 				In_LastID.store(IN_Packet->GetPacketID());
-				//In_Mutex.unlock();
 				return true;
 			}
 			else
@@ -31,7 +29,11 @@ namespace PeerNet
 				if (it != Out_Packets.end())
 				{
 					duration<double> RTT = duration_cast<duration<double>>(IN_Packet->GetCreationTime() - it->second->GetCreationTime());
+#ifdef _PERF_SPINLOCK
+					while (!Out_Mutex.try_lock()) {}
+#else
 					Out_Mutex.lock();
+#endif
 					Out_RTT -= Out_RTT / RollingRTT;
 					Out_RTT += RTT / RollingRTT;
 					Out_Mutex.unlock();
@@ -41,6 +43,6 @@ namespace PeerNet
 		}
 
 		//	Returns the Round-Trip-Time for Keep-Alive packets in milliseconds
-		const auto RTT() const { return Out_RTT; }
+		inline const auto RTT() const { return Out_RTT; }
 	};
 }

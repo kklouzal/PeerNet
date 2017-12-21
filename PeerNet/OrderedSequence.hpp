@@ -13,7 +13,7 @@ class OrderedSequence
 public:
 	OrderedSequence() : HighestID(0), LowestID(0) {}
 
-	void Update(const unsigned long ID)
+	inline void Update(const unsigned long &ID)
 	{
 		//	If this ID was missing, remove it from the MissingIDs container
 		if (MissingIDs.count(ID)) { MissingIDs.erase(ID); }
@@ -45,7 +45,7 @@ public:
 		}
 	}
 
-	const unordered_map<unsigned long, bool> GetMissingIDs() const { return MissingIDs; }
+	inline const unordered_map<unsigned long, bool> &GetMissingIDs() const { return MissingIDs; }
 
 	void PrintMissing() const
 	{

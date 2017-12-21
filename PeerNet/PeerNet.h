@@ -33,7 +33,7 @@
 //#define _DEBUG_PACKETS_ORDERED_ACK
 
 //	Performance Tuning
-//#define _PERF_SPINLOCK	//	Higher CPU Usage for more responsive packet handling; lower latencies
+#define _PERF_SPINLOCK	//	Higher CPU Usage for more responsive packet handling; lower latencies
 
 
 // Core Classes
@@ -101,6 +101,7 @@ namespace PeerNet
 		//	Need DisconnectPeer/CloseSocket to properly cleanup our internal containers
 		//	Or split those functions up into their respective files
 		//	And let their respective classes destructors handle it <--
+		void DisconnectPeer(NetPeer*const Peer);
 		void DisconnectPeer(SOCKADDR_INET* AddrBuff);
 
 		//	Transmits a packet over the specified socket
@@ -117,8 +118,8 @@ namespace PeerNet
 	};
 }
 
-#include "NetSocket.h"
-#include "NetPeer.h"
+#include "NetSocket.hpp"
+#include "NetPeer.hpp"
 
 namespace PeerNet
 {
@@ -135,11 +136,9 @@ namespace PeerNet
 		//	Check if we already have a connected object with this address
 		//const string Formatted(IP + string(":") + Port);
 		const string Formatted(inet_ntoa(AddrBuff->Ipv4.sin_addr) + std::string(":") + std::to_string(ntohs(AddrBuff->Ipv4.sin_port)));
-		//PeerMutex.lock();
 		auto it = Peers.find(Formatted);
 		if (it != Peers.end())
 		{
-			//PeerMutex.unlock();
 			return it->second;	//	Already have a connected object for this ip/port
 		}
 		else {
@@ -149,8 +148,12 @@ namespace PeerNet
 			const string Port(std::to_string(ntohs(AddrBuff->Ipv4.sin_port)));
 			NewAddr->Resolve(IP, Port);
 			Addresses->WriteAddress(NewAddr);
-			NetPeer*const ThisPeer = new NetPeer(DefaultSocket, NewAddr);
-			PeerMutex.lock();	//	Only need to lock here?
+			NetPeer*const ThisPeer = new NetPeer(this, DefaultSocket, NewAddr);
+#ifdef _PERF_SPINLOCK
+			while (!PeerMutex.try_lock()) {}
+#else
+			PeerMutex.lock();
+#endif
 			Peers.emplace(Formatted, ThisPeer);
 			PeerMutex.unlock();
 			return ThisPeer;

@@ -14,16 +14,10 @@
     <ClInclude Include="PeerNet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="NetPeer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="ThreadPool.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="NetAddress.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="NetSocket.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="TimedEvent.hpp">
@@ -48,6 +42,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="NetPacket.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NetPeer.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NetSocket.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
