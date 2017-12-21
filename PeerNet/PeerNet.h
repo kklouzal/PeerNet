@@ -33,7 +33,7 @@
 //#define _DEBUG_PACKETS_ORDERED_ACK
 
 //	Performance Tuning
-#define _PERF_SPINLOCK	//	Higher CPU Usage for more responsive packet handling; lower latencies
+//#define _PERF_SPINLOCK	//	Higher CPU Usage for more responsive packet handling; lower latencies
 
 
 // Core Classes

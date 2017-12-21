@@ -63,7 +63,7 @@ namespace PeerNet
 
 		//	Constructor
 		inline NetPeer(PeerNet* PNInstance, NetSocket*const DefaultSocket, NetAddress*const NetAddr)
-			: _PeerNet(PNInstance), Address(NetAddr), Socket(DefaultSocket), RollingRTT(6), Avg_RTT(300),
+			: _PeerNet(PNInstance), Address(NetAddr), Socket(DefaultSocket), RollingRTT(6), Avg_RTT(100),
 			CH_KOL(new KeepAliveChannel(Address, PN_KeepAlive)),
 			CH_Ordered(new OrderedChannel(Address, PN_Ordered)),
 			CH_Reliable(new ReliableChannel(Address, PN_Reliable)),

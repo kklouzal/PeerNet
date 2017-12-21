@@ -7,7 +7,7 @@ namespace PeerNet
 		std::unordered_map<unsigned long, shared_ptr<ReceivePacket>> IN_OrderedPkts;	//	Incoming packets we cant process yet
 		std::unordered_map<unsigned long, bool> IN_MissingIDs;	//	Missing IDs from the ordered sequence
 
-		std::atomic<unsigned int> IN_HighestID;	//	Highest received ID
+		unsigned int IN_HighestID;	//	Highest received ID
 
 		bool Test = false;
 	public:
@@ -34,16 +34,15 @@ namespace PeerNet
 				Test = false;
 				return false;
 			}
+#ifdef _PERF_SPINLOCK
+			while (!In_Mutex.try_lock()) {}
+#else
+			In_Mutex.lock();
+#endif
 			//	If this ID was missing, remove it from the MissingIDs container
 			auto it = IN_MissingIDs.find(IN_Packet->GetPacketID());
 			if (it != IN_MissingIDs.end()) {
-#ifdef _PERF_SPINLOCK
-				while (!In_Mutex.try_lock()) {}
-#else
-				In_Mutex.lock();
-#endif
 				IN_MissingIDs.erase(it);
-				In_Mutex.unlock();
 			}
 
 			if (IN_Packet->GetPacketID() > In_LastID + 1)
@@ -52,11 +51,7 @@ namespace PeerNet
 				printf("Store Ordered Packet %u - Needed %u\n", IN_Packet->GetPacketID(), In_LastID + 1);
 #endif
 				if (IN_Packet->GetPacketID() > IN_HighestID) { IN_HighestID = IN_Packet->GetPacketID(); }
-#ifdef _PERF_SPINLOCK
-				while (!In_Mutex.try_lock()) {}
-#else
-				In_Mutex.lock();
-#endif
+
 				IN_OrderedPkts.emplace(IN_Packet->GetPacketID(), IN_Packet);
 				//	Recalculate our Missing ID's
 				for (unsigned long i = IN_Packet->GetPacketID() - 1; i > In_LastID; --i)
@@ -74,11 +69,6 @@ namespace PeerNet
 //#endif
 				delete IN_Packet;	//	Cleanup the NetPacket's memory
 				//	Check the container against our new counter value
-#ifdef _PERF_SPINLOCK
-				while (!In_Mutex.try_lock()) {}
-#else
-				In_Mutex.lock();
-#endif
 				while (!IN_OrderedPkts.empty())
 				{
 					//	See if the next expected packet is in our container
@@ -92,10 +82,10 @@ namespace PeerNet
 //#endif
 					IN_OrderedPkts.erase(got);
 				}
-				In_Mutex.unlock();
 			}
 			else { delete IN_Packet; return false; }
 			//	Searching complete
+			In_Mutex.unlock();
 			return true;
 		}
 		//	Returns an unordered map of all the missing id's (this could include id's currently in transit)
