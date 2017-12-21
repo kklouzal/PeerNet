@@ -6,6 +6,8 @@ namespace PeerNet
 {
 	class NetPeer : public TimedEvent
 	{
+		PeerNet* _PeerNet = nullptr;
+
 		NetAddress*const Address;
 
 		const long long RollingRTT;			//	Keep a rolling average of the last estimated 6 Round Trip Times
@@ -19,32 +21,37 @@ namespace PeerNet
 
 		inline void OnTick()
 		{
-			//	Keep a rolling average of the last 6 values returned by CH_KOL->RTT()
-			//	This spreads our RTT up to about 30 seconds for a 250ms ping
-			//	And about 6 seconds for a 50ms ping
-			Avg_RTT -= Avg_RTT / RollingRTT;
-			Avg_RTT += CH_KOL->RTT() / RollingRTT;
+			//	Check to see if this peer is no longer alive
+			if (CH_KOL->GetUnacknowledgedCount() > 100) {
+				_PeerNet->DisconnectPeer(this);
+			} else {
+				//	Keep a rolling average of the last 6 values returned by CH_KOL->RTT()
+				//	This spreads our RTT up to about 30 seconds for a 250ms ping
+				//	And about 6 seconds for a 50ms ping
+				Avg_RTT -= Avg_RTT / RollingRTT;
+				Avg_RTT += CH_KOL->RTT() / RollingRTT;
 
-			//	Update our timed interval based on past Keep Alive RTT's
-			NewInterval(Avg_RTT);
-			//	Keep-Alive Protocol:
-			//
-			//	(bool)				Is this not an Acknowledgement?
-			//	(unsigned long)		Highest Received KOL Packet ID
-			//	(unsigned long)		Highest Received Reliable Packet ID
-			//	(unsigned long)		Highest Received Unreliable Packet ID
-			//	(unsigned long)		Highest Received && Processed Ordered Packet ID
-			//	(unordered_map)*					Missing Ordered Reliable Packet ID's
-			//	(std::chrono::milliseconds)*		My Reliable RTT
-			//	(std::chrono::milliseconds)	*		My Reliable Ordered RTT
-			//
-			auto KeepAlive = CreateNewPacket(PacketType::PN_KeepAlive);
-			KeepAlive->WriteData<bool>(true);
-			KeepAlive->WriteData<unsigned long>(CH_KOL->GetLastID());
-			KeepAlive->WriteData<unsigned long>(CH_Reliable->GetLastID());
-			KeepAlive->WriteData<unsigned long>(CH_Unreliable->GetLastID());
-			KeepAlive->WriteData<unsigned long>(CH_Ordered->GetLastID());
-			Send_Packet(KeepAlive.get());
+				//	Update our timed interval based on past Keep Alive RTT's
+				NewInterval(Avg_RTT);
+				//	Keep-Alive Protocol:
+				//
+				//	(bool)				Is this not an Acknowledgement?
+				//	(unsigned long)		Highest Received KOL Packet ID
+				//	(unsigned long)		Highest Received Reliable Packet ID
+				//	(unsigned long)		Highest Received Unreliable Packet ID
+				//	(unsigned long)		Highest Received && Processed Ordered Packet ID
+				//	(unordered_map)*					Missing Ordered Reliable Packet ID's
+				//	(std::chrono::milliseconds)*		My Reliable RTT
+				//	(std::chrono::milliseconds)	*		My Reliable Ordered RTT
+				//
+				auto KeepAlive = CreateNewPacket(PacketType::PN_KeepAlive);
+				KeepAlive->WriteData<bool>(true);
+				KeepAlive->WriteData<unsigned long>(CH_KOL->GetLastID());
+				KeepAlive->WriteData<unsigned long>(CH_Reliable->GetLastID());
+				KeepAlive->WriteData<unsigned long>(CH_Unreliable->GetLastID());
+				KeepAlive->WriteData<unsigned long>(CH_Ordered->GetLastID());
+				Send_Packet(KeepAlive.get());
+			}
 		}
 		inline void NetPeer::OnExpire()
 		{
@@ -55,13 +62,13 @@ namespace PeerNet
 		NetSocket*const Socket;
 
 		//	Constructor
-		inline NetPeer(NetSocket*const DefaultSocket, NetAddress*const NetAddr)
-			: Address(NetAddr), Socket(DefaultSocket), RollingRTT(6), Avg_RTT(300),
+		inline NetPeer(PeerNet* PNInstance, NetSocket*const DefaultSocket, NetAddress*const NetAddr)
+			: _PeerNet(PNInstance), Address(NetAddr), Socket(DefaultSocket), RollingRTT(6), Avg_RTT(300),
 			CH_KOL(new KeepAliveChannel(Address, PN_KeepAlive)),
 			CH_Ordered(new OrderedChannel(Address, PN_Ordered)),
 			CH_Reliable(new ReliableChannel(Address, PN_Reliable)),
 			CH_Unreliable(new UnreliableChannel(Address, PN_Unreliable)),
-			TimedEvent(std::chrono::milliseconds(300), 0)	//	Start with value of Avg_RTT
+			TimedEvent(std::chrono::milliseconds(100), 0)	//	Start with value of Avg_RTT
 		{
 			//	Start the Keep-Alive sequence which will initiate the connection
 			this->StartTimer();

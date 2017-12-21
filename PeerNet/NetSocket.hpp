@@ -65,7 +65,11 @@ namespace PeerNet
 			//	Always leave 1 buffer in the pool for each running thread
 			//	Prevents popping the front buffer as it's being pushed
 			//	Eliminates the need to lock this function
+#ifdef _PERF_SPINLOCK
+			while (!BuffersMutex.try_lock()) {}
+#else
 			BuffersMutex.lock();
+#endif
 			if (Data_Buffers.size() <= ThreadsInPool) { BuffersMutex.unlock(); return nullptr; }
 			PRIO_BUF_EXT Buffer = Data_Buffers.front();
 			Data_Buffers.pop();
@@ -75,7 +79,11 @@ namespace PeerNet
 		//	Will be called by multiple threads
 		inline void PushBuffer(PRIO_BUF_EXT Buffer)
 		{
+#ifdef _PERF_SPINLOCK
+			while (!BuffersMutex.try_lock()) {}
+#else
 			BuffersMutex.lock();
+#endif
 			Data_Buffers.push(Buffer);
 			BuffersMutex.unlock();
 		}
@@ -153,7 +161,7 @@ namespace PeerNet
 					_PeerNet->TranslateData((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset], std::string(Env->Uncompressed_Data, DecompressResult));
 
 #ifdef _PERF_SPINLOCK
-					while (!RioMutex.try_lock()) {}
+					while (!RioMutex_Receive.try_lock()) {}
 #else
 					RioMutex_Receive.lock();
 #endif
@@ -203,7 +211,7 @@ namespace PeerNet
 				if (pBuffer->Length > 0) {
 					//printf("Compressed: %i->%i\n", SendPacket->GetData().size(), pBuffer->Length);
 #ifdef _PERF_SPINLOCK
-					while (!RioMutex.try_lock()) {}
+					while (!RioMutex_Send.try_lock()) {}
 #else
 					RioMutex_Send.lock();
 #endif

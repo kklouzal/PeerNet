@@ -19,10 +19,8 @@ namespace PeerNet
 		{
 			if (IN_Packet->ReadData<bool>())
 			{
-				//In_Mutex.lock();
 				if (IN_Packet->GetPacketID() <= In_LastID.load()) { /*In_Mutex.unlock();*/ delete IN_Packet; return false; }
 				In_LastID.store(IN_Packet->GetPacketID());
-				//In_Mutex.unlock();
 				return true;
 			}
 			else
@@ -31,7 +29,11 @@ namespace PeerNet
 				if (it != Out_Packets.end())
 				{
 					duration<double> RTT = duration_cast<duration<double>>(IN_Packet->GetCreationTime() - it->second->GetCreationTime());
+#ifdef _PERF_SPINLOCK
+					while (!Out_Mutex.try_lock()) {}
+#else
 					Out_Mutex.lock();
+#endif
 					Out_RTT -= Out_RTT / RollingRTT;
 					Out_RTT += RTT / RollingRTT;
 					Out_Mutex.unlock();

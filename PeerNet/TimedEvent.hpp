@@ -18,22 +18,22 @@ protected:
 	thread TimedThread;
 
 private:
-	virtual inline void OnTick() = 0;
-	virtual inline void OnExpire() = 0;
+	inline virtual void OnTick() = 0;
+	inline virtual void OnExpire() = 0;
 
 public:
 
-	void StartTimer() { Running = true; }
-	void StopTimer() { Running = false; }
-	const bool TimerRunning() const { return Running; }
+	inline void StartTimer() { Running = true; }
+	inline void StopTimer() { Running = false; }
+	inline const bool TimerRunning() const { return Running; }
 
 	//	TODO: Multiply LastRTT here by some small percentage
 	//	Based on the variation between the last few values of LastRTT
 	//	This will smooth out random hiccups in the network
-	void NewInterval(duration<double, std::milli> LastRTT) { IntervalTime = milliseconds((const unsigned int)ceil(LastRTT.count())); }
+	inline void NewInterval(duration<double, std::milli> LastRTT) { IntervalTime = milliseconds((const unsigned int)ceil(LastRTT.count())); }
 
 	//	Constructor
-	TimedEvent(milliseconds Interval, const unsigned char iMaxTicks) :
+	inline TimedEvent(milliseconds Interval, const unsigned char iMaxTicks) :
 		IntervalTime(Interval), MaxTicks(iMaxTicks), CurTicks(0), Abort(false), Running(false),
 		TimedThread([&]() {
 		//
@@ -50,11 +50,14 @@ public:
 				} else { OnExpire(); return; }
 			}
 			std::this_thread::sleep_for(IntervalTime);
-		}}) {}
+		}	}) {}
 
 		//	Destructor
-		~TimedEvent() {
+		inline virtual ~TimedEvent() {
+			Running = false;
 			Abort = true;
-			TimedThread.join();
+			//	Would like to use .join() here instead
+			//	However that throws an odd exception..
+			TimedThread.detach();
 		}
 };

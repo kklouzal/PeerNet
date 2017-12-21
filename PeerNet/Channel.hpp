@@ -31,6 +31,7 @@ namespace PeerNet
 		//	Since we use shared pointers to manage memory cleanup for our packets
 		//	Unreliable packets need to be held onto long enough to actually get sent
 		unordered_map<unsigned long, const shared_ptr<NetPacket>> Out_Packets;
+		atomic<size_t> Out_CurAmount;	//	Current amount of unacknowledged packets
 		atomic<unsigned long> Out_LastACK;	//	Most recent acknowledged ID
 
 		//	Incoming Variables
@@ -39,21 +40,27 @@ namespace PeerNet
 	public:
 		//	Constructor initializes our base class
 		Channel(const NetAddress*const Address, const PacketType &ChanID)
-			: MyAddress(Address), ChannelID(ChanID), Out_Mutex(), Out_NextID(1), Out_Packets(), Out_LastACK(0), In_Mutex(), In_LastID(0) {}
+			: MyAddress(Address), ChannelID(ChanID), Out_Mutex(), Out_NextID(1), Out_Packets(), Out_CurAmount(0), Out_LastACK(0), In_Mutex(), In_LastID(0) {}
 		//
 		inline const auto GetChannelID() const { return ChannelID; }
 		//	Initialize and return a new packet for sending
 		inline shared_ptr<SendPacket> NewPacket()
 		{
 			shared_ptr<SendPacket> Packet = std::make_shared<SendPacket>(Out_NextID.load(), GetChannelID(), MyAddress);
+#ifdef _PERF_SPINLOCK
+			while (!Out_Mutex.try_lock()) {}
+#else
 			Out_Mutex.lock();
+#endif
 			Out_Packets.emplace(Out_NextID++, Packet);
-			//Out_Packets[Out_NextID++] = Packet;
+			Out_CurAmount.store(Out_Packets.size());
 			Out_Mutex.unlock();
 			return Packet;
 		}
 		//	Receives a packet
 		inline virtual const bool Receive(ReceivePacket*const IN_Packet) = 0;
+		//	Gets the current amount of unacknowledged packets
+		inline const auto GetUnacknowledgedCount() { return Out_CurAmount.load(); }
 		//	Get the largest received ID so far
 		inline const auto GetLastID() const { return In_LastID.load(); }
 		//	Acknowledge delivery and processing of all packets up to this ID
@@ -65,7 +72,11 @@ namespace PeerNet
 			if (ID > Out_LastACK)
 			{
 				Out_LastACK = ID;
+#ifdef _PERF_SPINLOCK
+				while (!Out_Mutex.try_lock()) {}
+#else
 				Out_Mutex.lock();
+#endif
 				auto Out_Itr = Out_Packets.begin();
 				while (Out_Itr != Out_Packets.end()) {
 					if (Out_Itr->first <= Out_LastACK.load()) {
@@ -75,6 +86,7 @@ namespace PeerNet
 						++Out_Itr;
 					}
 				}
+				Out_CurAmount.store(Out_Packets.size());
 				Out_Mutex.unlock();
 			}
 			//	If their last received reliable ID is less than our last sent reliable id

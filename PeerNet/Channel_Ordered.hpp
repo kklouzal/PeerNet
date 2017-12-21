@@ -7,18 +7,44 @@ namespace PeerNet
 		std::unordered_map<unsigned long, shared_ptr<ReceivePacket>> IN_OrderedPkts;	//	Incoming packets we cant process yet
 		std::unordered_map<unsigned long, bool> IN_MissingIDs;	//	Missing IDs from the ordered sequence
 
-		unsigned int IN_HighestID;	//	Highest received ID
+		std::atomic<unsigned int> IN_HighestID;	//	Highest received ID
+
+		bool Test = false;
 	public:
 		//	Default constructor initializes us and our base class
 		OrderedChannel(const NetAddress*const Address, const PacketType &ChannelID) : IN_OrderedPkts(), IN_MissingIDs(), IN_HighestID(0), Channel(Address, ChannelID) {}
+
+		/*inline void RetransmitFailedPackets()
+		{
+			In_Mutex.lock();
+			Out_Mutex.lock();
+			for (auto ID : IN_MissingIDs) {
+				
+			}
+			Out_Mutex.unlock();
+			In_Mutex.unlock();
+		}*/
 
 		//	Receives an ordered packet
 		//	LastID+1 here is the 'next expected packet'
 		inline const bool Receive(ReceivePacket*const IN_Packet)
 		{
-			In_Mutex.lock();
+			if (Test && IN_Packet->GetPacketID() > 100 && IN_Packet->GetPacketID() < 900) {
+				delete IN_Packet;
+				Test = false;
+				return false;
+			}
 			//	If this ID was missing, remove it from the MissingIDs container
-			if (IN_MissingIDs.count(IN_Packet->GetPacketID())) { IN_MissingIDs.erase(IN_Packet->GetPacketID()); }
+			auto it = IN_MissingIDs.find(IN_Packet->GetPacketID());
+			if (it != IN_MissingIDs.end()) {
+#ifdef _PERF_SPINLOCK
+				while (!In_Mutex.try_lock()) {}
+#else
+				In_Mutex.lock();
+#endif
+				IN_MissingIDs.erase(it);
+				In_Mutex.unlock();
+			}
 
 			if (IN_Packet->GetPacketID() > In_LastID + 1)
 			{
@@ -26,6 +52,11 @@ namespace PeerNet
 				printf("Store Ordered Packet %u - Needed %u\n", IN_Packet->GetPacketID(), In_LastID + 1);
 #endif
 				if (IN_Packet->GetPacketID() > IN_HighestID) { IN_HighestID = IN_Packet->GetPacketID(); }
+#ifdef _PERF_SPINLOCK
+				while (!In_Mutex.try_lock()) {}
+#else
+				In_Mutex.lock();
+#endif
 				IN_OrderedPkts.emplace(IN_Packet->GetPacketID(), IN_Packet);
 				//	Recalculate our Missing ID's
 				for (unsigned long i = IN_Packet->GetPacketID() - 1; i > In_LastID; --i)
@@ -43,6 +74,11 @@ namespace PeerNet
 //#endif
 				delete IN_Packet;	//	Cleanup the NetPacket's memory
 				//	Check the container against our new counter value
+#ifdef _PERF_SPINLOCK
+				while (!In_Mutex.try_lock()) {}
+#else
+				In_Mutex.lock();
+#endif
 				while (!IN_OrderedPkts.empty())
 				{
 					//	See if the next expected packet is in our container
@@ -56,10 +92,10 @@ namespace PeerNet
 //#endif
 					IN_OrderedPkts.erase(got);
 				}
+				In_Mutex.unlock();
 			}
 			else { delete IN_Packet; return false; }
-			//	Searching complete, Unlock and return
-			In_Mutex.unlock();
+			//	Searching complete
 			return true;
 		}
 		//	Returns an unordered map of all the missing id's (this could include id's currently in transit)
