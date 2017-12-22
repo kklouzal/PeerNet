@@ -157,6 +157,9 @@ namespace PeerNet
 					if (DecompressResult < 1) {
 						printf("Receive Packet - Decompression Failed!\n"); return;
 					}
+					//	Grab
+					//	"show" packet to peer for processing
+					//	
 
 					_PeerNet->TranslateData((SOCKADDR_INET*)&Address_Buffer[pBuffer->pAddrBuff->Offset], std::string(Env->Uncompressed_Data, DecompressResult));
 
@@ -222,6 +225,8 @@ namespace PeerNet
 					{
 						delete OutPacket;
 					}
+					//	Wont allow a channel to remove this packet from their out-pool while IsSending == true
+					OutPacket->IsSending.store(false);
 				}
 				else { printf("Packet Compression Failed - %i\n", pBuffer->Length); }
 			}

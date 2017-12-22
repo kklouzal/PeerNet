@@ -57,6 +57,7 @@ namespace PeerNet
 			Out_Mutex.unlock();
 			return Packet;
 		}
+
 		//	Receives a packet
 		inline virtual const bool Receive(ReceivePacket*const IN_Packet) = 0;
 		//	Gets the current amount of unacknowledged packets
@@ -80,7 +81,10 @@ namespace PeerNet
 				auto Out_Itr = Out_Packets.begin();
 				while (Out_Itr != Out_Packets.end()) {
 					if (Out_Itr->first <= Out_LastACK.load()) {
-						Out_Packets.erase(Out_Itr++);
+						if (Out_Itr->second->IsSending.load() == false)
+						{
+							Out_Packets.erase(Out_Itr++);
+						}
 					}
 					else {
 						++Out_Itr;

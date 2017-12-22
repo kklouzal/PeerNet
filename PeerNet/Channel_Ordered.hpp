@@ -9,31 +9,15 @@ namespace PeerNet
 
 		unsigned int IN_HighestID;	//	Highest received ID
 
-		bool Test = false;
 	public:
 		//	Default constructor initializes us and our base class
 		OrderedChannel(const NetAddress*const Address, const PacketType &ChannelID) : IN_OrderedPkts(), IN_MissingIDs(), IN_HighestID(0), Channel(Address, ChannelID) {}
 
-		/*inline void RetransmitFailedPackets()
-		{
-			In_Mutex.lock();
-			Out_Mutex.lock();
-			for (auto ID : IN_MissingIDs) {
-				
-			}
-			Out_Mutex.unlock();
-			In_Mutex.unlock();
-		}*/
 
 		//	Receives an ordered packet
 		//	LastID+1 here is the 'next expected packet'
 		inline const bool Receive(ReceivePacket*const IN_Packet)
 		{
-			if (Test && IN_Packet->GetPacketID() > 100 && IN_Packet->GetPacketID() < 900) {
-				delete IN_Packet;
-				Test = false;
-				return false;
-			}
 #ifdef _PERF_SPINLOCK
 			while (!In_Mutex.try_lock()) {}
 #else
@@ -44,6 +28,8 @@ namespace PeerNet
 			if (it != IN_MissingIDs.end()) {
 				IN_MissingIDs.erase(it);
 			}
+
+
 
 			if (IN_Packet->GetPacketID() > In_LastID + 1)
 			{

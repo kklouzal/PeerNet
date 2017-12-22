@@ -9,7 +9,7 @@ namespace PeerNet
 	{
 		const long long RollingRTT;			//	Keep a rolling average of the last estimated 20 Round Trip Times
 											//	- That should equate to about 5 seconds worth of averaging with a 250ms average RTT
-		duration<double, milli> Out_RTT;	//	Start the system off assuming a 300ms ping. Let the algorythms adjust from that point.
+		duration<double, milli> Out_RTT;	//	Start the system off assuming a 100ms ping. Let the algorythms adjust from that point.
 	public:
 		//	Default constructor initializes us and our base class
 		KeepAliveChannel(const NetAddress*const Address, const PacketType &ChannelID) : RollingRTT(20), Out_RTT(300), Channel(Address, ChannelID) {}
@@ -19,7 +19,7 @@ namespace PeerNet
 		{
 			if (IN_Packet->ReadData<bool>())
 			{
-				if (IN_Packet->GetPacketID() <= In_LastID.load()) { /*In_Mutex.unlock();*/ delete IN_Packet; return false; }
+				if (IN_Packet->GetPacketID() <= In_LastID.load()) { delete IN_Packet; return false; }
 				In_LastID.store(IN_Packet->GetPacketID());
 				return true;
 			}

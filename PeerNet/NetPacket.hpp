@@ -1,5 +1,6 @@
 #pragma once
 #include "TimedEvent.hpp"
+#include <atomic>
 
 namespace PeerNet
 {
@@ -19,6 +20,7 @@ namespace PeerNet
 		PacketType TypeID = PN_NotInialized;
 
 	public:
+		std::atomic<bool> IsSending = true;
 		//	Get the creation time
 		inline const auto& GetCreationTime() const	{ return CreationTime; }
 		// Get the packets ID

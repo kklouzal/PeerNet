@@ -46,23 +46,4 @@ public:
 	}
 
 	inline const unordered_map<unsigned long, bool> &GetMissingIDs() const { return MissingIDs; }
-
-	void PrintMissing() const
-	{
-		if (!MissingIDs.empty())
-		{
-			printf("Missing: ");
-			for (auto i : MissingIDs)
-			{
-				printf("%i ", i.first);
-			}
-			printf("\n");
-		}
-		else { printf("No Missing ID's\n"); }
-	}
-
-	void Stats()
-	{
-		printf("IDs %I64u Missing %I64u\n", IDs.size(), MissingIDs.size());
-	}
 };
