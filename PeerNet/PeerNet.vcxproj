@@ -26,7 +26,6 @@
     <ClInclude Include="NetAddress.hpp" />
     <ClInclude Include="NetPacket.hpp" />
     <ClInclude Include="NetPeer.hpp" />
-    <ClInclude Include="OrderedSequence.hpp" />
     <ClInclude Include="PeerNet.h" />
     <ClInclude Include="NetSocket.hpp" />
     <ClInclude Include="Channel.hpp" />

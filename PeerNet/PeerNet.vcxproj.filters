@@ -23,9 +23,6 @@
     <ClInclude Include="TimedEvent.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="OrderedSequence.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Channel_Unreliable.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>

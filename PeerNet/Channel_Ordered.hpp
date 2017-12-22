@@ -4,14 +4,14 @@ namespace PeerNet
 {
 	class OrderedChannel : public Channel
 	{
-		std::unordered_map<unsigned long, shared_ptr<ReceivePacket>> IN_OrderedPkts;	//	Incoming packets we cant process yet
+		std::unordered_map<unsigned long, shared_ptr<ReceivePacket>> IN_StoredIDs;	//	Incoming packets we cant process yet
 		std::unordered_map<unsigned long, bool> IN_MissingIDs;	//	Missing IDs from the ordered sequence
 
 		unsigned int IN_HighestID;	//	Highest received ID
 
 	public:
 		//	Default constructor initializes us and our base class
-		OrderedChannel(const NetAddress*const Address, const PacketType &ChannelID) : IN_OrderedPkts(), IN_MissingIDs(), IN_HighestID(0), Channel(Address, ChannelID) {}
+		OrderedChannel(const NetAddress*const Address, const PacketType &ChannelID) : IN_StoredIDs(), IN_MissingIDs(), IN_HighestID(0), Channel(Address, ChannelID) {}
 
 
 		//	Receives an ordered packet
@@ -24,53 +24,38 @@ namespace PeerNet
 			In_Mutex.lock();
 #endif
 			//	If this ID was missing, remove it from the MissingIDs container
-			auto it = IN_MissingIDs.find(IN_Packet->GetPacketID());
-			if (it != IN_MissingIDs.end()) {
-				IN_MissingIDs.erase(it);
-			}
+			if (IN_MissingIDs.count(IN_Packet->GetPacketID())) { IN_MissingIDs.erase(IN_Packet->GetPacketID()); }
 
+			//	Ignore ID's below the LowestID
+			if (IN_Packet->GetPacketID() <= In_LastID) { return true; }
 
+			//	Update our HighestID if needed
+			if (IN_Packet->GetPacketID() > IN_HighestID) { IN_HighestID = IN_Packet->GetPacketID(); }
 
-			if (IN_Packet->GetPacketID() > In_LastID + 1)
-			{
-#ifdef _DEBUG_PACKETS_ORDERED
-				printf("Store Ordered Packet %u - Needed %u\n", IN_Packet->GetPacketID(), In_LastID + 1);
-#endif
-				if (IN_Packet->GetPacketID() > IN_HighestID) { IN_HighestID = IN_Packet->GetPacketID(); }
-
-				IN_OrderedPkts.emplace(IN_Packet->GetPacketID(), IN_Packet);
-				//	Recalculate our Missing ID's
-				for (unsigned long i = IN_Packet->GetPacketID() - 1; i > In_LastID; --i)
+			//	(in-sequence processing)
+			//	Update our LowestID if needed
+			if (IN_Packet->GetPacketID() == In_LastID + 1) {
+				++In_LastID;
+				printf("Ordered - %d - %s\tNew\n", IN_Packet->GetPacketID(), IN_Packet->ReadData<std::string>().c_str());
+				// Loop through our StoredIDs container until we cant find (LowestID+1)
+				while (IN_StoredIDs.count(In_LastID + 1))
 				{
-					if (!IN_OrderedPkts.count(i)) { IN_MissingIDs[i] = true; }
+					++In_LastID;
+					printf("Ordered - %d - %s\tStored\n", In_LastID.load(), IN_StoredIDs.at(In_LastID)->ReadData<std::string>().c_str());
+					IN_StoredIDs.erase(In_LastID);
 				}
 				In_Mutex.unlock();
-				return false;
+				return true;
 			}
-			else if (IN_Packet->GetPacketID() == In_LastID + 1)
+
+			//	(out-of-sequence processing)
+			//	At this point ID must be greater than LowestID
+			//	Which means we have an out-of-sequence ID
+			IN_StoredIDs.emplace(IN_Packet->GetPacketID(), IN_Packet);
+			for (unsigned long i = IN_Packet->GetPacketID() - 1; i > In_LastID; --i)
 			{
-				++In_LastID;
-//#ifdef _DEBUG_PACKETS_ORDERED
-				printf("Ordered - %d - %s\tNew\n", IN_Packet->GetPacketID(), IN_Packet->ReadData<std::string>().c_str());
-//#endif
-				delete IN_Packet;	//	Cleanup the NetPacket's memory
-				//	Check the container against our new counter value
-				while (!IN_OrderedPkts.empty())
-				{
-					//	See if the next expected packet is in our container
-					auto got = IN_OrderedPkts.find(In_LastID + 1);
-					//	Not found; quit searching, unlock and return
-					if (got == IN_OrderedPkts.end()) { In_Mutex.unlock(); return true; }
-					//	Found; increment counter; process packet; continue searching
-					++In_LastID;
-//#ifdef _DEBUG_PACKETS_ORDERED
-					printf("Ordered - %d - %s\tStored\n", got->first, got->second->ReadData<std::string>().c_str());
-//#endif
-					IN_OrderedPkts.erase(got);
-				}
+				if (!IN_StoredIDs.count(i)) { IN_MissingIDs[i] = true; }
 			}
-			else { delete IN_Packet; return false; }
-			//	Searching complete
 			In_Mutex.unlock();
 			return true;
 		}
