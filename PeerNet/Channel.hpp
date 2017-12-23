@@ -106,7 +106,5 @@ namespace PeerNet
 	};
 }
 
-#include "Channel_Ordered.hpp"
 #include "Channel_Reliable.hpp"
-#include "Channel_Unreliable.hpp"
 #include "Channel_KeepAlive.hpp"

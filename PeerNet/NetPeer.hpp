@@ -1,5 +1,7 @@
 #pragma once
 #include "TimedEvent.hpp"
+#include "Channel_Unreliable.hpp"
+#include "Channel_Ordered.hpp"
 #include "Channel.hpp"
 
 namespace PeerNet
@@ -39,7 +41,7 @@ namespace PeerNet
 				//	(unsigned long)		Highest Received KOL Packet ID
 				//	(unsigned long)		Highest Received Reliable Packet ID
 				//	(unsigned long)		Highest Received Unreliable Packet ID
-				//	(unsigned long)		Highest Received && Processed Ordered Packet ID
+				//	(unsigned long)*		Highest Received && Processed Ordered Packet ID
 				//	(unordered_map)*					Missing Ordered Reliable Packet ID's
 				//	(std::chrono::milliseconds)*		My Reliable RTT
 				//	(std::chrono::milliseconds)	*		My Reliable Ordered RTT
@@ -49,7 +51,7 @@ namespace PeerNet
 				KeepAlive->WriteData<unsigned long>(CH_KOL->GetLastID());
 				KeepAlive->WriteData<unsigned long>(CH_Reliable->GetLastID());
 				KeepAlive->WriteData<unsigned long>(CH_Unreliable->GetLastID());
-				KeepAlive->WriteData<unsigned long>(CH_Ordered->GetLastID());
+				//KeepAlive->WriteData<unsigned long>(CH_Ordered->GetLastID());
 				Send_Packet(KeepAlive.get());
 			}
 		}
@@ -130,7 +132,6 @@ namespace PeerNet
 					CH_KOL->ACK(IncomingPacket->ReadData<unsigned long>());
 					CH_Reliable->ACK(IncomingPacket->ReadData<unsigned long>());
 					CH_Unreliable->ACK(IncomingPacket->ReadData<unsigned long>());
-					CH_Ordered->ACK(IncomingPacket->ReadData<unsigned long>());
 
 					//	End Keep-Alive Packet Processing
 					delete IncomingPacket;
@@ -158,7 +159,22 @@ namespace PeerNet
 				break;
 
 				//	Ordered packeds need processed inside their Receive function
-			case PN_Ordered:	CH_Ordered->Receive(IncomingPacket); break;
+			case PN_Ordered:
+				{
+					//	Immediatly ACK the packet
+					if (IncomingPacket->ReadData<bool>())
+					{
+						CH_Ordered->ACK(IncomingPacket->GetPacketID());
+					}
+					else {
+						//	Memory for the ACK is cleaned up by the NetSocket that sends it
+						SendPacket*const ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_Ordered, Address, true);
+						ACK->WriteData<bool>(true);
+						Send_Packet(ACK);
+						CH_Ordered->Receive(IncomingPacket); break;
+					}
+				}
+				break;
 
 				//	Default case for unknown packet type
 			default: printf("Recv Unknown Packet Type\n"); delete IncomingPacket;
