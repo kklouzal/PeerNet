@@ -105,6 +105,3 @@ namespace PeerNet
 		virtual NetPacket* DecompressPacket(string IN_Data) = 0;*/
 	};
 }
-
-#include "Channel_Reliable.hpp"
-#include "Channel_KeepAlive.hpp"

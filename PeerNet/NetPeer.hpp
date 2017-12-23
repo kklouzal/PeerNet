@@ -1,8 +1,9 @@
 #pragma once
 #include "TimedEvent.hpp"
+#include "Channel_KeepAlive.hpp"
 #include "Channel_Unreliable.hpp"
+#include "Channel_Reliable.hpp"
 #include "Channel_Ordered.hpp"
-#include "Channel.hpp"
 
 namespace PeerNet
 {
@@ -92,7 +93,7 @@ namespace PeerNet
 		}
 
 		//	Construct and return a NetPacket to fill and send to this NetPeer
-		inline shared_ptr<SendPacket> NetPeer::CreateNewPacket(const PacketType pType) {
+		inline std::shared_ptr<SendPacket> NetPeer::CreateNewPacket(const PacketType pType) {
 			if (pType == PN_KeepAlive)
 			{
 				return CH_KOL->NewPacket();
