@@ -32,9 +32,6 @@
     <ClInclude Include="Channel_Ordered.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Channel.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Channel_KeepAlive.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
