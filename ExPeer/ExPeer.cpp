@@ -1,9 +1,4 @@
 #include "PeerNet.h"
-#ifdef _WIN64
-#pragma comment(lib, "PeerNet_x64.lib")
-#else
-#pragma comment(lib, "PeerNet_Win32.lib")
-#endif
 
 #include <iostream>
 #include <string>
@@ -62,9 +57,7 @@ int main()
 	std::system("PAUSE");
 
 	MyPeerFactory* Factory = new MyPeerFactory();
-	PeerNet::PeerNet::Initialize(Factory, 1024, 16);
-
-	PeerNet::PeerNet *_PeerNet = PeerNet::PeerNet::getInstance();
+	PeerNet::PeerNet *_PeerNet = new PeerNet::PeerNet(Factory, 1024, 16);
 
 	PeerNet::NetSocket* Socket = nullptr;
 	PeerNet::NetPeer* Peer = nullptr;
@@ -75,7 +68,7 @@ int main()
 	{
 		if (ConsoleInput == "quit")	{
 			//	Shutdown PeerNet
-			PeerNet::PeerNet::Deinitialize();
+			delete _PeerNet;
 			delete Factory;
 			break;
 		}
