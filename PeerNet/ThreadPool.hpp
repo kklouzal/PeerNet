@@ -28,12 +28,12 @@ protected:
 	stack<thread> Threads;
 
 private:
-	virtual inline void OnCompletion(T*const ThreadEnv, const DWORD& numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED*const pOverlapped) = 0;
+	inline virtual void OnCompletion(T*const ThreadEnv, const DWORD& numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED*const pOverlapped) = 0;
 public:
-	auto const GetThreadEnv(const unsigned char& ThreadNum) const { return Environments.at(ThreadNum); }
+	inline auto const GetThreadEnv(const unsigned char& ThreadNum) const { return Environments.at(ThreadNum); }
 
 	//	Constructor
-	ThreadPoolIOCP() : MaxThreads(thread::hardware_concurrency()),
+	inline ThreadPoolIOCP() : MaxThreads(thread::hardware_concurrency()),
 		IOCompletionPort(CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, MaxThreads)),
 		Environments(), Threads() {
 		printf("\tOpening %i Threads\n", MaxThreads);
@@ -66,13 +66,13 @@ public:
 	}
 
 	//	Destructor
-	~ThreadPoolIOCP() {
+	inline ~ThreadPoolIOCP() {
 		//	Close the IO Completion Port
 		CloseHandle(IOCompletionPort);
 		printf("\tClose Thread Pool\n");
 	}
 
-	void ShutdownThreads()
+	inline void ShutdownThreads()
 	{
 		//	Post a CK_STOP for each created thread
 		for (unsigned char i = 0; i < MaxThreads; i++)

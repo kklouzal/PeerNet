@@ -1,4 +1,4 @@
-#include "PeerNet.h"
+#include "PeerNet.hpp"
 
 #include <iostream>
 #include <string>
@@ -14,14 +14,14 @@ class MyPeer : public PeerNet::NetPeer
 		//printf("Tick!\n");
 	}
 public:
-	inline MyPeer(PeerNet::PeerNet* PNInstance, PeerNet::NetSocket*const DefaultSocket, NetAddress*const NetAddr)
+	inline MyPeer(PeerNet::PeerNet* PNInstance, PeerNet::NetSocket*const DefaultSocket, PeerNet::NetAddress*const NetAddr)
 		: PeerNet::NetPeer(PNInstance, DefaultSocket, NetAddr) {}
 };
 
 class MyPeerFactory : public PeerNet::NetPeerFactory
 {
 public:
-	inline PeerNet::NetPeer* Create(PeerNet::PeerNet* PNInstance, PeerNet::NetSocket*const DefaultSocket, NetAddress*const NetAddr)
+	inline PeerNet::NetPeer* Create(PeerNet::PeerNet* PNInstance, PeerNet::NetSocket*const DefaultSocket, PeerNet::NetAddress*const NetAddr)
 	{
 		return new MyPeer(PNInstance, DefaultSocket, NetAddr);
 	}

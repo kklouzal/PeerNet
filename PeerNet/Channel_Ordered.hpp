@@ -19,7 +19,7 @@ namespace PeerNet
 
 	public:
 		//	Default constructor initializes us and our base class
-		OrderedChannel(const NetAddress*const Addr, const PacketType &ChanID)
+		inline OrderedChannel(const NetAddress*const Addr, const PacketType &ChanID)
 			: Address(Addr), ChannelID(ChanID),
 			IN_Mutex(), IN_LowestID(0), IN_HighestID(0), IN_StoredIDs(), IN_MissingIDs(),
 			OUT_Mutex(), OUT_NextID(1) {}

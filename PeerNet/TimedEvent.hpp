@@ -52,12 +52,12 @@ public:
 			std::this_thread::sleep_for(IntervalTime);
 		}	}) {}
 
-		//	Destructor
-		inline virtual ~TimedEvent() {
-			Running = false;
-			Abort = true;
-			//	Would like to use .join() here instead
-			//	However that throws an odd exception..
-			TimedThread.detach();
-		}
+	//	Destructor
+	inline virtual ~TimedEvent() {
+		Running = false;
+		Abort = true;
+		//	Would like to use .join() here instead
+		//	However that throws an odd exception..
+		TimedThread.detach();
+	}
 };

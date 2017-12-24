@@ -15,7 +15,7 @@ namespace PeerNet
 		std::unordered_map<unsigned long, const std::shared_ptr<NetPacket>> OUT_Packets;	//	Unacknowledged outgoing packets
 
 	public:
-		ReliableChannel(const NetAddress*const Addr, const PacketType &ChanID)
+		inline ReliableChannel(const NetAddress*const Addr, const PacketType &ChanID)
 			: Address(Addr), ChannelID(ChanID),
 			IN_LastID(0),
 			OUT_Mutex(), OUT_NextID(1), OUT_LastACK(0), OUT_Packets(0) {}

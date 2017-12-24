@@ -11,9 +11,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="PeerNet.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="ThreadPool.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -42,6 +39,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="NetSocket.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PeerNet.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

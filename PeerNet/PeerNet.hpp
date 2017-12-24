@@ -76,23 +76,23 @@ namespace PeerNet
 
 	public:
 
-		PeerNet(NetPeerFactory* PeerFactory, unsigned int MaxPeers, unsigned int MaxSockets);
-		~PeerNet();
+		inline PeerNet(NetPeerFactory* PeerFactory, unsigned int MaxPeers, unsigned int MaxSockets);
+		inline ~PeerNet();
 
 		//	Sets the default socket used by new peers
-		void SetDefaultSocket(NetSocket* Socket) { DefaultSocket = Socket; }
+		inline void SetDefaultSocket(NetSocket* Socket) { DefaultSocket = Socket; }
 
 		//	Returns access to the RIO Function Table
 		inline RIO_EXTENSION_FUNCTION_TABLE& RIO() { return g_rio; }
 
 		//	Creates a socket and starts listening at the specified IP and Port
 		//	Returns socket if it already exists
-		NetSocket*const OpenSocket(string IP, string Port);
+		inline NetSocket*const OpenSocket(string IP, string Port);
 
 		//	Need DisconnectPeer/CloseSocket to properly cleanup our internal containers
 		//	Or split those functions up into their respective files
 		//	And let their respective classes destructors handle it <--
-		void DisconnectPeer(NetPeer*const Peer);
+		inline void DisconnectPeer(NetPeer*const Peer);
 
 		//	Transmits a packet over the specified socket
 		inline void TransmitPacket(SendPacket*const Packet, NetSocket*const Socket);
@@ -104,7 +104,7 @@ namespace PeerNet
 		//	Gets an existing peer from a provided AddrBuff
 		//	Creates a new peer if one does not exist
 		inline NetPeer*const PeerNet::GetPeer(const SOCKADDR_INET*const AddrBuff);
-		NetPeer*const GetPeer(string IP, string Port);
+		inline NetPeer*const GetPeer(string IP, string Port);
 	};
 }
 
@@ -122,7 +122,7 @@ namespace PeerNet
 	};
 
 
-	PeerNet::PeerNet(NetPeerFactory* PeerFactory, unsigned int MaxPeers, unsigned int MaxSockets)
+	inline PeerNet::PeerNet(NetPeerFactory* PeerFactory, unsigned int MaxPeers, unsigned int MaxSockets)
 		: _PeerFactory(PeerFactory) {
 		printf("Initializing PeerNet\n");
 		SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS);
@@ -154,7 +154,7 @@ namespace PeerNet
 			printf("Initialization Complete\n");
 		}
 	}
-	PeerNet::~PeerNet()
+	inline PeerNet::~PeerNet()
 	{
 		printf("Deinitializing PeerNet\n");
 		for (auto Peer : Peers) {
@@ -175,7 +175,7 @@ namespace PeerNet
 	{
 		GetPeer(AddrBuff)->Receive_Packet(IncomingData);
 	}
-	void PeerNet::DisconnectPeer(NetPeer*const Peer)
+	inline void PeerNet::DisconnectPeer(NetPeer*const Peer)
 	{
 		auto it = Peers.find(Peer->GetAddress()->GetFormatted());
 		if (it != Peers.end())
@@ -244,7 +244,7 @@ namespace PeerNet
 	}
 	//	Creates a socket and starts listening at the specified IP and Port
 	//	Returns socket if it already exists
-	NetSocket*const PeerNet::OpenSocket(string IP, string Port)
+	inline NetSocket*const PeerNet::OpenSocket(string IP, string Port)
 	{
 		//	Check if we already have a connected object with this address
 		const string Formatted(IP + string(":") + Port);
