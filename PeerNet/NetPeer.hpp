@@ -22,10 +22,13 @@ namespace PeerNet
 		ReliableChannel* CH_Reliable;
 		UnreliableChannel* CH_Unreliable;
 
+		inline virtual void Tick() = 0;
+		inline virtual void Receive(ReceivePacket* Packet) = 0;
+
 		inline void OnTick()
 		{
 			//	Check to see if this peer is no longer alive
-			if (CH_KOL->GetUnacknowledgedCount() > 100) {
+			if (CH_KOL->GetUnacknowledgedCount() > 1000) {
 				_PeerNet->DisconnectPeer(this);
 			} else {
 				//	Keep a rolling average of the last 6 values returned by CH_KOL->RTT()
@@ -54,6 +57,12 @@ namespace PeerNet
 				KeepAlive->WriteData<unsigned long>(CH_Unreliable->GetLastID());
 				//KeepAlive->WriteData<unsigned long>(CH_Ordered->GetLastID());
 				Send_Packet(KeepAlive.get());
+
+				//	Loop through received packet queue and call Receive
+				//Receive(IncomingPacket);
+
+				//	Call derived classes Tick() method
+				Tick();
 			}
 		}
 		inline void NetPeer::OnExpire()
@@ -79,7 +88,7 @@ namespace PeerNet
 		}
 
 		//	Destructor
-		inline ~NetPeer()
+		inline virtual ~NetPeer()
 		{
 			this->StopTimer();
 			delete CH_KOL;
@@ -144,6 +153,7 @@ namespace PeerNet
 				{
 					//	Call packet's callback function?
 					printf("Unreliable - %d - %s\n", IncomingPacket->GetPacketID(), IncomingPacket->ReadData<std::string>().c_str());
+
 					//	For now just delete the IncomingPacket
 					delete IncomingPacket;
 				}
@@ -154,6 +164,7 @@ namespace PeerNet
 				{
 					//	Call packet's callback function?
 					printf("Reliable - %d - %s\n", IncomingPacket->GetPacketID(), IncomingPacket->ReadData<std::string>().c_str());
+
 					//	For now just delete the IncomingPacket
 					delete IncomingPacket;
 				}

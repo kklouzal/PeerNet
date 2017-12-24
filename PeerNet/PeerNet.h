@@ -49,6 +49,7 @@ namespace PeerNet
 	};
 	class NetPeer;
 	class NetSocket;
+	class NetPeerFactory;
 }
 
 #include "NetAddress.hpp"
@@ -72,15 +73,16 @@ namespace PeerNet
 		std::mutex PeerMutex;
 
 		NetSocket* DefaultSocket = nullptr;
+		NetPeerFactory* _PeerFactory;
 
 		//	Private Constructor/Destructor to force Singleton Design Pattern
-		PeerNet(unsigned int MaxPeers, unsigned int MaxSockets);
+		PeerNet(NetPeerFactory* PeerFactory, unsigned int MaxPeers, unsigned int MaxSockets);
 		~PeerNet();
 
 	public:
 
 		//	Initialize PeerNet
-		static PeerNet* Initialize(unsigned int MaxPeers, unsigned int MaxSockets);
+		static PeerNet* Initialize(NetPeerFactory* PeerFactory, unsigned int MaxPeers, unsigned int MaxSockets);
 
 		//	Deinitialize PeerNet
 		static void Deinitialize();
@@ -123,6 +125,14 @@ namespace PeerNet
 
 namespace PeerNet
 {
+	//	Base NetPeer Factory Class
+	//	Users can provide their own peer class as long as it inherits from NetPeer
+	class NetPeerFactory
+	{
+	public:
+		inline virtual NetPeer* Create(PeerNet* PNInstance, NetSocket*const DefaultSocket, NetAddress*const NetAddr) = 0;
+	};
+
 	inline void PeerNet::TransmitPacket(SendPacket*const Packet, NetSocket*const Socket)
 	{
 		Socket->PostCompletion<SendPacket*const>(CK_SEND, Packet);
@@ -148,7 +158,31 @@ namespace PeerNet
 			const string Port(std::to_string(ntohs(AddrBuff->Ipv4.sin_port)));
 			NewAddr->Resolve(IP, Port);
 			Addresses->WriteAddress(NewAddr);
-			NetPeer*const ThisPeer = new NetPeer(this, DefaultSocket, NewAddr);
+			NetPeer*const ThisPeer = _PeerFactory->Create(this, DefaultSocket, NewAddr);
+#ifdef _PERF_SPINLOCK
+			while (!PeerMutex.try_lock()) {}
+#else
+			PeerMutex.lock();
+#endif
+			Peers.emplace(Formatted, ThisPeer);
+			PeerMutex.unlock();
+			return ThisPeer;
+		}
+	}
+	inline NetPeer*const PeerNet::GetPeer(string IP, string Port)
+	{
+		//	Check if we already have a connected object with this address
+		const string Formatted(IP + string(":") + Port);
+		auto it = Peers.find(Formatted);
+		if (it != Peers.end())
+		{
+			return it->second;	//	Already have a connected object for this ip/port
+		}
+		else {
+			NetAddress*const NewAddr = Addresses->FreeAddress();
+			NewAddr->Resolve(IP, Port);
+			Addresses->WriteAddress(NewAddr);
+			NetPeer*const ThisPeer = _PeerFactory->Create(this, DefaultSocket, NewAddr);
 #ifdef _PERF_SPINLOCK
 			while (!PeerMutex.try_lock()) {}
 #else

@@ -4,7 +4,8 @@ namespace PeerNet
 {
 	PeerNet * PeerNet::_instance = nullptr;
 
-	PeerNet::PeerNet(unsigned int MaxPeers, unsigned int MaxSockets) {
+	PeerNet::PeerNet(NetPeerFactory* PeerFactory, unsigned int MaxPeers, unsigned int MaxSockets)
+		: _PeerFactory(PeerFactory) {
 		printf("Initializing PeerNet\n");
 		//	Startup WinSock 2.2
 		const size_t iResult = WSAStartup(MAKEWORD(2, 2), &WSADATA());
@@ -50,14 +51,14 @@ namespace PeerNet
 	}
 
 	//	Initialize PeerNet
-	PeerNet* PeerNet::Initialize(unsigned int MaxPeers, unsigned int MaxSockets)
+	PeerNet* PeerNet::Initialize(NetPeerFactory* PeerFactory, unsigned int MaxPeers, unsigned int MaxSockets)
 	{
 		if (_instance == nullptr)
 		{
 			//	Should be initializing from the main thread
 			//	Set the applications scheduling priority one tick higher
 			SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS);
-			_instance = new PeerNet(MaxPeers, MaxSockets);
+			_instance = new PeerNet(PeerFactory, MaxPeers, MaxSockets);
 		}
 		return _instance;
 	}
@@ -124,32 +125,6 @@ namespace PeerNet
 			Sockets.emplace(Formatted, ThisSocket);
 			SocketMutex.unlock();
 			return ThisSocket;
-		}
-	}
-
-
-	NetPeer*const PeerNet::GetPeer(string IP, string Port)
-	{
-		//	Check if we already have a connected object with this address
-		const string Formatted(IP + string(":") + Port);
-		auto it = Peers.find(Formatted);
-		if (it != Peers.end())
-		{
-			return it->second;	//	Already have a connected object for this ip/port
-		}
-		else {
-			NetAddress*const NewAddr = Addresses->FreeAddress();
-			NewAddr->Resolve(IP, Port);
-			Addresses->WriteAddress(NewAddr);
-			NetPeer*const ThisPeer = new NetPeer(this, DefaultSocket, NewAddr);
-#ifdef _PERF_SPINLOCK
-			while (!PeerMutex.try_lock()) {}
-#else
-			PeerMutex.lock();
-#endif
-			Peers.emplace(Formatted, ThisPeer);
-			PeerMutex.unlock();
-			return ThisPeer;
 		}
 	}
 }

@@ -8,6 +8,30 @@
 #include <iostream>
 #include <string>
 
+class MyPeer : public PeerNet::NetPeer
+{
+	inline void Receive(PeerNet::ReceivePacket* Packet)
+	{
+		//printf("Received Packet!\n");
+	}
+	inline void Tick()
+	{
+		//printf("Tick!\n");
+	}
+public:
+	inline MyPeer(PeerNet::PeerNet* PNInstance, PeerNet::NetSocket*const DefaultSocket, NetAddress*const NetAddr)
+		: PeerNet::NetPeer(PNInstance, DefaultSocket, NetAddr) {}
+};
+
+class MyPeerFactory : public PeerNet::NetPeerFactory
+{
+public:
+	inline PeerNet::NetPeer* Create(PeerNet::PeerNet* PNInstance, PeerNet::NetSocket*const DefaultSocket, NetAddress*const NetAddr)
+	{
+		return new MyPeer(PNInstance, DefaultSocket, NetAddr);
+	}
+};
+
 int main()
 {
 	std::string ConsoleInput;
@@ -37,7 +61,8 @@ int main()
 	printf("Mark Startup Memory Here\n");
 	std::system("PAUSE");
 
-	PeerNet::PeerNet::Initialize(1024, 16);
+	MyPeerFactory* Factory = new MyPeerFactory();
+	PeerNet::PeerNet::Initialize(Factory, 1024, 16);
 
 	PeerNet::PeerNet *_PeerNet = PeerNet::PeerNet::getInstance();
 
@@ -49,18 +74,9 @@ int main()
 	while (std::getline(std::cin, ConsoleInput))
 	{
 		if (ConsoleInput == "quit")	{
-			//	1. Delete all your peers
-			if (Peer != nullptr)
-			{
-				//delete Peer;
-			}
-			//	2. Delete all your sockets
-			if (Socket != nullptr)
-			{
-				//delete Socket;
-			}
-			//	3. Shutdown PeerNet
+			//	Shutdown PeerNet
 			PeerNet::PeerNet::Deinitialize();
+			delete Factory;
 			break;
 		}
 		else if (ConsoleInput == "open") {
@@ -104,7 +120,7 @@ int main()
 		{
 			if (Peer != nullptr)
 			{
-				delete Peer;
+				_PeerNet->DisconnectPeer(Peer);
 				Peer = nullptr;
 			}
 		}
