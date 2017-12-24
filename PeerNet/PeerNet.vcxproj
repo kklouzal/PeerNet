@@ -31,6 +31,9 @@
     <ClInclude Include="ThreadPool.hpp" />
     <ClInclude Include="TimedEvent.hpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="PeerNet.cpp" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{BF1491FC-4B94-4641-8A2C-99B4EA7E28BB}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
