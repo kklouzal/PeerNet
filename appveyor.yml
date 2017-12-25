@@ -18,16 +18,16 @@ before_build:
 
 build:
   project: PeerNet.sln
-  verbosity: minimal
+  verbosity: quiet
 
 after_build:
 - ps: |
     #if ($env:APPVEYOR_SCHEDULED_BUILD -eq "True")
     #{
-        $buildArgs = @("/l:C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"#,
-          #"/p:Configuration=Release",
-          #"/p:Platform=x64"
-          )
+        $buildArgs = @("/l:C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll",
+          "/p:Configuration=Release",
+          "/p:Platform=x64",
+          "/verbosity:quiet")
         cov-build.exe --dir cov-int msbuild $buildArgs
         PublishCoverity\tools\PublishCoverity.exe compress -o PeerNet.zip -i cov-int
         $version = Get-Date -format s
@@ -43,5 +43,5 @@ after_build:
 notifications:
 - provider: Email
   to:
-    - kyle.klouzal@gmail.com
+    - $env:COVERITY_EMAIL
   on_build_status_changed: true
