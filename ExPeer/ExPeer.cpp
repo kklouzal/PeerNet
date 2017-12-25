@@ -7,7 +7,7 @@ class MyPeer : public PeerNet::NetPeer
 {
 	inline void Receive(PeerNet::ReceivePacket* Packet)
 	{
-		//printf("Received Packet!\n");
+		//printf("Received Packet ID: %i!\n", Packet->GetPacketID());
 	}
 	inline void Tick()
 	{

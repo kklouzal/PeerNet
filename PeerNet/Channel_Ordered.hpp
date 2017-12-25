@@ -10,16 +10,14 @@ namespace PeerNet
 		std::mutex IN_Mutex;
 		unsigned long IN_LowestID;	//	The lowest received ID
 		unsigned long IN_HighestID;	//	Highest received ID
-		//	TODO: Use RAW Pointers
-		std::unordered_map<unsigned long, std::shared_ptr<ReceivePacket>> IN_StoredIDs;	//	Incoming packets we cant process yet
+		std::unordered_map<unsigned long, ReceivePacket*> IN_StoredIDs;	//	Incoming packets we cant process yet
 		std::unordered_map<unsigned long, bool> IN_MissingIDs;						//	Missing IDs from the ordered sequence
 
 		std::mutex OUT_Mutex;
 		std::atomic<unsigned long> OUT_NextID;	//	The next packet ID we'll use
 		std::unordered_map<unsigned long, const std::shared_ptr<NetPacket>> OUT_Packets;	//	Unacknowledged outgoing packets
 
-		//	TODO: Use RAW Pointers
-		std::queue<std::shared_ptr<ReceivePacket>> NeedsProcessed;	//	Packets that need to be processed
+		std::queue<ReceivePacket*> NeedsProcessed;	//	Packets that need to be processed
 
 	public:
 		//	Default constructor initializes us and our base class
@@ -67,7 +65,7 @@ namespace PeerNet
 		}
 
 		//	Swaps the NeedsProcessed queue with an external empty queue (from another thread)
-		inline void SwapProcessingQueue(std::queue<std::shared_ptr<ReceivePacket>> &Queue)
+		inline void SwapProcessingQueue(std::queue<ReceivePacket*> &Queue)
 		{
 			IN_Mutex.lock();
 			NeedsProcessed.swap(Queue);
@@ -97,8 +95,8 @@ namespace PeerNet
 			if (IN_Packet->GetPacketID() == IN_LowestID + 1) {
 				++IN_LowestID;
 				//printf("Ordered - %d - %s\tNew\n", IN_Packet->GetPacketID(), IN_Packet->ReadData<std::string>().c_str());
-				//	Emplace this packet into the NeedsProcessed Queue
-				NeedsProcessed.emplace(IN_Packet);
+				//	Push this packet into the NeedsProcessed Queue
+				NeedsProcessed.push(IN_Packet);
 				// Loop through our StoredIDs container until we cant find (LowestID+1)
 				while (IN_StoredIDs.count(IN_LowestID + 1))
 				{

@@ -25,7 +25,6 @@ namespace PeerNet
 		inline virtual void Tick() = 0;
 		inline virtual void Receive(ReceivePacket* Packet) = 0;
 
-		std::queue<std::shared_ptr<ReceivePacket>> ProcessingQueue;
 		std::queue<ReceivePacket*> ProcessingQueue_RAW;
 
 		inline void OnTick()
@@ -69,9 +68,9 @@ namespace PeerNet
 					printf("Unreliable - %d - %s\tFrom Queue\n", Packet->GetPacketID(), Packet->ReadData<std::string>().c_str());
 					//	Loop through the queue and call Receive
 					Receive(Packet);
+					ProcessingQueue_RAW.pop();
 					//	Cleanup the ReceivePacket
 					delete Packet;
-					ProcessingQueue_RAW.pop();
 
 				}
 				CH_Reliable->SwapProcessingQueue(ProcessingQueue_RAW);
@@ -81,19 +80,21 @@ namespace PeerNet
 					printf("Reliable - %d - %s\tFrom Queue\n", Packet->GetPacketID(), Packet->ReadData<std::string>().c_str());
 					//	Loop through the queue and call Receive
 					Receive(Packet);
+					ProcessingQueue_RAW.pop();
 					//	Cleanup the ReceivePacket
 					delete Packet;
-					ProcessingQueue_RAW.pop();
 
 				}
-				CH_Ordered->SwapProcessingQueue(ProcessingQueue);
-				while (!ProcessingQueue.empty())
+				CH_Ordered->SwapProcessingQueue(ProcessingQueue_RAW);
+				while (!ProcessingQueue_RAW.empty())
 				{
-					auto Packet = ProcessingQueue.front();
+					auto Packet = ProcessingQueue_RAW.front();
 					printf("Ordered - %d - %s\tFrom Queue\n", Packet->GetPacketID(), Packet->ReadData<std::string>().c_str());
 					//	Loop through the queue and call Receive
-					Receive(Packet.get());
-					ProcessingQueue.pop();
+					Receive(Packet);
+					ProcessingQueue_RAW.pop();
+					//	Cleanup the ReceivePacket
+					delete Packet;
 
 				}
 
