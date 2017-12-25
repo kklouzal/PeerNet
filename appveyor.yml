@@ -9,7 +9,7 @@ environment:
     secure: vBiSHFruVmaa7NLHJWzvHL4CHgOQ+vzDMYmR2LshjLM=
     
 install:
-- ps: cinst curl -y
+- ps: nuget.exe install PublishCoverity -ExcludeVersion
 - cmd: cd C:\ && git clone https://github.com/Microsoft/vcpkg.git && cd vcpkg && bootstrap-vcpkg.bat && cd %APPVEYOR_BUILD_FOLDER%
 - cmd: C:\vcpkg\vcpkg integrate install
 
@@ -27,11 +27,21 @@ build_script:
         & "cov-build.exe" `
           --dir cov-int `
           msbuild $buildArgs
+          
+        PublishCoverity\tools\PublishCoverity.exe compress -o PeerNet.zip -i cov-int
+        $version = Get-Date -format s
+        PublishCoverity\tools\PublishCoverity.exe publish `
+          -t "$env:COVERITY_TOKEN" `
+          -e "$env:COVERITY_EMAIL" `
+          -r "$env:APPVEYOR_REPO_NAME" `
+          -z PeerNet.zip `
+          -d "$env:APPVEYOR_BUILD_VERSION" `
+          --codeVersion "$version"
 
 on_success:
-  7z a "PeerNet.zip" "cov-int"
+ # 7z a "PeerNet.zip" "cov-int"
   
-  curl --form token=%COVERITY_TOKEN% --form email=%COVERITY_EMAIL% --form file=@PeerNet.zip --form version="1.0" --form description="AppVeyor Build." https://scan.coverity.com/projects/10224/builds
+  #curl --form token=%COVERITY_TOKEN% --form email=%COVERITY_EMAIL% --form file=@PeerNet.zip --form version="1.0" --form description="AppVeyor Build." https://scan.coverity.com/projects/10224/builds
   
 notifications:
 - provider: Email
