@@ -9,32 +9,39 @@ environment:
     secure: vBiSHFruVmaa7NLHJWzvHL4CHgOQ+vzDMYmR2LshjLM=
     
 install:
-- ps: cinst curl -y
+- ps: nuget.exe install PublishCoverity -ExcludeVersion
 - cmd: cd C:\ && git clone https://github.com/Microsoft/vcpkg.git && cd vcpkg && bootstrap-vcpkg.bat && cd %APPVEYOR_BUILD_FOLDER%
 - cmd: C:\vcpkg\vcpkg integrate install
 
-build_script:
+before_build:
 - cmd: C:\vcpkg\vcpkg install cereal:x64-windows zstd:x64-windows
-#- ps: cov-build.exe --dir cov-int msbuild "C:\projects\peernet\PeerNet.sln" /p:Configuration=Release /p:Platform=x64 /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
+
+build:
+  project: PeerNet.sln
+  verbosity: quiet
+
+after_build:
 - ps: |
-        $buildArgs = @(
-          "/m",
-          "/l:C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll",
+    if ($env:APPVEYOR_SCHEDULED_BUILD -eq "True")
+    {
+        $buildArgs = @("/l:C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll",
           "/p:Configuration=Release",
-          "/p:Platform=x64")
+          "/p:Platform=x64",
+          "/verbosity:quiet")
+        cov-build.exe --dir cov-int msbuild $buildArgs
+        PublishCoverity\tools\PublishCoverity.exe compress -o PeerNet.zip -i cov-int
+        $version = Get-Date -format s
+        PublishCoverity\tools\PublishCoverity.exe publish `
+          -t "$env:COVERITY_TOKEN" `
+          -e "$env:COVERITY_EMAIL" `
+          -r "$env:APPVEYOR_REPO_NAME" `
+          -z PeerNet.zip `
+          -d "$env:APPVEYOR_BUILD_VERSION" `
+          --codeVersion "$version"
+    }
 
-        "Building project with Coverity Scan..."
-        & "cov-build.exe" `
-          --dir cov-int `
-          msbuild $buildArgs
-
-on_success:
-  7z a "PeerNet.zip" "cov-int"
-  
-  curl --form token=%COVERITY_TOKEN% --form email=%COVERITY_EMAIL% --form file=@PeerNet.zip --form version="1.0" --form description="AppVeyor Build." https://scan.coverity.com/projects/10224/builds
-  
 notifications:
 - provider: Email
   to:
-    - kyle.klouzal@gmail.com
+    - $env:COVERITY_EMAIL
   on_build_status_changed: true
