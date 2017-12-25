@@ -13,21 +13,18 @@ install:
 - cmd: cd C:\ && git clone https://github.com/Microsoft/vcpkg.git && cd vcpkg && bootstrap-vcpkg.bat && cd %APPVEYOR_BUILD_FOLDER%
 - cmd: C:\vcpkg\vcpkg integrate install
 
-build_script:
+before_build:
 - cmd: C:\vcpkg\vcpkg install cereal:x64-windows zstd:x64-windows
-#- ps: cov-build.exe --dir cov-int msbuild "C:\projects\peernet\PeerNet.sln" /p:Configuration=Release /p:Platform=x64 /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
-- ps: |
-        $buildArgs = @(
-          "/m",
-          "/l:C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll",
-          "/p:Configuration=Release",
-          "/p:Platform=x64")
 
-        "Building project with Coverity Scan..."
-        & "cov-build.exe" `
-          --dir cov-int `
-          msbuild $buildArgs
-          
+build:
+  project: PeerNet.sln
+  verbosity: minimal
+
+after_build:
+- ps: |
+    if ($env:APPVEYOR_SCHEDULED_BUILD -eq "True")
+    {
+        cov-build.exe --dir cov-int make all
         PublishCoverity\tools\PublishCoverity.exe compress -o PeerNet.zip -i cov-int
         $version = Get-Date -format s
         PublishCoverity\tools\PublishCoverity.exe publish `
@@ -37,12 +34,8 @@ build_script:
           -z PeerNet.zip `
           -d "$env:APPVEYOR_BUILD_VERSION" `
           --codeVersion "$version"
+    }
 
-on_success:
- # 7z a "PeerNet.zip" "cov-int"
-  
-  #curl --form token=%COVERITY_TOKEN% --form email=%COVERITY_EMAIL% --form file=@PeerNet.zip --form version="1.0" --form description="AppVeyor Build." https://scan.coverity.com/projects/10224/builds
-  
 notifications:
 - provider: Email
   to:
