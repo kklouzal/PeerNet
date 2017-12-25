@@ -25,6 +25,9 @@ namespace PeerNet
 		inline virtual void Tick() = 0;
 		inline virtual void Receive(ReceivePacket* Packet) = 0;
 
+		std::queue<std::shared_ptr<ReceivePacket>> ProcessingQueue;
+		std::queue<ReceivePacket*> ProcessingQueue_RAW;
+
 		inline void OnTick()
 		{
 			//	Check to see if this peer is no longer alive
@@ -58,10 +61,43 @@ namespace PeerNet
 				//KeepAlive->WriteData<unsigned long>(CH_Ordered->GetLastID());
 				Send_Packet(KeepAlive.get());
 
-				//	Loop through received packet queue and call Receive
-				//Receive(IncomingPacket);
+				//	Call Receive() on all our waiting-to-be-processed packets from each channel
+				CH_Unreliable->SwapProcessingQueue(ProcessingQueue_RAW);
+				while (!ProcessingQueue_RAW.empty())
+				{
+					auto Packet = ProcessingQueue_RAW.front();
+					printf("Unreliable - %d - %s\tFrom Queue\n", Packet->GetPacketID(), Packet->ReadData<std::string>().c_str());
+					//	Loop through the queue and call Receive
+					Receive(Packet);
+					//	Cleanup the ReceivePacket
+					delete Packet;
+					ProcessingQueue_RAW.pop();
 
-				//	Call derived classes Tick() method
+				}
+				CH_Reliable->SwapProcessingQueue(ProcessingQueue_RAW);
+				while (!ProcessingQueue_RAW.empty())
+				{
+					auto Packet = ProcessingQueue_RAW.front();
+					printf("Reliable - %d - %s\tFrom Queue\n", Packet->GetPacketID(), Packet->ReadData<std::string>().c_str());
+					//	Loop through the queue and call Receive
+					Receive(Packet);
+					//	Cleanup the ReceivePacket
+					delete Packet;
+					ProcessingQueue_RAW.pop();
+
+				}
+				CH_Ordered->SwapProcessingQueue(ProcessingQueue);
+				while (!ProcessingQueue.empty())
+				{
+					auto Packet = ProcessingQueue.front();
+					printf("Ordered - %d - %s\tFrom Queue\n", Packet->GetPacketID(), Packet->ReadData<std::string>().c_str());
+					//	Loop through the queue and call Receive
+					Receive(Packet.get());
+					ProcessingQueue.pop();
+
+				}
+
+				//	Call derived classes Tick() method after all packets have been processed
 				Tick();
 			}
 		}
@@ -119,6 +155,7 @@ namespace PeerNet
 			return CH_Unreliable->NewPacket();
 		}
 
+		//	
 		inline void Receive_Packet(const string& IncomingData)
 		{
 			//	Disreguard any incoming packets for this peer if our Keep-Alive sequence isnt active
@@ -148,27 +185,9 @@ namespace PeerNet
 				}
 				break;
 
-			case PN_Unreliable:
-				if (CH_Unreliable->Receive(IncomingPacket))
-				{
-					//	Call packet's callback function?
-					printf("Unreliable - %d - %s\n", IncomingPacket->GetPacketID(), IncomingPacket->ReadData<std::string>().c_str());
+			case PN_Unreliable: CH_Unreliable->Receive(IncomingPacket); break;
 
-					//	For now just delete the IncomingPacket
-					delete IncomingPacket;
-				}
-				break;
-
-			case PN_Reliable:
-				if (CH_Reliable->Receive(IncomingPacket))
-				{
-					//	Call packet's callback function?
-					printf("Reliable - %d - %s\n", IncomingPacket->GetPacketID(), IncomingPacket->ReadData<std::string>().c_str());
-
-					//	For now just delete the IncomingPacket
-					delete IncomingPacket;
-				}
-				break;
+			case PN_Reliable: CH_Reliable->Receive(IncomingPacket); break;
 
 				//	Ordered packeds need processed inside their Receive function
 			case PN_Ordered:

@@ -10,6 +10,7 @@ namespace PeerNet
 		std::mutex IN_Mutex;
 		unsigned long IN_LowestID;	//	The lowest received ID
 		unsigned long IN_HighestID;	//	Highest received ID
+		//	TODO: Use RAW Pointers
 		std::unordered_map<unsigned long, std::shared_ptr<ReceivePacket>> IN_StoredIDs;	//	Incoming packets we cant process yet
 		std::unordered_map<unsigned long, bool> IN_MissingIDs;						//	Missing IDs from the ordered sequence
 
@@ -17,11 +18,14 @@ namespace PeerNet
 		std::atomic<unsigned long> OUT_NextID;	//	The next packet ID we'll use
 		std::unordered_map<unsigned long, const std::shared_ptr<NetPacket>> OUT_Packets;	//	Unacknowledged outgoing packets
 
+		//	TODO: Use RAW Pointers
+		std::queue<std::shared_ptr<ReceivePacket>> NeedsProcessed;	//	Packets that need to be processed
+
 	public:
 		//	Default constructor initializes us and our base class
 		inline OrderedChannel(const NetAddress*const Addr, const PacketType &ChanID)
 			: Address(Addr), ChannelID(ChanID),
-			IN_Mutex(), IN_LowestID(0), IN_HighestID(0), IN_StoredIDs(), IN_MissingIDs(),
+			IN_Mutex(), IN_LowestID(0), IN_HighestID(0), IN_StoredIDs(), IN_MissingIDs(), NeedsProcessed(),
 			OUT_Mutex(), OUT_NextID(1) {}
 
 		//	Acknowledge delivery of a single packet
@@ -62,6 +66,14 @@ namespace PeerNet
 			return Packet;
 		}
 
+		//	Swaps the NeedsProcessed queue with an external empty queue (from another thread)
+		inline void SwapProcessingQueue(std::queue<std::shared_ptr<ReceivePacket>> &Queue)
+		{
+			IN_Mutex.lock();
+			NeedsProcessed.swap(Queue);
+			IN_Mutex.unlock();
+		}
+
 		//	Receives an ordered packet
 		inline void Receive(ReceivePacket*const IN_Packet)
 		{
@@ -84,12 +96,17 @@ namespace PeerNet
 			//	Update our LowestID if needed
 			if (IN_Packet->GetPacketID() == IN_LowestID + 1) {
 				++IN_LowestID;
-				printf("Ordered - %d - %s\tNew\n", IN_Packet->GetPacketID(), IN_Packet->ReadData<std::string>().c_str());
+				//printf("Ordered - %d - %s\tNew\n", IN_Packet->GetPacketID(), IN_Packet->ReadData<std::string>().c_str());
+				//	Emplace this packet into the NeedsProcessed Queue
+				NeedsProcessed.emplace(IN_Packet);
 				// Loop through our StoredIDs container until we cant find (LowestID+1)
 				while (IN_StoredIDs.count(IN_LowestID + 1))
 				{
 					++IN_LowestID;
-					printf("Ordered - %d - %s\tStored\n", IN_LowestID, IN_StoredIDs.at(IN_LowestID)->ReadData<std::string>().c_str());
+					//printf("Ordered - %d - %s\tStored\n", IN_LowestID, IN_StoredIDs.at(IN_LowestID)->ReadData<std::string>().c_str());
+					//	Push this packet into the NeedsProcessed Queue
+					NeedsProcessed.push(IN_StoredIDs.at(IN_LowestID));
+					//	Erase the ID from our out-of-order map
 					IN_StoredIDs.erase(IN_LowestID);
 				}
 				IN_Mutex.unlock();

@@ -1,14 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio 15
+VisualStudioVersion = 15.0.27130.2010
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PeerNet", "PeerNet\PeerNet.vcxproj", "{BF1491FC-4B94-4641-8A2C-99B4EA7E28BB}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ExPeer", "ExPeer\ExPeer.vcxproj", "{CDB975A0-10DD-464D-98C4-3216F2B8FF4B}"
-	ProjectSection(ProjectDependencies) = postProject
-		{BF1491FC-4B94-4641-8A2C-99B4EA7E28BB} = {BF1491FC-4B94-4641-8A2C-99B4EA7E28BB}
-	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -37,5 +34,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {3E1A7B14-914C-48D2-B7D9-F94D0A1C5631}
 	EndGlobalSection
 EndGlobal

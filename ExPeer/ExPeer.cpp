@@ -161,7 +161,10 @@ int main()
 		}
 		else if (ConsoleInput == "rtt")
 		{
-			printf("\tKeep-Alive RTT:\t%.3fms\n", Peer->RTT_KOL().count());
+			if (Peer != nullptr)
+			{
+				printf("\tKeep-Alive RTT:\t%.3fms\n", Peer->RTT_KOL().count());
+			}
 		}
 
 		//	New Line before next command entry

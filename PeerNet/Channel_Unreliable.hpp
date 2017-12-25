@@ -14,10 +14,14 @@ namespace PeerNet
 		std::atomic<unsigned long> OUT_LastACK;	//	Next packet ID we'll use
 		std::unordered_map<unsigned long, const std::shared_ptr<NetPacket>> OUT_Packets;	//	Unacknowledged outgoing packets
 
+		std::mutex IN_Mutex;
+		//	TODO: Use RAW Pointers
+		std::queue<ReceivePacket*> NeedsProcessed;	//	Packets that need to be processed
+
 	public:
 		inline UnreliableChannel(const NetAddress*const Addr, const PacketType &ChanID)
 			: Address(Addr), ChannelID(ChanID),
-			IN_LastID(0),
+			IN_Mutex(), IN_LastID(0), NeedsProcessed(),
 			OUT_Mutex(), OUT_NextID(1), OUT_LastACK(0), OUT_Packets(0) {}
 
 		//	Acknowledge all packets up to this ID
@@ -66,12 +70,22 @@ namespace PeerNet
 			return Packet;
 		}
 
-		//	Receives a packet
-		inline const bool Receive(ReceivePacket*const IN_Packet)
+		//	Swaps the NeedsProcessed queue with an external empty queue (from another thread)
+		inline void SwapProcessingQueue(std::queue<ReceivePacket*> &Queue)
 		{
-			if (IN_Packet->GetPacketID() <= IN_LastID.load()) { delete IN_Packet; return false; }
+			IN_Mutex.lock();
+			NeedsProcessed.swap(Queue);
+			IN_Mutex.unlock();
+		}
+
+		//	Receives a packet
+		inline void Receive(ReceivePacket*const IN_Packet)
+		{
+			if (IN_Packet->GetPacketID() <= IN_LastID.load()) { delete IN_Packet; return; }
 			IN_LastID.store(IN_Packet->GetPacketID());
-			return true;
+			IN_Mutex.lock();
+			NeedsProcessed.push(IN_Packet);
+			IN_Mutex.unlock();
 		}
 
 		//	Get the largest received ID so far
