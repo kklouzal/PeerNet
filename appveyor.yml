@@ -24,7 +24,11 @@ after_build:
 - ps: |
     #if ($env:APPVEYOR_SCHEDULED_BUILD -eq "True")
     #{
-        cov-build.exe --dir cov-int make all
+        $buildArgs = @("/l:C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"#,
+          #"/p:Configuration=Release",
+          #"/p:Platform=x64"
+          )
+        cov-build.exe --dir cov-int msbuild $buildArgs
         PublishCoverity\tools\PublishCoverity.exe compress -o PeerNet.zip -i cov-int
         $version = Get-Date -format s
         PublishCoverity\tools\PublishCoverity.exe publish `
