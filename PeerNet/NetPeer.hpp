@@ -40,7 +40,7 @@ namespace PeerNet
 				Avg_RTT += CH_KOL->RTT() / RollingRTT;
 
 				//	Update our timed interval based on past Keep Alive RTT's
-				NewInterval(Avg_RTT);
+				NewInterval(Avg_RTT*3);
 				//	Keep-Alive Protocol:
 				//
 				//	(bool)				Is this not an Acknowledgement?
@@ -52,13 +52,13 @@ namespace PeerNet
 				//	(std::chrono::milliseconds)*		My Reliable RTT
 				//	(std::chrono::milliseconds)	*		My Reliable Ordered RTT
 				//
-				auto KeepAlive = CreateNewPacket(PacketType::PN_KeepAlive, 0);
+				SendPacket* KeepAlive = CH_KOL->NewPacket();
 				KeepAlive->WriteData<bool>(true);
 				KeepAlive->WriteData<unsigned long>(CH_KOL->GetLastID());
 				//KeepAlive->WriteData<unsigned long>(CH_Reliable->GetLastID());
 				//KeepAlive->WriteData<unsigned long>(CH_Unreliable->GetLastID());
 				//KeepAlive->WriteData<unsigned long>(CH_Ordered->GetLastID());
-				Send_Packet(KeepAlive.get());
+				Send_Packet(KeepAlive);
 
 				//	Call Receive() on all our waiting-to-be-processed packets from each channel
 				CH_Unreliable->SwapProcessingQueue(ProcessingQueue_RAW);
@@ -100,6 +100,9 @@ namespace PeerNet
 
 				//	Call derived classes Tick() method after all packets have been processed
 				Tick();
+
+				//	Resend all unacknowledged packets
+				CH_Ordered->ResendUnacknowledged(this->Socket);
 			}
 		}
 		inline void NetPeer::OnExpire()
@@ -109,6 +112,8 @@ namespace PeerNet
 
 	public:
 		NetSocket*const Socket;
+
+		bool FakePacketLoss = true;
 
 		//	Constructor
 		inline NetPeer(PeerNet* PNInstance, NetSocket*const DefaultSocket, NetAddress*const NetAddr)
@@ -140,11 +145,7 @@ namespace PeerNet
 
 		//	Construct and return a NetPacket to fill and send to this NetPeer
 		inline std::shared_ptr<SendPacket> NetPeer::CreateNewPacket(const PacketType pType, const unsigned long& OP) {
-			if (pType == PN_KeepAlive)
-			{
-				return CH_KOL->NewPacket(OP);
-			}
-			else if (pType == PN_Ordered)
+			if (pType == PN_Ordered)
 			{
 				return CH_Ordered->NewPacket(OP);
 			}
@@ -181,10 +182,8 @@ namespace PeerNet
 					//CH_Reliable->ACK(IncomingPacket->ReadData<unsigned long>());
 					//CH_Unreliable->ACK(IncomingPacket->ReadData<unsigned long>());
 					//CH_Ordered->ACK(IncomingPacket->ReadData<unsigned long>());
-
-					//	End Keep-Alive Packet Processing
-					delete IncomingPacket;
 				}
+				delete IncomingPacket;
 				break;
 
 			case PN_Unreliable: CH_Unreliable->Receive(IncomingPacket); break;
@@ -194,14 +193,22 @@ namespace PeerNet
 				//	Ordered packeds need processed inside their Receive function
 			case PN_Ordered:
 				{
+					//	If a random number between 1-10 equals another random number between 1-10
+					//	Drop the packet to simulate packet loss
+					if (FakePacketLoss && (rand() % 10 + 1) == (rand() % 10 + 1))
+					{
+						delete IncomingPacket;
+						break;
+					}
 					//	Immediatly ACK the packet
 					if (IncomingPacket->ReadData<bool>())
 					{
 						CH_Ordered->ACK(IncomingPacket->GetPacketID(), IncomingPacket->GetOperationID());
+						delete IncomingPacket;
 					}
 					else {
 						//	Memory for the ACK is cleaned up by the NetSocket that sends it
-						SendPacket*const ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_Ordered, 0, Address, true);
+						SendPacket*const ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_Ordered, IncomingPacket->GetOperationID(), Address, true);
 						ACK->WriteData<bool>(true);
 						Send_Packet(ACK);
 						CH_Ordered->Receive(IncomingPacket); break;

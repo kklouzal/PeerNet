@@ -83,7 +83,7 @@ int main()
 	std::system("PAUSE");
 
 	MyPeerFactory* Factory = new MyPeerFactory();
-	PeerNet::PeerNet *_PeerNet = new PeerNet::PeerNet(Factory, 1024, 16);
+	PeerNet::PeerNet *_PeerNet = new PeerNet::PeerNet(Factory, 10240, 16);
 
 	PeerNet::NetSocket* Socket = nullptr;
 	PeerNet::NetPeer* Peer = nullptr;
@@ -162,7 +162,7 @@ int main()
 			if (Peer != nullptr)
 			{
 				unsigned int i = 0;
-				while (i < 16)
+				while (i < 1024)
 				{
 					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Ordered, OperationID::Ordered2);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm ordered!!");
@@ -190,7 +190,7 @@ int main()
 			if (Peer != nullptr)
 			{
 				unsigned int i = 0;
-				while (i < 16)
+				while (i < 1024)
 				{
 					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Reliable, OperationID::Reliable2);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm reliable!!");
@@ -218,7 +218,7 @@ int main()
 			if (Peer != nullptr)
 			{
 				unsigned int i = 0;
-				while (i < 16)
+				while (i < 1024)
 				{
 					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Unreliable, OperationID::Unreliable2);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm unreliable!!");

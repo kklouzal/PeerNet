@@ -21,7 +21,6 @@ namespace PeerNet
 		unsigned long OperationID = 0;
 
 	public:
-		std::atomic<bool> IsSending = true;
 		//	Get the creation time
 		inline const auto& GetCreationTime() const	{ return CreationTime; }
 		// Get the packets ID
@@ -43,18 +42,22 @@ namespace PeerNet
 		PortableBinaryOutputArchive*const BinaryIn;	//	Putting binary into the archive to send out
 
 	public:
+		//	IsSending flag = true to stop ACK cleanups
+		std::atomic<unsigned char> IsSending;
+
 		//	Managed == true ONLY for non-user accessible packets
 		inline SendPacket(const unsigned long& pID, const PacketType& pType, const unsigned long OpID, const NetAddress*const Address, const bool& Managed = false)
-			: DataStream(std::ios::in | std::ios::out | std::ios::binary), InternallyManaged(Managed), MyAddress(Address),
+			: DataStream(std::ios::in | std::ios::out | std::ios::binary), InternallyManaged(Managed), MyAddress(Address), IsSending(1),
 			BinaryIn(new PortableBinaryOutputArchive(DataStream))
 		{
 			PacketID = pID;
 			TypeID = pType;
 			OperationID = OpID;
+			CreationTime = high_resolution_clock::now();
 			BinaryIn->operator()(pID);
 			BinaryIn->operator()(pType);
 			BinaryIn->operator()(OpID);
-			if (pType == PN_KeepAlive) { CreationTime = high_resolution_clock::now(); }
+			BinaryIn->operator()(CreationTime);
 		}
 
 		inline ~SendPacket() { delete BinaryIn; }
@@ -84,7 +87,7 @@ namespace PeerNet
 			BinaryOut->operator()(PacketID);
 			BinaryOut->operator()(TypeID);
 			BinaryOut->operator()(OperationID);
-			if (TypeID == PN_KeepAlive) { CreationTime = high_resolution_clock::now(); }
+			BinaryOut->operator()(CreationTime);
 		}
 
 		inline ~ReceivePacket() { delete BinaryOut; }

@@ -12,6 +12,7 @@
 
 // Cereal Serialization Headers
 #include <cereal\types\string.hpp>
+#include <cereal\types\chrono.hpp>
 #include <cereal\archives\binary.hpp>
 #include <cereal\archives\portable_binary.hpp>
 

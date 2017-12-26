@@ -225,8 +225,10 @@ namespace PeerNet
 					{
 						delete OutPacket;
 					}
-					//	Wont allow a channel to remove this packet from their out-pool while IsSending == true
-					OutPacket->IsSending.store(false);
+					else {
+						//	Wont allow a channel to remove this packet from their out-pool while IsSending == true
+						OutPacket->IsSending.store(0);
+					}
 				}
 				else { printf("Packet Compression Failed - %i\n", pBuffer->Length); }
 			}

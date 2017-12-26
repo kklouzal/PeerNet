@@ -11,7 +11,7 @@ namespace PeerNet
 		std::unordered_map<unsigned long, bool> IN_MissingIDs;						//	Missing IDs from the ordered sequence
 		//	OUT
 		std::atomic<unsigned long> OUT_NextID = 1;	//	The next packet ID we'll use
-		std::unordered_map<unsigned long, const std::shared_ptr<NetPacket>> OUT_Packets;	//	Unacknowledged outgoing packets
+		std::unordered_map<unsigned long, const std::shared_ptr<SendPacket>> OUT_Packets;	//	Unacknowledged outgoing packets
 	};
 
 	class OrderedChannel
@@ -39,20 +39,20 @@ namespace PeerNet
 		//	and eventually we'll receive an ack which deletes it
 		inline void ACK(const unsigned long& ID, const unsigned long& OP)
 		{
+#ifdef _PERF_SPINLOCK
+			while (!OUT_Mutex.try_lock()) {}
+#else
+			OUT_Mutex.lock();
+#endif
 			//	Grab our OrderedOperation; Creates a new one if not exists
 			auto it = Operations[OP].OUT_Packets.find(ID);
 			if (it != Operations[OP].OUT_Packets.end()) {
-				//if (it->second->IsSending.load() == false)
-				//{
-#ifdef _PERF_SPINLOCK
-				while (!OUT_Mutex.try_lock()) {}
-#else
-				OUT_Mutex.lock();
-#endif
+				if (it->second->IsSending.load() == 0)
+				{
 				Operations[OP].OUT_Packets.erase(it);
-				OUT_Mutex.unlock();
-				//}
+				}
 			}
+			OUT_Mutex.unlock();
 		}
 
 		//	Initialize and return a new packet for sending
@@ -69,6 +69,29 @@ namespace PeerNet
 			Operations[OP].OUT_Packets.emplace(PacketID, Packet);
 			OUT_Mutex.unlock();
 			return Packet;
+		}
+
+		//	Resends all unacknowledged packets across a specific NetSocket
+		inline void ResendUnacknowledged(NetSocket* Socket)
+		{
+			OUT_Mutex.lock();
+			auto Operation = Operations.begin();
+			while (Operation != Operations.end())
+			{
+				for (auto Packet : Operation->second.OUT_Packets)
+				{
+					if (Packet.second->IsSending.load() == 0)
+					{
+						//	Flag this packet as sending
+						Packet.second->IsSending.store(1);
+						//	Resend the packet
+						Socket->PostCompletion<SendPacket*const>(CK_SEND, Packet.second.get());
+					}
+				}
+				//	Move to the next operation
+				Operation++;
+			}
+			OUT_Mutex.unlock();
 		}
 
 		//	Swaps the NeedsProcessed queue with an external empty queue (from another thread)
@@ -94,7 +117,7 @@ namespace PeerNet
 
 			//	Ignore ID's below the LowestID
 			if (IN_Packet->GetPacketID() <= Operations[IN_Packet->GetOperationID()].IN_LowestID)
-			{ IN_Mutex.unlock(); return; }
+			{ IN_Mutex.unlock(); delete IN_Packet; return; }
 
 			//	Update our HighestID if needed
 			if (IN_Packet->GetPacketID() > Operations[IN_Packet->GetOperationID()].IN_HighestID)
