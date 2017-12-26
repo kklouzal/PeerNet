@@ -46,14 +46,14 @@ namespace PeerNet
 		std::atomic<unsigned char> IsSending;
 
 		//	Managed == true ONLY for non-user accessible packets
-		inline SendPacket(const unsigned long& pID, const PacketType& pType, const unsigned long OpID, const NetAddress*const Address, const bool& Managed = false)
+		inline SendPacket(const unsigned long& pID, const PacketType& pType, const unsigned long OpID, const NetAddress*const Address, const bool& Managed = false, high_resolution_clock::time_point CT = high_resolution_clock::now())
 			: DataStream(std::ios::in | std::ios::out | std::ios::binary), InternallyManaged(Managed), MyAddress(Address), IsSending(1),
 			BinaryIn(new PortableBinaryOutputArchive(DataStream))
 		{
 			PacketID = pID;
 			TypeID = pType;
 			OperationID = OpID;
-			CreationTime = high_resolution_clock::now();
+			CreationTime = CT;
 			BinaryIn->operator()(pID);
 			BinaryIn->operator()(pType);
 			BinaryIn->operator()(OpID);

@@ -174,11 +174,12 @@ namespace PeerNet
 				{
 					//	Process this Keep-Alive Packet
 					//	Memory for the ACK is cleaned up by the NetSocket that sends it
-					SendPacket*const ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, 0, Address, true);
-					ACK->WriteData<bool>(false);
+					//	Inject our received creation time back into the ACK
+					SendPacket*const ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, 0, Address, true, IncomingPacket->GetCreationTime());
+					ACK->WriteData<bool>(true);	//	Are we an ACK?
 					Send_Packet(ACK);
 
-					CH_KOL->ACK(IncomingPacket->ReadData<unsigned long>());
+					//CH_KOL->ACK(IncomingPacket->ReadData<unsigned long>());
 					//CH_Reliable->ACK(IncomingPacket->ReadData<unsigned long>());
 					//CH_Unreliable->ACK(IncomingPacket->ReadData<unsigned long>());
 					//CH_Ordered->ACK(IncomingPacket->ReadData<unsigned long>());

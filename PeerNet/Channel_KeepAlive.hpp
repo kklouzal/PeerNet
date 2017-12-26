@@ -25,15 +25,6 @@ namespace PeerNet
 			IN_LastID(0),
 			OUT_Mutex(), OUT_NextID(1), OUT_LastACK(0) {}
 
-		//	Acknowledge all packets up to this ID
-		inline void ACK(const unsigned long& ID)
-		{
-			if (ID > OUT_LastACK.load())
-			{
-				OUT_LastACK.store(ID);
-			}
-		}
-
 		//	Initialize and return a new packet for sending
 		inline SendPacket* NewPacket()
 		{
@@ -41,26 +32,30 @@ namespace PeerNet
 		}
 
 		//	Receives a packet
+		//	Returns true if we should send back an ACK
 		inline const bool Receive(ReceivePacket*const IN_Packet)
 		{
-			//	Calculate the RTT
-			std::chrono::duration <double, milli> RTT = high_resolution_clock::now() - IN_Packet->GetCreationTime();
-#ifdef _PERF_SPINLOCK
-			while (!OUT_Mutex.try_lock()) {}
-#else
-			OUT_Mutex.lock();
-#endif
-			OUT_RTT -= OUT_RTT / RollingRTT;
-			OUT_RTT += RTT / RollingRTT;
-			OUT_Mutex.unlock();
 			//	If this is receive is an ACK
 			if (IN_Packet->ReadData<bool>())
 			{
-				if (IN_Packet->GetPacketID() <= IN_LastID.load()) { return false; }
-				IN_LastID.store(IN_Packet->GetPacketID());
-				return true;
+				if (IN_Packet->GetPacketID() <= OUT_LastACK.load()) { return false; }
+				OUT_LastACK.store(IN_Packet->GetPacketID());
+				//	Calculate the RTT
+				std::chrono::duration <double, milli> RTT = high_resolution_clock::now() - IN_Packet->GetCreationTime();
+#ifdef _PERF_SPINLOCK
+				while (!OUT_Mutex.try_lock()) {}
+#else
+				OUT_Mutex.lock();
+#endif
+				OUT_RTT -= OUT_RTT / RollingRTT;
+				OUT_RTT += RTT / RollingRTT;
+				OUT_Mutex.unlock();
+				return false;
 			}
-			return false;
+			//	If this is a regular receive
+			if (IN_Packet->GetPacketID() <= IN_LastID.load()) { return false; }
+			IN_LastID.store(IN_Packet->GetPacketID());
+			return true;
 		}
 
 		//	Get the largest received ID so far
