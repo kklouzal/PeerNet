@@ -2,20 +2,27 @@
 
 namespace PeerNet
 {
+	struct OrderedOperation
+	{
+		//	IN
+		unsigned long IN_LowestID = 0;	//	The lowest received ID
+		unsigned long IN_HighestID = 0;	//	Highest received ID
+		std::unordered_map<unsigned long, ReceivePacket*> IN_StoredIDs;	//	Incoming packets we cant process yet
+		std::unordered_map<unsigned long, bool> IN_MissingIDs;						//	Missing IDs from the ordered sequence
+		//	OUT
+		std::atomic<unsigned long> OUT_NextID = 1;	//	The next packet ID we'll use
+		std::unordered_map<unsigned long, const std::shared_ptr<NetPacket>> OUT_Packets;	//	Unacknowledged outgoing packets
+	};
+
 	class OrderedChannel
 	{
 		const NetAddress*const Address;
 		const PacketType ChannelID;
 
 		std::mutex IN_Mutex;
-		unsigned long IN_LowestID;	//	The lowest received ID
-		unsigned long IN_HighestID;	//	Highest received ID
-		std::unordered_map<unsigned long, ReceivePacket*> IN_StoredIDs;	//	Incoming packets we cant process yet
-		std::unordered_map<unsigned long, bool> IN_MissingIDs;						//	Missing IDs from the ordered sequence
-
 		std::mutex OUT_Mutex;
-		std::atomic<unsigned long> OUT_NextID;	//	The next packet ID we'll use
-		std::unordered_map<unsigned long, const std::shared_ptr<NetPacket>> OUT_Packets;	//	Unacknowledged outgoing packets
+
+		std::unordered_map<unsigned long, OrderedOperation> Operations;
 
 		std::queue<ReceivePacket*> NeedsProcessed;	//	Packets that need to be processed
 
@@ -23,18 +30,18 @@ namespace PeerNet
 		//	Default constructor initializes us and our base class
 		inline OrderedChannel(const NetAddress*const Addr, const PacketType &ChanID)
 			: Address(Addr), ChannelID(ChanID),
-			IN_Mutex(), IN_LowestID(0), IN_HighestID(0), IN_StoredIDs(), IN_MissingIDs(), NeedsProcessed(),
-			OUT_Mutex(), OUT_NextID(1) {}
+			IN_Mutex(), OUT_Mutex(), NeedsProcessed() {}
 
 		//	Acknowledge delivery of a single packet
 		//	TODO:
 		//	This will cause a resource leak when IsSending.load == false
 		//	Since it wont get erased from OUT_Packets, it will eventually resend
 		//	and eventually we'll receive an ack which deletes it
-		inline void ACK(const unsigned long& ID)
+		inline void ACK(const unsigned long& ID, const unsigned long& OP)
 		{
-			auto it = OUT_Packets.find(ID);
-			if (it != OUT_Packets.end()) {
+			//	Grab our OrderedOperation; Creates a new one if not exists
+			auto it = Operations[OP].OUT_Packets.find(ID);
+			if (it != Operations[OP].OUT_Packets.end()) {
 				//if (it->second->IsSending.load() == false)
 				//{
 #ifdef _PERF_SPINLOCK
@@ -42,24 +49,24 @@ namespace PeerNet
 #else
 				OUT_Mutex.lock();
 #endif
-				OUT_Packets.erase(it);
+				Operations[OP].OUT_Packets.erase(it);
 				OUT_Mutex.unlock();
 				//}
 			}
 		}
 
 		//	Initialize and return a new packet for sending
-		inline std::shared_ptr<SendPacket> NewPacket()
+		inline std::shared_ptr<SendPacket> NewPacket(const unsigned long& OP)
 		{
-			const unsigned long PacketID = OUT_NextID++;
-			std::shared_ptr<SendPacket> Packet = std::make_shared<SendPacket>(PacketID, ChannelID, Address);
+			const unsigned long PacketID = Operations[OP].OUT_NextID++;
+			std::shared_ptr<SendPacket> Packet = std::make_shared<SendPacket>(PacketID, ChannelID, OP, Address);
 			Packet->WriteData<bool>(false);	//	This is not an ACK
 #ifdef _PERF_SPINLOCK
 			while (!OUT_Mutex.try_lock()) {}
 #else
 			OUT_Mutex.lock();
 #endif
-			OUT_Packets.emplace(PacketID, Packet);
+			Operations[OP].OUT_Packets.emplace(PacketID, Packet);
 			OUT_Mutex.unlock();
 			return Packet;
 		}
@@ -82,30 +89,33 @@ namespace PeerNet
 			IN_Mutex.lock();
 #endif
 			//	If this ID was missing, remove it from the MissingIDs container
-			if (IN_MissingIDs.count(IN_Packet->GetPacketID())) { IN_MissingIDs.erase(IN_Packet->GetPacketID()); }
+			if (Operations[IN_Packet->GetOperationID()].IN_MissingIDs.count(IN_Packet->GetPacketID()))
+			{ Operations[IN_Packet->GetOperationID()].IN_MissingIDs.erase(IN_Packet->GetPacketID()); }
 
 			//	Ignore ID's below the LowestID
-			if (IN_Packet->GetPacketID() <= IN_LowestID) { IN_Mutex.unlock(); return; }
+			if (IN_Packet->GetPacketID() <= Operations[IN_Packet->GetOperationID()].IN_LowestID)
+			{ IN_Mutex.unlock(); return; }
 
 			//	Update our HighestID if needed
-			if (IN_Packet->GetPacketID() > IN_HighestID) { IN_HighestID = IN_Packet->GetPacketID(); }
+			if (IN_Packet->GetPacketID() > Operations[IN_Packet->GetOperationID()].IN_HighestID)
+			{ Operations[IN_Packet->GetOperationID()].IN_HighestID = IN_Packet->GetPacketID(); }
 
 			//	(in-sequence processing)
 			//	Update our LowestID if needed
-			if (IN_Packet->GetPacketID() == IN_LowestID + 1) {
-				++IN_LowestID;
+			if (IN_Packet->GetPacketID() == Operations[IN_Packet->GetOperationID()].IN_LowestID + 1) {
+				++Operations[IN_Packet->GetOperationID()].IN_LowestID;
 				//printf("Ordered - %d - %s\tNew\n", IN_Packet->GetPacketID(), IN_Packet->ReadData<std::string>().c_str());
 				//	Push this packet into the NeedsProcessed Queue
 				NeedsProcessed.push(IN_Packet);
 				// Loop through our StoredIDs container until we cant find (LowestID+1)
-				while (IN_StoredIDs.count(IN_LowestID + 1))
+				while (Operations[IN_Packet->GetOperationID()].IN_StoredIDs.count(Operations[IN_Packet->GetOperationID()].IN_LowestID + 1))
 				{
-					++IN_LowestID;
+					++Operations[IN_Packet->GetOperationID()].IN_LowestID;
 					//printf("Ordered - %d - %s\tStored\n", IN_LowestID, IN_StoredIDs.at(IN_LowestID)->ReadData<std::string>().c_str());
 					//	Push this packet into the NeedsProcessed Queue
-					NeedsProcessed.push(IN_StoredIDs.at(IN_LowestID));
+					NeedsProcessed.push(Operations[IN_Packet->GetOperationID()].IN_StoredIDs.at(Operations[IN_Packet->GetOperationID()].IN_LowestID));
 					//	Erase the ID from our out-of-order map
-					IN_StoredIDs.erase(IN_LowestID);
+					Operations[IN_Packet->GetOperationID()].IN_StoredIDs.erase(Operations[IN_Packet->GetOperationID()].IN_LowestID);
 				}
 				IN_Mutex.unlock();
 				return;
@@ -114,10 +124,11 @@ namespace PeerNet
 			//	(out-of-sequence processing)
 			//	At this point ID must be greater than LowestID
 			//	Which means we have an out-of-sequence ID
-			IN_StoredIDs.emplace(IN_Packet->GetPacketID(), IN_Packet);
-			for (unsigned long i = IN_Packet->GetPacketID() - 1; i > IN_LowestID; --i)
+			Operations[IN_Packet->GetOperationID()].IN_StoredIDs.emplace(IN_Packet->GetPacketID(), IN_Packet);
+			for (unsigned long i = IN_Packet->GetPacketID() - 1; i > Operations[IN_Packet->GetOperationID()].IN_LowestID; --i)
 			{
-				if (!IN_StoredIDs.count(i)) { IN_MissingIDs[i] = true; }
+				if (!Operations[IN_Packet->GetOperationID()].IN_StoredIDs.count(i))
+				{ Operations[IN_Packet->GetOperationID()].IN_MissingIDs[i] = true; }
 			}
 			IN_Mutex.unlock();
 		}

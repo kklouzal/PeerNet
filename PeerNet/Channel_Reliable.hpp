@@ -2,46 +2,50 @@
 
 namespace PeerNet
 {
+	struct ReliableOperation
+	{
+		//	IN
+		std::atomic<unsigned long> IN_LastID = 0;	//	The largest received ID so far
+													//	OUT
+		std::atomic<unsigned long> OUT_NextID = 1;	//	Next packet ID we'll use
+		std::atomic<unsigned long> OUT_LastACK = 0;	//	Next packet ID we'll use
+		std::unordered_map<unsigned long, const std::shared_ptr<NetPacket>> OUT_Packets;	//	Unacknowledged outgoing packets
+	};
 	class ReliableChannel
 	{
 		const NetAddress*const Address;
 		const PacketType ChannelID;
 
-		std::atomic<unsigned long> IN_LastID;	//	The largest received ID so far
-
 		std::mutex OUT_Mutex;
-		std::atomic<unsigned long> OUT_NextID;	//	Next packet ID we'll use
-		std::atomic<unsigned long> OUT_LastACK;	//	Next packet ID we'll use
-		std::unordered_map<unsigned long, const std::shared_ptr<NetPacket>> OUT_Packets;	//	Unacknowledged outgoing packets
-
 		std::mutex IN_Mutex;
-		//	TODO: Use RAW Pointers
+
+		std::unordered_map<unsigned long, ReliableOperation> Operations;
+
 		std::queue<ReceivePacket*> NeedsProcessed;	//	Packets that need to be processed
 
 	public:
 		inline ReliableChannel(const NetAddress*const Addr, const PacketType &ChanID)
 			: Address(Addr), ChannelID(ChanID),
-			IN_Mutex(), IN_LastID(0), NeedsProcessed(),
-			OUT_Mutex(), OUT_NextID(1), OUT_LastACK(0), OUT_Packets(0) {}
+			IN_Mutex(), OUT_Mutex(), NeedsProcessed() {}
 
 		//	Acknowledge all packets up to this ID
-		inline void ACK(const unsigned long& ID)
+		inline void ACK(const unsigned long& ID, const unsigned long& OP)
 		{
 			//	We hold onto all the sent packets with an ID higher than that of
 			//	Which our remote peer has not confirmed delivery for as those
 			//	Packets may still be going through their initial sending process
-			if (ID > OUT_LastACK)
+			if (ID > Operations[OP].OUT_LastACK)
 			{
-				OUT_LastACK = ID;
+				Operations[OP].OUT_LastACK = ID;
 #ifdef _PERF_SPINLOCK
 				while (!OUT_Mutex.try_lock()) {}
 #else
 				OUT_Mutex.lock();
 #endif
-				auto it = OUT_Packets.begin();
-				while (it != OUT_Packets.end()) {
-					if (it->first <= OUT_LastACK.load()) {
-						OUT_Packets.erase(it++);
+				auto it = Operations[OP].OUT_Packets.begin();
+				while (it != Operations[OP].OUT_Packets.end()) {
+					if (it->first <= Operations[OP].OUT_LastACK.load()) {
+						Operations[OP].OUT_Packets.erase(it++);
 						continue;
 					}
 					++it;
@@ -57,15 +61,15 @@ namespace PeerNet
 		}
 
 		//	Initialize and return a new packet for sending
-		inline std::shared_ptr<SendPacket> NewPacket()
+		inline std::shared_ptr<SendPacket> NewPacket(const unsigned long& OP)
 		{
-			std::shared_ptr<SendPacket> Packet = std::make_shared<SendPacket>(OUT_NextID.load(), ChannelID, Address);
+			std::shared_ptr<SendPacket> Packet = std::make_shared<SendPacket>(Operations[OP].OUT_NextID.load(), ChannelID, OP, Address);
 #ifdef _PERF_SPINLOCK
 			while (!OUT_Mutex.try_lock()) {}
 #else
 			OUT_Mutex.lock();
 #endif
-			OUT_Packets.emplace(OUT_NextID++, Packet);
+			Operations[OP].OUT_Packets.emplace(Operations[OP].OUT_NextID++, Packet);
 			OUT_Mutex.unlock();
 			return Packet;
 		}
@@ -81,14 +85,14 @@ namespace PeerNet
 		//	Receives a packet
 		inline void Receive(ReceivePacket*const IN_Packet)
 		{
-			if (IN_Packet->GetPacketID() <= IN_LastID.load()) { delete IN_Packet; return; }
-			IN_LastID.store(IN_Packet->GetPacketID());
+			if (IN_Packet->GetPacketID() <= Operations[IN_Packet->GetOperationID()].IN_LastID.load()) { delete IN_Packet; return; }
+			Operations[IN_Packet->GetOperationID()].IN_LastID.store(IN_Packet->GetPacketID());
 			IN_Mutex.lock();
 			NeedsProcessed.push(IN_Packet);
 			IN_Mutex.unlock();
 		}
 
 		//	Get the largest received ID so far
-		inline const auto GetLastID() const { return IN_LastID.load(); }
+		//inline const auto GetLastID() const { return IN_LastID.load(); }
 	};
 }

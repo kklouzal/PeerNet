@@ -61,9 +61,9 @@ namespace PeerNet
 		}
 
 		//	Initialize and return a new packet for sending
-		inline std::shared_ptr<SendPacket> NewPacket()
+		inline std::shared_ptr<SendPacket> NewPacket(const unsigned long& OP)
 		{
-			std::shared_ptr<SendPacket> Packet = std::make_shared<SendPacket>(OUT_NextID.load(), ChannelID, Address);
+			std::shared_ptr<SendPacket> Packet = std::make_shared<SendPacket>(OUT_NextID.load(), ChannelID, OP, Address);
 #ifdef _PERF_SPINLOCK
 			while (!OUT_Mutex.try_lock()) {}
 #else

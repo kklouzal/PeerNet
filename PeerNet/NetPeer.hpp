@@ -52,11 +52,11 @@ namespace PeerNet
 				//	(std::chrono::milliseconds)*		My Reliable RTT
 				//	(std::chrono::milliseconds)	*		My Reliable Ordered RTT
 				//
-				auto KeepAlive = CreateNewPacket(PacketType::PN_KeepAlive);
+				auto KeepAlive = CreateNewPacket(PacketType::PN_KeepAlive, 0);
 				KeepAlive->WriteData<bool>(true);
 				KeepAlive->WriteData<unsigned long>(CH_KOL->GetLastID());
-				KeepAlive->WriteData<unsigned long>(CH_Reliable->GetLastID());
-				KeepAlive->WriteData<unsigned long>(CH_Unreliable->GetLastID());
+				//KeepAlive->WriteData<unsigned long>(CH_Reliable->GetLastID());
+				//KeepAlive->WriteData<unsigned long>(CH_Unreliable->GetLastID());
 				//KeepAlive->WriteData<unsigned long>(CH_Ordered->GetLastID());
 				Send_Packet(KeepAlive.get());
 
@@ -139,21 +139,21 @@ namespace PeerNet
 		}
 
 		//	Construct and return a NetPacket to fill and send to this NetPeer
-		inline std::shared_ptr<SendPacket> NetPeer::CreateNewPacket(const PacketType pType) {
+		inline std::shared_ptr<SendPacket> NetPeer::CreateNewPacket(const PacketType pType, const unsigned long& OP) {
 			if (pType == PN_KeepAlive)
 			{
-				return CH_KOL->NewPacket();
+				return CH_KOL->NewPacket(OP);
 			}
 			else if (pType == PN_Ordered)
 			{
-				return CH_Ordered->NewPacket();
+				return CH_Ordered->NewPacket(OP);
 			}
 			else if (pType == PN_Reliable)
 			{
-				return CH_Reliable->NewPacket();
+				return CH_Reliable->NewPacket(OP);
 			}
 
-			return CH_Unreliable->NewPacket();
+			return CH_Unreliable->NewPacket(OP);
 		}
 
 		//	
@@ -173,13 +173,14 @@ namespace PeerNet
 				{
 					//	Process this Keep-Alive Packet
 					//	Memory for the ACK is cleaned up by the NetSocket that sends it
-					SendPacket*const ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, Address, true);
+					SendPacket*const ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, 0, Address, true);
 					ACK->WriteData<bool>(false);
 					Send_Packet(ACK);
 
 					CH_KOL->ACK(IncomingPacket->ReadData<unsigned long>());
-					CH_Reliable->ACK(IncomingPacket->ReadData<unsigned long>());
-					CH_Unreliable->ACK(IncomingPacket->ReadData<unsigned long>());
+					//CH_Reliable->ACK(IncomingPacket->ReadData<unsigned long>());
+					//CH_Unreliable->ACK(IncomingPacket->ReadData<unsigned long>());
+					//CH_Ordered->ACK(IncomingPacket->ReadData<unsigned long>());
 
 					//	End Keep-Alive Packet Processing
 					delete IncomingPacket;
@@ -196,11 +197,11 @@ namespace PeerNet
 					//	Immediatly ACK the packet
 					if (IncomingPacket->ReadData<bool>())
 					{
-						CH_Ordered->ACK(IncomingPacket->GetPacketID());
+						CH_Ordered->ACK(IncomingPacket->GetPacketID(), IncomingPacket->GetOperationID());
 					}
 					else {
 						//	Memory for the ACK is cleaned up by the NetSocket that sends it
-						SendPacket*const ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_Ordered, Address, true);
+						SendPacket*const ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_Ordered, 0, Address, true);
 						ACK->WriteData<bool>(true);
 						Send_Packet(ACK);
 						CH_Ordered->Receive(IncomingPacket); break;
