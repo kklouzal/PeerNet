@@ -143,8 +143,8 @@ namespace PeerNet
 			delete Address;
 		}
 
-		//	Construct and return a NetPacket to fill and send to this NetPeer
-		inline std::shared_ptr<SendPacket> NetPeer::CreateNewPacket(const PacketType pType, const unsigned long& OP) {
+		//	Construct and return a reliable NetPacket to fill and send to this NetPeer
+		inline std::shared_ptr<SendPacket> NetPeer::CreateReliablePacket(const PacketType pType, const unsigned long& OP) {
 			if (pType == PN_Ordered)
 			{
 				return CH_Ordered->NewPacket(OP);
@@ -153,9 +153,26 @@ namespace PeerNet
 			{
 				return CH_Reliable->NewPacket(OP);
 			}
-
-			return CH_Unreliable->NewPacket(OP);
+			else
+			{
+				printf("Tried to create unknown reliable packet type\n");
+			}
+			return nullptr;
 		}
+
+		//	Construct and return a unreliable NetPacket to fill and send to this NetPeer
+		inline SendPacket*const NetPeer::CreateUnreliablePacket(const PacketType pType, const unsigned long& OP) {
+			if (pType == PN_Unreliable)
+			{
+				return CH_Unreliable->NewPacket(OP);
+			}
+			else
+			{
+				printf("Tried to create unknown unreliable packet type\n");
+			}
+			return nullptr;
+		}
+
 
 		//	
 		inline void Receive_Packet(const string& IncomingData)
@@ -179,9 +196,9 @@ namespace PeerNet
 					ACK->WriteData<bool>(true);	//	Are we an ACK?
 					Send_Packet(ACK);
 
+					//CH_Unreliable->ACK(IncomingPacket->ReadData<unsigned long>());
 					//CH_KOL->ACK(IncomingPacket->ReadData<unsigned long>());
 					//CH_Reliable->ACK(IncomingPacket->ReadData<unsigned long>());
-					//CH_Unreliable->ACK(IncomingPacket->ReadData<unsigned long>());
 					//CH_Ordered->ACK(IncomingPacket->ReadData<unsigned long>());
 				}
 				delete IncomingPacket;
