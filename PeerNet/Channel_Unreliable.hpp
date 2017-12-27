@@ -14,7 +14,6 @@ namespace PeerNet
 		const NetAddress*const Address;
 		const PacketType ChannelID;
 
-		std::mutex OUT_Mutex;
 		std::mutex IN_Mutex;
 
 		std::unordered_map<unsigned long, UnreliableOperation> Operations;
@@ -24,7 +23,7 @@ namespace PeerNet
 	public:
 		inline UnreliableChannel(const NetAddress*const Addr, const PacketType &ChanID)
 			: Address(Addr), ChannelID(ChanID),
-			IN_Mutex(), OUT_Mutex(), NeedsProcessed() {}
+			IN_Mutex(), NeedsProcessed() {}
 
 		//	Initialize and return a new packet for sending
 		inline SendPacket*const NewPacket(const unsigned long& OP)
