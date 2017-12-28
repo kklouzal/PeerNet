@@ -44,10 +44,11 @@ namespace PeerNet
 	public:
 		//	IsSending flag = true to stop ACK cleanups
 		std::atomic<unsigned char> IsSending;
+		std::atomic<unsigned char> NeedsDelete;
 
 		//	Managed == true ONLY for non-user accessible packets
 		inline SendPacket(const unsigned long& pID, const PacketType& pType, const unsigned long OpID, const NetAddress*const Address, const bool& Managed = false, high_resolution_clock::time_point CT = high_resolution_clock::now())
-			: DataStream(std::ios::in | std::ios::out | std::ios::binary), InternallyManaged(Managed), MyAddress(Address), IsSending(1),
+			: DataStream(std::ios::in | std::ios::out | std::ios::binary), InternallyManaged(Managed), MyAddress(Address), IsSending(1), NeedsDelete(0),
 			BinaryIn(new PortableBinaryOutputArchive(DataStream))
 		{
 			PacketID = pID;

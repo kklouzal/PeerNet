@@ -26,7 +26,7 @@ namespace PeerNet
 			OUT_Mutex(), OUT_NextID(1), OUT_LastACK(0) {}
 
 		//	Initialize and return a new packet for sending
-		inline SendPacket* NewPacket()
+		inline SendPacket*const NewPacket()
 		{
 			return new SendPacket(OUT_NextID++, ChannelID, 0, Address, true);
 		}

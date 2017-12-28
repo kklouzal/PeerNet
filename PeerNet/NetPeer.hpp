@@ -103,6 +103,7 @@ namespace PeerNet
 
 				//	Resend all unacknowledged packets
 				CH_Ordered->ResendUnacknowledged(this->Socket);
+				CH_Reliable->ResendUnacknowledged(this->Socket);
 			}
 		}
 		inline void NetPeer::OnExpire()
@@ -114,6 +115,11 @@ namespace PeerNet
 		NetSocket*const Socket;
 
 		bool FakePacketLoss = true;
+
+		inline void PrintChannelStats()
+		{
+			CH_Reliable->PrintStats();
+		}
 
 		//	Constructor
 		inline NetPeer(PeerNet* PNInstance, NetSocket*const DefaultSocket, NetAddress*const NetAddr)
@@ -144,33 +150,18 @@ namespace PeerNet
 		}
 
 		//	Construct and return a reliable NetPacket to fill and send to this NetPeer
-		inline std::shared_ptr<SendPacket> NetPeer::CreateReliablePacket(const PacketType pType, const unsigned long& OP) {
-			if (pType == PN_Ordered)
-			{
-				return CH_Ordered->NewPacket(OP);
-			}
-			else if (pType == PN_Reliable)
-			{
-				return CH_Reliable->NewPacket(OP);
-			}
-			else
-			{
-				printf("Tried to create unknown reliable packet type\n");
-			}
-			return nullptr;
+		inline std::shared_ptr<SendPacket> NetPeer::CreateOrderedPacket(const unsigned long& OP) {
+			return CH_Ordered->NewPacket(OP);
+		}
+
+		//	Construct and return a reliable NetPacket to fill and send to this NetPeer
+		inline SendPacket* NetPeer::CreateReliablePacket(const unsigned long& OP) {
+			return CH_Reliable->NewPacket(OP);
 		}
 
 		//	Construct and return a unreliable NetPacket to fill and send to this NetPeer
-		inline SendPacket*const NetPeer::CreateUnreliablePacket(const PacketType pType, const unsigned long& OP) {
-			if (pType == PN_Unreliable)
-			{
-				return CH_Unreliable->NewPacket(OP);
-			}
-			else
-			{
-				printf("Tried to create unknown unreliable packet type\n");
-			}
-			return nullptr;
+		inline SendPacket*const NetPeer::CreateUnreliablePacket(const unsigned long& OP) {
+			return CH_Unreliable->NewPacket(OP);
 		}
 
 
@@ -187,52 +178,78 @@ namespace PeerNet
 			switch (IncomingPacket->GetType()) {
 
 			case PN_KeepAlive:
+			{
 				if (CH_KOL->Receive(IncomingPacket))
 				{
 					//	Process this Keep-Alive Packet
 					//	Memory for the ACK is cleaned up by the NetSocket that sends it
 					//	Inject our received creation time back into the ACK
-					SendPacket*const ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, 0, Address, true, IncomingPacket->GetCreationTime());
+					SendPacket*const ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, IncomingPacket->GetOperationID(), Address, true, IncomingPacket->GetCreationTime());
 					ACK->WriteData<bool>(true);	//	Are we an ACK?
 					Send_Packet(ACK);
 
-					//CH_Unreliable->ACK(IncomingPacket->ReadData<unsigned long>());
 					//CH_KOL->ACK(IncomingPacket->ReadData<unsigned long>());
 					//CH_Reliable->ACK(IncomingPacket->ReadData<unsigned long>());
 					//CH_Ordered->ACK(IncomingPacket->ReadData<unsigned long>());
 				}
 				delete IncomingPacket;
 				break;
+			}
 
 			case PN_Unreliable: CH_Unreliable->Receive(IncomingPacket); break;
 
-			case PN_Reliable: CH_Reliable->Receive(IncomingPacket); break;
+			case PN_Reliable:
+			{
+				//	If a random number between 1-10 equals another random number between 1-10
+				//	Drop the packet to simulate packet loss
+				if (FakePacketLoss && (rand() % 10 + 1) == (rand() % 10 + 1))
+				{
+					delete IncomingPacket;
+					break;
+				}
+				//	Is this an ACK?
+				if (IncomingPacket->ReadData<bool>())
+				{
+					CH_Reliable->ACK(IncomingPacket->GetPacketID(), IncomingPacket->GetOperationID());
+					delete IncomingPacket;
+				}
+				else {
+					//	Send back an ACK
+					SendPacket*const ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_Reliable, IncomingPacket->GetOperationID(), Address, true, IncomingPacket->GetCreationTime());
+					ACK->WriteData<bool>(true);	//	Are we an ACK?
+					Send_Packet(ACK);
+					//	Process the packet
+					CH_Reliable->Receive(IncomingPacket); break;
+				}
+				break;
+			}
 
 				//	Ordered packeds need processed inside their Receive function
 			case PN_Ordered:
+			{
+				//	If a random number between 1-10 equals another random number between 1-10
+				//	Drop the packet to simulate packet loss
+				if (FakePacketLoss && (rand() % 10 + 1) == (rand() % 10 + 1))
 				{
-					//	If a random number between 1-10 equals another random number between 1-10
-					//	Drop the packet to simulate packet loss
-					if (FakePacketLoss && (rand() % 10 + 1) == (rand() % 10 + 1))
-					{
-						delete IncomingPacket;
-						break;
-					}
-					//	Immediatly ACK the packet
-					if (IncomingPacket->ReadData<bool>())
-					{
-						CH_Ordered->ACK(IncomingPacket->GetPacketID(), IncomingPacket->GetOperationID());
-						delete IncomingPacket;
-					}
-					else {
-						//	Memory for the ACK is cleaned up by the NetSocket that sends it
-						SendPacket*const ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_Ordered, IncomingPacket->GetOperationID(), Address, true);
-						ACK->WriteData<bool>(true);
-						Send_Packet(ACK);
-						CH_Ordered->Receive(IncomingPacket); break;
-					}
+					delete IncomingPacket;
+					break;
 				}
-				break;
+				//	Immediatly ACK the packet
+				if (IncomingPacket->ReadData<bool>())
+				{
+					CH_Ordered->ACK(IncomingPacket->GetPacketID(), IncomingPacket->GetOperationID());
+					delete IncomingPacket;
+					break;
+				}
+				else {
+					//	Memory for the ACK is cleaned up by the NetSocket that sends it
+					SendPacket*const ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_Ordered, IncomingPacket->GetOperationID(), Address, true, IncomingPacket->GetCreationTime());
+					ACK->WriteData<bool>(true);
+					Send_Packet(ACK);
+					CH_Ordered->Receive(IncomingPacket);
+					break;
+				}
+			}
 
 				//	Default case for unknown packet type
 			default: printf("Recv Unknown Packet Type\n"); delete IncomingPacket;
