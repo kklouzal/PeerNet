@@ -65,6 +65,9 @@ namespace PeerNet
 		inline const auto RTT() const { return OUT_RTT; }
 
 		//	Gets the current amount of unacknowledged packets
-		inline const auto GetUnacknowledgedCount() { return OUT_NextID.load() - OUT_LastACK.load(); }
+		inline const auto GetUnacknowledgedCount()
+		{
+			return OUT_NextID.load() - OUT_LastACK.load();
+		}
 	};
 }

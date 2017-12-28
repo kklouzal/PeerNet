@@ -30,6 +30,8 @@ namespace PeerNet
 		inline void OnTick()
 		{
 			//	Check to see if this peer is no longer alive
+			const unsigned long UnACK = CH_KOL->GetUnacknowledgedCount();
+			//printf("UnAck %zi\n", UnACK);
 			if (CH_KOL->GetUnacknowledgedCount() > 1000) {
 				_PeerNet->DisconnectPeer(this);
 			} else {
@@ -39,25 +41,9 @@ namespace PeerNet
 				Avg_RTT -= Avg_RTT / RollingRTT;
 				Avg_RTT += CH_KOL->RTT() / RollingRTT;
 
-				//	Update our timed interval based on past Keep Alive RTT's
-				NewInterval(Avg_RTT*3);
-				//	Keep-Alive Protocol:
-				//
-				//	(bool)				Is this not an Acknowledgement?
-				//	(unsigned long)		Highest Received KOL Packet ID
-				//	(unsigned long)		Highest Received Reliable Packet ID
-				//	(unsigned long)		Highest Received Unreliable Packet ID
-				//	(unsigned long)*		Highest Received && Processed Ordered Packet ID
-				//	(unordered_map)*					Missing Ordered Reliable Packet ID's
-				//	(std::chrono::milliseconds)*		My Reliable RTT
-				//	(std::chrono::milliseconds)	*		My Reliable Ordered RTT
-				//
+				//	Send a Keep-Alive
 				SendPacket* KeepAlive = CH_KOL->NewPacket();
-				KeepAlive->WriteData<bool>(true);
-				KeepAlive->WriteData<unsigned long>(CH_KOL->GetLastID());
-				//KeepAlive->WriteData<unsigned long>(CH_Reliable->GetLastID());
-				//KeepAlive->WriteData<unsigned long>(CH_Unreliable->GetLastID());
-				//KeepAlive->WriteData<unsigned long>(CH_Ordered->GetLastID());
+				KeepAlive->WriteData<bool>(false);	//	Not an ACK
 				Send_Packet(KeepAlive);
 
 				//	Call Receive() on all our waiting-to-be-processed packets from each channel
@@ -65,7 +51,7 @@ namespace PeerNet
 				while (!ProcessingQueue_RAW.empty())
 				{
 					auto Packet = ProcessingQueue_RAW.front();
-					printf("Unreliable - %d - %s\tFrom Queue\n", Packet->GetPacketID(), Packet->ReadData<std::string>().c_str());
+					//printf("Unreliable - %d - %s\tFrom Queue\n", Packet->GetPacketID(), Packet->ReadData<std::string>().c_str());
 					//	Loop through the queue and call Receive
 					Receive(Packet);
 					ProcessingQueue_RAW.pop();
@@ -77,7 +63,7 @@ namespace PeerNet
 				while (!ProcessingQueue_RAW.empty())
 				{
 					auto Packet = ProcessingQueue_RAW.front();
-					printf("Reliable - %d - %s\tFrom Queue\n", Packet->GetPacketID(), Packet->ReadData<std::string>().c_str());
+					//printf("Reliable - %d - %s\tFrom Queue\n", Packet->GetPacketID(), Packet->ReadData<std::string>().c_str());
 					//	Loop through the queue and call Receive
 					Receive(Packet);
 					ProcessingQueue_RAW.pop();
@@ -89,7 +75,7 @@ namespace PeerNet
 				while (!ProcessingQueue_RAW.empty())
 				{
 					auto Packet = ProcessingQueue_RAW.front();
-					printf("Ordered - %d - %s\tFrom Queue\n", Packet->GetPacketID(), Packet->ReadData<std::string>().c_str());
+					//printf("Ordered - %d - %s\tFrom Queue\n", Packet->GetPacketID(), Packet->ReadData<std::string>().c_str());
 					//	Loop through the queue and call Receive
 					Receive(Packet);
 					ProcessingQueue_RAW.pop();
@@ -257,7 +243,7 @@ namespace PeerNet
 			}
 		}
 		inline void Send_Packet(SendPacket*const Packet) {
-			Socket->PostCompletion<SendPacket*const>(CK_SEND, Packet);
+			Socket->PostCompletion(CK_SEND, Packet);
 		}
 
 		inline const auto RTT_KOL() const { return Avg_RTT; }

@@ -3,8 +3,8 @@
 
 #define PN_MaxPacketSize 1472		//	Max size of an outgoing or incoming packet
 #define RIO_ResultsPerThread 128	//	How many results to dequeue from the stack per thread
-#define PN_MaxSendPackets 14336		//	Max outgoing packets per socket before you run out of memory
-#define PN_MaxReceivePackets 14336	//	Max pending incoming packets before new packets are disgarded
+#define PN_MaxSendPackets 10240		//	Max outgoing packets per socket before you run out of memory
+#define PN_MaxReceivePackets 10240	//	Max pending incoming packets before new packets are disgarded
 
 namespace PeerNet
 {
@@ -198,10 +198,11 @@ namespace PeerNet
 			//	Start Sending Event
 			case CK_SEND:
 			{
-				SendPacket*const OutPacket = static_cast<SendPacket*const>(pOverlapped);
 				const PRIO_BUF_EXT pBuffer = Env->PopBuffer();
 				//	If we are out of buffers push the request back out for another thread to pick up
-				if (pBuffer == nullptr) { PostCompletion<SendPacket*const>(CK_SEND, OutPacket); return; }
+				if (pBuffer == nullptr) { PostCompletion(CK_SEND, pOverlapped); printf("Out Of Send Buffers; Reposting Request\n"); return; }
+
+				SendPacket*const OutPacket = static_cast<SendPacket*const>(pOverlapped);
 
 				//	Compress our outgoing packets data payload into the rest of the data buffer
 				pBuffer->Length = (ULONG)ZSTD_compressCCtx(Env->Compression_Context,
@@ -217,17 +218,17 @@ namespace PeerNet
 #endif
 					RIO.RIOSendEx(RequestQueue, pBuffer, 1, NULL, const_cast<NetAddress*const>(OutPacket->GetAddress()), NULL, NULL, NULL, pBuffer);
 					RioMutex_Send.unlock();
-					//	Cleanup managed SendPackets
-					if (OutPacket->GetManaged())
-					{
-						delete OutPacket;
-					}
-					else {
-						//	Wont allow a channel to remove this packet from their out-pool while IsSending == true
-						OutPacket->IsSending.store(0);
-					}
 				}
 				else { printf("Packet Compression Failed - %i\n", pBuffer->Length); }
+				//	Cleanup managed SendPackets
+				if (OutPacket->GetManaged())
+				{
+					delete OutPacket;
+				}
+				else {
+					//	Wont allow a channel to remove this packet from their out-pool while IsSending == true
+					OutPacket->IsSending.store(0);
+				}
 			}
 			break;
 			}

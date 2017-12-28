@@ -170,7 +170,7 @@ namespace PeerNet
 	}
 	inline void PeerNet::TransmitPacket(SendPacket*const Packet, NetSocket*const Socket)
 	{
-		Socket->PostCompletion<SendPacket*const>(CK_SEND, Packet);
+		Socket->PostCompletion(CK_SEND, Packet);
 	}
 	inline void PeerNet::TranslateData(const SOCKADDR_INET*const AddrBuff, const string& IncomingData)
 	{

@@ -18,7 +18,9 @@ class MyPeer : public PeerNet::NetPeer
 	}
 public:
 	inline MyPeer(PeerNet::PeerNet* PNInstance, PeerNet::NetSocket*const DefaultSocket, PeerNet::NetAddress*const NetAddr)
-		: PeerNet::NetPeer(PNInstance, DefaultSocket, NetAddr) {}
+		: PeerNet::NetPeer(PNInstance, DefaultSocket, NetAddr) {
+		NewInterval(std::chrono::milliseconds(1000 / 60));	// 60 Ticks every 1 second
+	}
 };
 
 //	Factory Class for the User-Defined Peer Class
@@ -162,7 +164,7 @@ int main()
 			if (Peer != nullptr)
 			{
 				unsigned int i = 0;
-				while (i < 1024)
+				while (i < 10240)
 				{
 					auto NewPacket = Peer->CreateOrderedPacket(OperationID::Ordered2);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm ordered!!");
