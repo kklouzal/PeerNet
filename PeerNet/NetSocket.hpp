@@ -62,9 +62,6 @@ namespace PeerNet
 		//	Will only be called by this thread
 		inline PRIO_BUF_EXT PopBuffer()
 		{
-			//	Always leave 1 buffer in the pool for each running thread
-			//	Prevents popping the front buffer as it's being pushed
-			//	Eliminates the need to lock this function
 #ifdef _PERF_SPINLOCK
 			while (!BuffersMutex.try_lock()) {}
 #else
@@ -225,8 +222,10 @@ namespace PeerNet
 					{
 						delete OutPacket;
 					}
-					//	Wont allow a channel to remove this packet from their out-pool while IsSending == true
-					OutPacket->IsSending.store(false);
+					else {
+						//	Wont allow a channel to remove this packet from their out-pool while IsSending == true
+						OutPacket->IsSending.store(0);
+					}
 				}
 				else { printf("Packet Compression Failed - %i\n", pBuffer->Length); }
 			}

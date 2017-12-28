@@ -9,7 +9,7 @@ namespace PeerNet
 													//	OUT
 		std::atomic<unsigned long> OUT_NextID = 1;	//	Next packet ID we'll use
 		std::atomic<unsigned long> OUT_LastACK = 0;	//	Next packet ID we'll use
-		std::unordered_map<unsigned long, const std::shared_ptr<NetPacket>> OUT_Packets;	//	Unacknowledged outgoing packets
+		std::unordered_map<unsigned long, SendPacket*> OUT_Packets;	//	Unacknowledged outgoing packets
 	};
 	class ReliableChannel
 	{
@@ -31,47 +31,75 @@ namespace PeerNet
 		//	Acknowledge all packets up to this ID
 		inline void ACK(const unsigned long& ID, const unsigned long& OP)
 		{
-			//	We hold onto all the sent packets with an ID higher than that of
-			//	Which our remote peer has not confirmed delivery for as those
-			//	Packets may still be going through their initial sending process
-			if (ID > Operations[OP].OUT_LastACK)
-			{
-				Operations[OP].OUT_LastACK = ID;
-#ifdef _PERF_SPINLOCK
-				while (!OUT_Mutex.try_lock()) {}
-#else
-				OUT_Mutex.lock();
-#endif
-				auto it = Operations[OP].OUT_Packets.begin();
-				while (it != Operations[OP].OUT_Packets.end()) {
-					if (it->first <= Operations[OP].OUT_LastACK.load()) {
-						Operations[OP].OUT_Packets.erase(it++);
-						continue;
-					}
-					++it;
-				}
-				OUT_Mutex.unlock();
-			}
-			//	If their last received reliable ID is less than our last sent reliable id
-			//	Send the most recently sent reliable packet to them again
-			//	Note: if this packet is still in-transit it will be sent again
-			//	ToDo:	Hold off on resending the packet until it's creation time
-			//			is greater than this clients RTT
-			//if (ID < Out_NextID - 1 && Out_Packets.count(Out_NextID - 1)) { MyPeer->Socket->PostCompletion<NetPacket*>(CK_SEND, Out_Packets[Out_NextID - 1].get()); }
-		}
+			if (ID <= Operations[OP].OUT_LastACK.load()) { return; }
 
-		//	Initialize and return a new packet for sending
-		inline std::shared_ptr<SendPacket> NewPacket(const unsigned long& OP)
-		{
-			std::shared_ptr<SendPacket> Packet = std::make_shared<SendPacket>(Operations[OP].OUT_NextID.load(), ChannelID, OP, Address);
 #ifdef _PERF_SPINLOCK
 			while (!OUT_Mutex.try_lock()) {}
 #else
 			OUT_Mutex.lock();
 #endif
-			Operations[OP].OUT_Packets.emplace(Operations[OP].OUT_NextID++, Packet);
+			Operations[OP].OUT_LastACK.store(ID);
+			auto it = Operations[OP].OUT_Packets.begin();
+			while (it != Operations[OP].OUT_Packets.end()) {
+				if (it->first <= Operations[OP].OUT_LastACK.load()) {
+					it->second->NeedsDelete.store(1);
+				}
+				++it;
+			}
+			OUT_Mutex.unlock();
+		}
+
+		//	Initialize and return a new packet for sending
+		inline SendPacket*const NewPacket(const unsigned long& OP)
+		{
+			const unsigned long PacketID = Operations[OP].OUT_NextID++;
+			SendPacket*const Packet = new SendPacket(PacketID, ChannelID, OP, Address);
+			Packet->WriteData<bool>(false);	//	Not an ACK
+#ifdef _PERF_SPINLOCK
+			while (!OUT_Mutex.try_lock()) {}
+#else
+			OUT_Mutex.lock();
+#endif
+			Operations[OP].OUT_Packets.emplace(PacketID, Packet);
 			OUT_Mutex.unlock();
 			return Packet;
+		}
+
+		//	Resends all unacknowledged packets across a specific NetSocket
+		inline void ResendUnacknowledged(NetSocket*const Socket)
+		{
+			OUT_Mutex.lock();
+			auto Operation = Operations.begin();
+			while (Operation != Operations.end())
+			{
+				auto Packet = Operation->second.OUT_Packets.begin();
+				while (Packet != Operation->second.OUT_Packets.end())
+				{
+					//	If we're not currently sending
+					if (Packet->second->IsSending.load() == 0)
+					{
+						//	If this packet needs deleted
+						if (Packet->second->NeedsDelete.load() == 1)
+						{
+							delete Packet->second;
+							Packet = Operation->second.OUT_Packets.erase(Packet);
+							continue;
+						}
+						//	If this packet doesn't need deleted
+						else {
+							//	Flag this packet as sending
+							Packet->second->IsSending.store(1);
+							//	Resend the packet
+							Socket->PostCompletion<SendPacket*const>(CK_SEND, Packet->second);
+						}
+					}
+					//	Move to the next packet
+					++Packet;
+				}
+				//	Move to the next operation
+				++Operation;
+			}
+			OUT_Mutex.unlock();
 		}
 
 		//	Swaps the NeedsProcessed queue with an external empty queue (from another thread)
@@ -90,6 +118,17 @@ namespace PeerNet
 			IN_Mutex.lock();
 			NeedsProcessed.push(IN_Packet);
 			IN_Mutex.unlock();
+		}
+
+		inline void PrintStats()
+		{
+			auto Operation = Operations.begin();
+			while (Operation != Operations.end())
+			{
+				printf("Reliable Channel (%i) OUT_Packets Size: %zi\n", Operation->first, Operation->second.OUT_Packets.size());
+				++Operation;
+			}
+
 		}
 
 		//	Get the largest received ID so far

@@ -83,7 +83,7 @@ int main()
 	std::system("PAUSE");
 
 	MyPeerFactory* Factory = new MyPeerFactory();
-	PeerNet::PeerNet *_PeerNet = new PeerNet::PeerNet(Factory, 1024, 16);
+	PeerNet::PeerNet *_PeerNet = new PeerNet::PeerNet(Factory, 10240, 16);
 
 	PeerNet::NetSocket* Socket = nullptr;
 	PeerNet::NetPeer* Peer = nullptr;
@@ -150,9 +150,9 @@ int main()
 				unsigned int i = 0;
 				while (i < 16)
 				{
-					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Ordered, OperationID::Ordered1);
+					auto NewPacket = Peer->CreateOrderedPacket(OperationID::Ordered1);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm ordered!!");
-					Peer->Send_Packet(NewPacket.get());
+					Peer->Send_Packet(NewPacket);
 					i++;
 				}
 			}
@@ -162,11 +162,11 @@ int main()
 			if (Peer != nullptr)
 			{
 				unsigned int i = 0;
-				while (i < 16)
+				while (i < 1024)
 				{
-					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Ordered, OperationID::Ordered2);
+					auto NewPacket = Peer->CreateOrderedPacket(OperationID::Ordered2);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm ordered!!");
-					Peer->Send_Packet(NewPacket.get());
+					Peer->Send_Packet(NewPacket);
 					i++;
 				}
 			}
@@ -178,9 +178,9 @@ int main()
 				unsigned int i = 0;
 				while (i < 16)
 				{
-					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Reliable, OperationID::Reliable1);
+					auto NewPacket = Peer->CreateReliablePacket(OperationID::Reliable1);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm reliable!!");
-					Peer->Send_Packet(NewPacket.get());
+					Peer->Send_Packet(NewPacket);
 				i++;
 				}
 			}
@@ -190,11 +190,11 @@ int main()
 			if (Peer != nullptr)
 			{
 				unsigned int i = 0;
-				while (i < 16)
+				while (i < 1024)
 				{
-					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Reliable, OperationID::Reliable2);
+					auto NewPacket = Peer->CreateReliablePacket(OperationID::Reliable2);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm reliable!!");
-					Peer->Send_Packet(NewPacket.get());
+					Peer->Send_Packet(NewPacket);
 					i++;
 				}
 			}
@@ -206,9 +206,9 @@ int main()
 				unsigned int i = 0;
 				while (i < 16)
 				{
-					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Unreliable, OperationID::Unreliable1);
+					auto NewPacket = Peer->CreateUnreliablePacket(OperationID::Unreliable1);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm unreliable!!");
-					Peer->Send_Packet(NewPacket.get());
+					Peer->Send_Packet(NewPacket);
 					i++;
 				}
 			}
@@ -218,11 +218,11 @@ int main()
 			if (Peer != nullptr)
 			{
 				unsigned int i = 0;
-				while (i < 16)
+				while (i < 1024)
 				{
-					auto NewPacket = Peer->CreateNewPacket(PeerNet::PacketType::PN_Unreliable, OperationID::Unreliable2);
+					auto NewPacket = Peer->CreateUnreliablePacket(OperationID::Unreliable2);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm unreliable!!");
-					Peer->Send_Packet(NewPacket.get());
+					Peer->Send_Packet(NewPacket);
 					i++;
 				}
 			}
@@ -232,6 +232,13 @@ int main()
 			if (Peer != nullptr)
 			{
 				printf("\tKeep-Alive RTT:\t%.3fms\n", Peer->RTT_KOL().count());
+			}
+		}
+		else if (ConsoleInput == "stats")
+		{
+			if (Peer != nullptr)
+			{
+				Peer->PrintChannelStats();
 			}
 		}
 
