@@ -50,10 +50,10 @@ namespace PeerNet
 		}
 
 		//	Initialize and return a new packet for sending
-		inline SendPacket* NewPacket(const unsigned long& OP)
+		inline SendPacket*const NewPacket(const unsigned long& OP)
 		{
 			const unsigned long PacketID = Operations[OP].OUT_NextID++;
-			SendPacket* Packet = new SendPacket(PacketID, ChannelID, OP, Address);
+			SendPacket*const Packet = new SendPacket(PacketID, ChannelID, OP, Address);
 			Packet->WriteData<bool>(false);	//	Not an ACK
 #ifdef _PERF_SPINLOCK
 			while (!OUT_Mutex.try_lock()) {}
@@ -63,14 +63,6 @@ namespace PeerNet
 			Operations[OP].OUT_Packets.emplace(PacketID, Packet);
 			OUT_Mutex.unlock();
 			return Packet;
-		}
-
-		//	Swaps the NeedsProcessed queue with an external empty queue (from another thread)
-		inline void SwapProcessingQueue(std::queue<ReceivePacket*> &Queue)
-		{
-			IN_Mutex.lock();
-			NeedsProcessed.swap(Queue);
-			IN_Mutex.unlock();
 		}
 
 		//	Resends all unacknowledged packets across a specific NetSocket
@@ -110,6 +102,14 @@ namespace PeerNet
 			OUT_Mutex.unlock();
 		}
 
+		//	Swaps the NeedsProcessed queue with an external empty queue (from another thread)
+		inline void SwapProcessingQueue(std::queue<ReceivePacket*> &Queue)
+		{
+			IN_Mutex.lock();
+			NeedsProcessed.swap(Queue);
+			IN_Mutex.unlock();
+		}
+
 		//	Receives a packet
 		inline void Receive(ReceivePacket*const IN_Packet)
 		{
@@ -125,7 +125,7 @@ namespace PeerNet
 			auto Operation = Operations.begin();
 			while (Operation != Operations.end())
 			{
-				printf("Reliable Channel (%i) OUT_Packets Size: %i\n", Operation->first, Operation->second.OUT_Packets.size());
+				printf("Reliable Channel (%i) OUT_Packets Size: %zi\n", Operation->first, Operation->second.OUT_Packets.size());
 				++Operation;
 			}
 

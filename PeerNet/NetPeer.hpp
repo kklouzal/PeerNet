@@ -119,6 +119,7 @@ namespace PeerNet
 		inline void PrintChannelStats()
 		{
 			CH_Reliable->PrintStats();
+			CH_Ordered->PrintStats();
 		}
 
 		//	Constructor
@@ -150,7 +151,7 @@ namespace PeerNet
 		}
 
 		//	Construct and return a reliable NetPacket to fill and send to this NetPeer
-		inline std::shared_ptr<SendPacket> NetPeer::CreateOrderedPacket(const unsigned long& OP) {
+		inline SendPacket* NetPeer::CreateOrderedPacket(const unsigned long& OP) {
 			return CH_Ordered->NewPacket(OP);
 		}
 
@@ -234,21 +235,21 @@ namespace PeerNet
 					delete IncomingPacket;
 					break;
 				}
-				//	Immediatly ACK the packet
+				//	Is this an ACK?
 				if (IncomingPacket->ReadData<bool>())
 				{
 					CH_Ordered->ACK(IncomingPacket->GetPacketID(), IncomingPacket->GetOperationID());
 					delete IncomingPacket;
-					break;
 				}
 				else {
-					//	Memory for the ACK is cleaned up by the NetSocket that sends it
+					//	Send back an ACK
 					SendPacket*const ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_Ordered, IncomingPacket->GetOperationID(), Address, true, IncomingPacket->GetCreationTime());
 					ACK->WriteData<bool>(true);
 					Send_Packet(ACK);
+					//	Process the packet
 					CH_Ordered->Receive(IncomingPacket);
-					break;
 				}
+				break;
 			}
 
 				//	Default case for unknown packet type

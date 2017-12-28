@@ -11,7 +11,7 @@ namespace PeerNet
 		std::unordered_map<unsigned long, bool> IN_MissingIDs;						//	Missing IDs from the ordered sequence
 		//	OUT
 		std::atomic<unsigned long> OUT_NextID = 1;	//	The next packet ID we'll use
-		std::unordered_map<unsigned long, const std::shared_ptr<SendPacket>> OUT_Packets;	//	Unacknowledged outgoing packets
+		std::unordered_map<unsigned long, SendPacket*> OUT_Packets;	//	Unacknowledged outgoing packets
 	};
 
 	class OrderedChannel
@@ -39,6 +39,7 @@ namespace PeerNet
 		//	and eventually we'll receive an ack which deletes it
 		inline void ACK(const unsigned long& ID, const unsigned long& OP)
 		{
+			//if (ID <= Operations[OP].IN_LowestID.load()) { return; }
 #ifdef _PERF_SPINLOCK
 			while (!OUT_Mutex.try_lock()) {}
 #else
@@ -47,20 +48,17 @@ namespace PeerNet
 			//	Grab our OrderedOperation; Creates a new one if not exists
 			auto it = Operations[OP].OUT_Packets.find(ID);
 			if (it != Operations[OP].OUT_Packets.end()) {
-				if (it->second->IsSending.load() == 0)
-				{
-				Operations[OP].OUT_Packets.erase(it);
-				}
+				it->second->NeedsDelete.store(1);
 			}
 			OUT_Mutex.unlock();
 		}
 
 		//	Initialize and return a new packet for sending
-		inline std::shared_ptr<SendPacket> NewPacket(const unsigned long& OP)
+		inline SendPacket*const NewPacket(const unsigned long& OP)
 		{
 			const unsigned long PacketID = Operations[OP].OUT_NextID++;
-			std::shared_ptr<SendPacket> Packet = std::make_shared<SendPacket>(PacketID, ChannelID, OP, Address);
-			Packet->WriteData<bool>(false);	//	This is not an ACK
+			SendPacket*const Packet = new SendPacket(PacketID, ChannelID, OP, Address);
+			Packet->WriteData<bool>(false);	//	Not an ACK
 #ifdef _PERF_SPINLOCK
 			while (!OUT_Mutex.try_lock()) {}
 #else
@@ -72,24 +70,38 @@ namespace PeerNet
 		}
 
 		//	Resends all unacknowledged packets across a specific NetSocket
-		inline void ResendUnacknowledged(NetSocket* Socket)
+		inline void ResendUnacknowledged(NetSocket*const Socket)
 		{
 			OUT_Mutex.lock();
 			auto Operation = Operations.begin();
 			while (Operation != Operations.end())
 			{
-				for (auto Packet : Operation->second.OUT_Packets)
+				auto Packet = Operation->second.OUT_Packets.begin();
+				while (Packet != Operation->second.OUT_Packets.end())
 				{
-					if (Packet.second->IsSending.load() == 0)
+					//	If we're not currently sending
+					if (Packet->second->IsSending.load() == 0)
 					{
-						//	Flag this packet as sending
-						Packet.second->IsSending.store(1);
-						//	Resend the packet
-						Socket->PostCompletion<SendPacket*const>(CK_SEND, Packet.second.get());
+						//	If this packet needs deleted
+						if (Packet->second->NeedsDelete.load() == 1)
+						{
+							delete Packet->second;
+							Packet = Operation->second.OUT_Packets.erase(Packet);
+							continue;
+						}
+						//	If this packet doesn't need deleted
+						else {
+							//	Flag this packet as sending
+							Packet->second->IsSending.store(1);
+							//	Resend the packet
+							Socket->PostCompletion<SendPacket*const>(CK_SEND, Packet->second);
+						}
 					}
+					//	Move to the next packet
+					++Packet;
 				}
 				//	Move to the next operation
-				Operation++;
+				++Operation;
 			}
 			OUT_Mutex.unlock();
 		}
@@ -154,6 +166,18 @@ namespace PeerNet
 				{ Operations[IN_Packet->GetOperationID()].IN_MissingIDs[i] = true; }
 			}
 			IN_Mutex.unlock();
+		}
+
+		inline void PrintStats()
+		{
+			auto Operation = Operations.begin();
+			while (Operation != Operations.end())
+			{
+				printf("Ordered Channel (%i) OUT_Packets Size: %zi\n", Operation->first, Operation->second.OUT_Packets.size());
+				printf("Ordered Channel (%i) IN_StoredIDs Size: %zi\n", Operation->first, Operation->second.IN_StoredIDs.size());
+				++Operation;
+			}
+
 		}
 	};
 }

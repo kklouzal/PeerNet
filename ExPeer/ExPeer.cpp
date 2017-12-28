@@ -152,7 +152,7 @@ int main()
 				{
 					auto NewPacket = Peer->CreateOrderedPacket(OperationID::Ordered1);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm ordered!!");
-					Peer->Send_Packet(NewPacket.get());
+					Peer->Send_Packet(NewPacket);
 					i++;
 				}
 			}
@@ -166,7 +166,7 @@ int main()
 				{
 					auto NewPacket = Peer->CreateOrderedPacket(OperationID::Ordered2);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm ordered!!");
-					Peer->Send_Packet(NewPacket.get());
+					Peer->Send_Packet(NewPacket);
 					i++;
 				}
 			}
