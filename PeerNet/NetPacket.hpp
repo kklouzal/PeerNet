@@ -6,7 +6,7 @@ namespace PeerNet
 {
 	using cereal::PortableBinaryOutputArchive;
 	using cereal::PortableBinaryInputArchive;
-	using std::chrono::high_resolution_clock;
+	using std::chrono::steady_clock;
 	using std::stringstream;
 	using std::string;
 
@@ -15,7 +15,7 @@ namespace PeerNet
 	class NetPacket : public OVERLAPPED
 	{
 	protected:
-		high_resolution_clock::time_point CreationTime;
+		steady_clock::time_point CreationTime;
 		unsigned long PacketID = 0;
 		PacketType TypeID = PN_NotInialized;
 		unsigned long OperationID = 0;
@@ -47,7 +47,7 @@ namespace PeerNet
 		std::atomic<unsigned char> NeedsDelete;
 
 		//	Managed == true ONLY for non-user accessible packets
-		inline SendPacket(const unsigned long& pID, const PacketType& pType, const unsigned long OpID, const NetAddress*const Address, const bool& Managed = false, high_resolution_clock::time_point CT = high_resolution_clock::now())
+		inline SendPacket(const unsigned long& pID, const PacketType& pType, const unsigned long OpID, const NetAddress*const Address, const bool& Managed = false, steady_clock::time_point CT = steady_clock::now())
 			: DataStream(std::ios::in | std::ios::out | std::ios::binary), InternallyManaged(Managed), MyAddress(Address), IsSending(1), NeedsDelete(0),
 			BinaryIn(new PortableBinaryOutputArchive(DataStream))
 		{

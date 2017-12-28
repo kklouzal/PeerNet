@@ -41,7 +41,7 @@ namespace PeerNet
 				if (IN_Packet->GetPacketID() <= OUT_LastACK.load()) { return false; }
 				OUT_LastACK.store(IN_Packet->GetPacketID());
 				//	Calculate the RTT
-				std::chrono::duration <double, milli> RTT = high_resolution_clock::now() - IN_Packet->GetCreationTime();
+				std::chrono::duration <double, milli> RTT = steady_clock::now() - IN_Packet->GetCreationTime();
 #ifdef _PERF_SPINLOCK
 				while (!OUT_Mutex.try_lock()) {}
 #else

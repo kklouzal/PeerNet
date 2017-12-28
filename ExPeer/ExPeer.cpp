@@ -164,7 +164,7 @@ int main()
 			if (Peer != nullptr)
 			{
 				unsigned int i = 0;
-				while (i < 10240)
+				while (i < 256)
 				{
 					auto NewPacket = Peer->CreateOrderedPacket(OperationID::Ordered2);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm ordered!!");
@@ -192,7 +192,7 @@ int main()
 			if (Peer != nullptr)
 			{
 				unsigned int i = 0;
-				while (i < 1024)
+				while (i < 256)
 				{
 					auto NewPacket = Peer->CreateReliablePacket(OperationID::Reliable2);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm reliable!!");
@@ -220,7 +220,7 @@ int main()
 			if (Peer != nullptr)
 			{
 				unsigned int i = 0;
-				while (i < 1024)
+				while (i < 256)
 				{
 					auto NewPacket = Peer->CreateUnreliablePacket(OperationID::Unreliable2);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm unreliable!!");
