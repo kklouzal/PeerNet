@@ -8,7 +8,6 @@ namespace PeerNet
 		unsigned long IN_LowestID = 0;	//	The lowest received ID
 		unsigned long IN_HighestID = 0;	//	Highest received ID
 		std::unordered_map<unsigned long, ReceivePacket*> IN_StoredIDs;	//	Incoming packets we cant process yet
-		std::unordered_map<unsigned long, bool> IN_MissingIDs;						//	Missing IDs from the ordered sequence
 		//	OUT
 		std::atomic<unsigned long> OUT_NextID = 1;	//	The next packet ID we'll use
 		std::unordered_map<unsigned long, SendPacket*> OUT_Packets;	//	Unacknowledged outgoing packets
@@ -123,10 +122,6 @@ namespace PeerNet
 #else
 			IN_Mutex.lock();
 #endif
-			//	If this ID was missing, remove it from the MissingIDs container
-			if (Operations[IN_Packet->GetOperationID()].IN_MissingIDs.count(IN_Packet->GetPacketID()))
-			{ Operations[IN_Packet->GetOperationID()].IN_MissingIDs.erase(IN_Packet->GetPacketID()); }
-
 			//	Ignore ID's below the LowestID
 			if (IN_Packet->GetPacketID() <= Operations[IN_Packet->GetOperationID()].IN_LowestID)
 			{ IN_Mutex.unlock(); delete IN_Packet; return; }
@@ -159,11 +154,13 @@ namespace PeerNet
 			//	(out-of-sequence processing)
 			//	At this point ID must be greater than LowestID
 			//	Which means we have an out-of-sequence ID
-			Operations[IN_Packet->GetOperationID()].IN_StoredIDs.emplace(IN_Packet->GetPacketID(), IN_Packet);
-			for (unsigned long i = IN_Packet->GetPacketID() - 1; i > Operations[IN_Packet->GetOperationID()].IN_LowestID; --i)
+			if (Operations[IN_Packet->GetOperationID()].IN_StoredIDs.count(IN_Packet->GetPacketID()))
 			{
-				if (!Operations[IN_Packet->GetOperationID()].IN_StoredIDs.count(i))
-				{ Operations[IN_Packet->GetOperationID()].IN_MissingIDs[i] = true; }
+				printf("Already Exists!\n");
+				delete IN_Packet;
+			}
+			else {
+				Operations[IN_Packet->GetOperationID()].IN_StoredIDs.emplace(IN_Packet->GetPacketID(), IN_Packet);
 			}
 			IN_Mutex.unlock();
 		}
