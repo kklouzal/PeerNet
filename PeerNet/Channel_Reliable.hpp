@@ -33,20 +33,14 @@ namespace PeerNet
 		{
 			if (ID <= Operations[OP].OUT_LastACK.load()) { return; }
 
-#ifdef _PERF_SPINLOCK
-			while (!OUT_Mutex.try_lock()) {}
-#else
-			OUT_Mutex.lock();
-#endif
 			Operations[OP].OUT_LastACK.store(ID);
 			auto it = Operations[OP].OUT_Packets.begin();
 			while (it != Operations[OP].OUT_Packets.end()) {
-				if (it->first <= Operations[OP].OUT_LastACK.load()) {
+				if (it->first <= ID) {
 					it->second->NeedsDelete.store(1);
 				}
 				++it;
 			}
-			OUT_Mutex.unlock();
 		}
 
 		//	Initialize and return a new packet for sending

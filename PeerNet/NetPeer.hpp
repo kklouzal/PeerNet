@@ -100,7 +100,7 @@ namespace PeerNet
 	public:
 		NetSocket*const Socket;
 
-		bool FakePacketLoss = true;
+		bool FakePacketLoss = false;
 
 		inline void PrintChannelStats()
 		{

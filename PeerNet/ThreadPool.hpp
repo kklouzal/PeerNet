@@ -21,14 +21,12 @@ enum COMPLETION_KEY
 template <typename T>
 class ThreadPoolIOCP
 {
-protected:
-	const unsigned char MaxThreads;
 	const HANDLE IOCompletionPort;
 	unordered_map<unsigned char, T*const> Environments;
 	stack<thread> Threads;
-
-private:
-	inline virtual void OnCompletion(T*const ThreadEnv, const DWORD& numberOfBytes, const ULONG_PTR completionKey, LPOVERLAPPED pOverlapped) = 0;
+	inline virtual void OnCompletion(T*const ThreadEnv, const ULONG_PTR completionKey, LPOVERLAPPED pOverlapped) = 0;
+protected:
+	const unsigned char MaxThreads;
 public:
 	inline auto const GetThreadEnv(const unsigned char& ThreadNum) const { return Environments.at(ThreadNum); }
 
@@ -38,13 +36,13 @@ public:
 		Environments(), Threads() {
 		printf("\tOpening %i Threads\n", MaxThreads);
 		//	Create our threads
-		for (unsigned char i = 0; i < MaxThreads; i++)
-		{
-			Environments.insert(std::make_pair(i, new T(MaxThreads)));
-
+		for (unsigned char i = 0; i < MaxThreads; i++) {
+			//	Create the environment
+			Environments.emplace(i, new T(MaxThreads));
+			//	Create the thread
 			Threads.emplace(thread([&]() {
 				T*const MyEnv = Environments[i];
-				DWORD numberOfBytes = 0;
+				DWORD numberOfBytes = 0;	//	Unused
 				ULONG_PTR completionKey = 0;
 				LPOVERLAPPED pOverlapped = nullptr;
 
@@ -56,14 +54,11 @@ public:
 				//	Run this threads main loop
 				while (true) {
 					//	Grab the next available completion or block until one arrives
-					if (GetQueuedCompletionStatus(IOCompletionPort, &numberOfBytes, &completionKey, &pOverlapped, INFINITE) == 0)
-					{
-						printf("GetQueuedCompletionStatus Error: %i\n", GetLastError());
-					}
+					GetQueuedCompletionStatus(IOCompletionPort, &numberOfBytes, &completionKey, &pOverlapped, INFINITE);
 					//	break our main loop on CK_STOP
 					if (completionKey == CK_STOP) { delete MyEnv; return; }
 					//	Call user defined completion function
-					OnCompletion(MyEnv, numberOfBytes, completionKey, pOverlapped);
+					OnCompletion(MyEnv, completionKey, pOverlapped);
 				}}));
 		}
 	}
@@ -75,27 +70,17 @@ public:
 		printf("\tClose Thread Pool\n");
 	}
 
-	inline void ShutdownThreads()
-	{
+	inline void ShutdownThreads() {
 		//	Post a CK_STOP for each created thread
-		for (unsigned char i = 0; i < MaxThreads; i++)
-		{
+		for (unsigned char i = 0; i < MaxThreads; i++) {
 			PostCompletion(CK_STOP);
 		}
 		//	Wait for each thread to exit
 		while (!Threads.empty()) { Threads.top().join(); Threads.pop(); }
 	}
 
-	inline void PostCompletion(const ULONG_PTR Key) const {
-		if (PostQueuedCompletionStatus(IOCompletionPort, NULL, Key, NULL) == 0)
-		{
-			printf("PostQueuedCompletionStatus Error: %i\n", GetLastError());
-		}
-	}
-
-	inline void PostCompletion(const ULONG_PTR Key, LPOVERLAPPED OutPacket) const {
-		if (PostQueuedCompletionStatus(IOCompletionPort, NULL, Key, OutPacket) == 0)
-		{
+	inline void PostCompletion(const ULONG_PTR Key, LPOVERLAPPED OutPacket = NULL) const {
+		if (PostQueuedCompletionStatus(IOCompletionPort, NULL, Key, OutPacket) == 0) {
 			printf("PostQueuedCompletionStatus Error: %i\n", GetLastError());
 		}
 	}

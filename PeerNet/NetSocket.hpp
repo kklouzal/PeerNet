@@ -2,8 +2,8 @@
 #include "ThreadPool.hpp"
 
 #define PN_MaxPacketSize 1472		//	Max size of an outgoing or incoming packet
-#define RIO_ResultsPerThread 2	//	How many results to dequeue from the stack per thread
-#define PN_MaxSendPackets 102400		//	Max outgoing packets per socket before you run out of memory
+#define RIO_ResultsPerThread 1024	//	How many results to dequeue from the stack per thread
+#define PN_MaxSendPackets 102400	//	Max outgoing packets per socket before you run out of memory
 #define PN_MaxReceivePackets 10240	//	Max pending incoming packets before new packets are disgarded
 
 namespace PeerNet
@@ -84,12 +84,6 @@ namespace PeerNet
 			Data_Buffers.push(Buffer);
 			BuffersMutex.unlock();
 		}
-		inline void PrintSize()
-		{
-			BuffersMutex.lock();
-			printf("Size %i\n", Data_Buffers.size());
-			BuffersMutex.unlock();
-		}
 	};
 
 	//
@@ -129,7 +123,7 @@ namespace PeerNet
 		//	Process Sends and Receives
 		//	(Executed via the Thread Pool)
 		//
-		inline void OnCompletion(ThreadEnvironment*const Env, const DWORD& numberOfBytes, const ULONG_PTR completionKey, LPOVERLAPPED pOverlapped)
+		inline void OnCompletion(ThreadEnvironment*const Env, const ULONG_PTR completionKey, LPOVERLAPPED pOverlapped)
 		{
 			switch (completionKey)
 			{

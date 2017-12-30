@@ -38,18 +38,11 @@ namespace PeerNet
 		//	and eventually we'll receive an ack which deletes it
 		inline void ACK(const unsigned long& ID, const unsigned long& OP)
 		{
-			//if (ID <= Operations[OP].IN_LowestID.load()) { return; }
-#ifdef _PERF_SPINLOCK
-			while (!OUT_Mutex.try_lock()) {}
-#else
-			OUT_Mutex.lock();
-#endif
 			//	Grab our OrderedOperation; Creates a new one if not exists
 			auto it = Operations[OP].OUT_Packets.find(ID);
 			if (it != Operations[OP].OUT_Packets.end()) {
 				it->second->NeedsDelete.store(1);
 			}
-			OUT_Mutex.unlock();
 		}
 
 		//	Initialize and return a new packet for sending
