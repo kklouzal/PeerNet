@@ -95,9 +95,6 @@ namespace PeerNet
 		//	And let their respective classes destructors handle it <--
 		inline void DisconnectPeer(NetPeer*const Peer);
 
-		//	Transmits a packet over the specified socket
-		inline void TransmitPacket(SendPacket*const Packet, NetSocket*const Socket);
-
 		//	Takes raw incoming uncompressed data and an address buffer
 		//	Gets a peer from the buffer and passes the data to them for processing
 		inline void TranslateData(const SOCKADDR_INET*const AddrBuff, const string& IncomingData);
@@ -167,10 +164,6 @@ namespace PeerNet
 		WSACleanup();
 		delete Addresses;
 		printf("Deinitialization Complete\n");
-	}
-	inline void PeerNet::TransmitPacket(SendPacket*const Packet, NetSocket*const Socket)
-	{
-		Socket->PostCompletion(CK_SEND, Packet);
 	}
 	inline void PeerNet::TranslateData(const SOCKADDR_INET*const AddrBuff, const string& IncomingData)
 	{

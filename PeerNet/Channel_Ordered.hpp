@@ -15,7 +15,7 @@ namespace PeerNet
 
 	class OrderedChannel
 	{
-		const NetAddress*const Address;
+		NetAddress*const Address;
 		const PacketType ChannelID;
 
 		std::mutex IN_Mutex;
@@ -23,11 +23,11 @@ namespace PeerNet
 
 		std::unordered_map<unsigned long, OrderedOperation> Operations;
 
-		std::queue<ReceivePacket*> NeedsProcessed;	//	Packets that need to be processed
+		std::deque<ReceivePacket*> NeedsProcessed;	//	Packets that need to be processed
 
 	public:
 		//	Default constructor initializes us and our base class
-		inline OrderedChannel(const NetAddress*const Addr, const PacketType &ChanID)
+		inline OrderedChannel(NetAddress*const Addr, const PacketType &ChanID)
 			: Address(Addr), ChannelID(ChanID),
 			IN_Mutex(), OUT_Mutex(), NeedsProcessed() {}
 
@@ -53,10 +53,10 @@ namespace PeerNet
 		}
 
 		//	Initialize and return a new packet for sending
-		inline SendPacket*const NewPacket(const unsigned long& OP)
+		inline SendPacket* NewPacket(const unsigned long& OP)
 		{
 			const unsigned long PacketID = Operations[OP].OUT_NextID++;
-			SendPacket*const Packet = new SendPacket(PacketID, ChannelID, OP, Address);
+			SendPacket* Packet = new SendPacket(PacketID, ChannelID, OP, Address);
 			Packet->WriteData<bool>(false);	//	Not an ACK
 #ifdef _PERF_SPINLOCK
 			while (!OUT_Mutex.try_lock()) {}
@@ -106,7 +106,7 @@ namespace PeerNet
 		}
 
 		//	Swaps the NeedsProcessed queue with an external empty queue (from another thread)
-		inline void SwapProcessingQueue(std::queue<ReceivePacket*> &Queue)
+		inline void SwapProcessingQueue(std::deque<ReceivePacket*> &Queue)
 		{
 			IN_Mutex.lock();
 			NeedsProcessed.swap(Queue);
@@ -143,7 +143,7 @@ namespace PeerNet
 				++Operations[IN_Packet->GetOperationID()].IN_LowestID;
 				//printf("Ordered - %d - %s\tNew\n", IN_Packet->GetPacketID(), IN_Packet->ReadData<std::string>().c_str());
 				//	Push this packet into the NeedsProcessed Queue
-				NeedsProcessed.push(IN_Packet);
+				NeedsProcessed.push_back(IN_Packet);
 				// Loop through our StoredIDs container until we cant find (LowestID+1)
 				while (Operations[IN_Packet->GetOperationID()].IN_StoredIDs.count(Operations[IN_Packet->GetOperationID()].IN_LowestID + 1))
 				{
@@ -151,7 +151,7 @@ namespace PeerNet
 					//printf("Ordered - %d - %s\tStored\n", IN_LowestID, IN_StoredIDs.at(IN_LowestID)->ReadData<std::string>().c_str());
 					//	Push this packet into the NeedsProcessed Queue
 					ReceivePacket* Pkt = Operations[IN_Packet->GetOperationID()].IN_StoredIDs.at(Operations[IN_Packet->GetOperationID()].IN_LowestID);
-					NeedsProcessed.push(Pkt);
+					NeedsProcessed.push_back(Pkt);
 					//	Erase the ID from our out-of-order map
 					Operations[IN_Packet->GetOperationID()].IN_StoredIDs.erase(Operations[IN_Packet->GetOperationID()].IN_LowestID);
 				}

@@ -25,7 +25,7 @@ namespace PeerNet
 		inline virtual void Tick() = 0;
 		inline virtual void Receive(ReceivePacket* Packet) = 0;
 
-		std::queue<ReceivePacket*> ProcessingQueue_RAW;
+		std::deque<ReceivePacket*> ProcessingQueue_RAW;
 
 		inline void OnTick()
 		{
@@ -50,11 +50,11 @@ namespace PeerNet
 				CH_Unreliable->SwapProcessingQueue(ProcessingQueue_RAW);
 				while (!ProcessingQueue_RAW.empty())
 				{
-					auto Packet = ProcessingQueue_RAW.front();
+					ReceivePacket* Packet = ProcessingQueue_RAW.front();
 					//printf("Unreliable - %d - %s\tFrom Queue\n", Packet->GetPacketID(), Packet->ReadData<std::string>().c_str());
 					//	Loop through the queue and call Receive
 					Receive(Packet);
-					ProcessingQueue_RAW.pop();
+					ProcessingQueue_RAW.pop_front();
 					//	Cleanup the ReceivePacket
 					delete Packet;
 
@@ -62,11 +62,11 @@ namespace PeerNet
 				CH_Reliable->SwapProcessingQueue(ProcessingQueue_RAW);
 				while (!ProcessingQueue_RAW.empty())
 				{
-					auto Packet = ProcessingQueue_RAW.front();
+					ReceivePacket* Packet = ProcessingQueue_RAW.front();
 					//printf("Reliable - %d - %s\tFrom Queue\n", Packet->GetPacketID(), Packet->ReadData<std::string>().c_str());
 					//	Loop through the queue and call Receive
 					Receive(Packet);
-					ProcessingQueue_RAW.pop();
+					ProcessingQueue_RAW.pop_front();
 					//	Cleanup the ReceivePacket
 					delete Packet;
 
@@ -74,11 +74,11 @@ namespace PeerNet
 				CH_Ordered->SwapProcessingQueue(ProcessingQueue_RAW);
 				while (!ProcessingQueue_RAW.empty())
 				{
-					auto Packet = ProcessingQueue_RAW.front();
+					ReceivePacket* Packet = ProcessingQueue_RAW.front();
 					//printf("Ordered - %d - %s\tFrom Queue\n", Packet->GetPacketID(), Packet->ReadData<std::string>().c_str());
 					//	Loop through the queue and call Receive
 					Receive(Packet);
-					ProcessingQueue_RAW.pop();
+					ProcessingQueue_RAW.pop_front();
 					//	Cleanup the ReceivePacket
 					delete Packet;
 
@@ -147,10 +147,9 @@ namespace PeerNet
 		}
 
 		//	Construct and return a unreliable NetPacket to fill and send to this NetPeer
-		inline SendPacket*const NetPeer::CreateUnreliablePacket(const unsigned long& OP) {
+		inline SendPacket* NetPeer::CreateUnreliablePacket(const unsigned long& OP) {
 			return CH_Unreliable->NewPacket(OP);
 		}
-
 
 		//	
 		inline void Receive_Packet(const string& IncomingData)
@@ -171,13 +170,9 @@ namespace PeerNet
 					//	Process this Keep-Alive Packet
 					//	Memory for the ACK is cleaned up by the NetSocket that sends it
 					//	Inject our received creation time back into the ACK
-					SendPacket*const ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, IncomingPacket->GetOperationID(), Address, true, IncomingPacket->GetCreationTime());
+					SendPacket* ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, IncomingPacket->GetOperationID(), Address, true, IncomingPacket->GetCreationTime());
 					ACK->WriteData<bool>(true);	//	Are we an ACK?
 					Send_Packet(ACK);
-
-					//CH_KOL->ACK(IncomingPacket->ReadData<unsigned long>());
-					//CH_Reliable->ACK(IncomingPacket->ReadData<unsigned long>());
-					//CH_Ordered->ACK(IncomingPacket->ReadData<unsigned long>());
 				}
 				delete IncomingPacket;
 				break;
@@ -202,7 +197,7 @@ namespace PeerNet
 				}
 				else {
 					//	Send back an ACK
-					SendPacket*const ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_Reliable, IncomingPacket->GetOperationID(), Address, true, IncomingPacket->GetCreationTime());
+					SendPacket* ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_Reliable, IncomingPacket->GetOperationID(), Address, true, IncomingPacket->GetCreationTime());
 					ACK->WriteData<bool>(true);	//	Are we an ACK?
 					Send_Packet(ACK);
 					//	Process the packet
@@ -229,7 +224,7 @@ namespace PeerNet
 				}
 				else {
 					//	Send back an ACK
-					SendPacket*const ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_Ordered, IncomingPacket->GetOperationID(), Address, true, IncomingPacket->GetCreationTime());
+					SendPacket* ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_Ordered, IncomingPacket->GetOperationID(), Address, true, IncomingPacket->GetCreationTime());
 					ACK->WriteData<bool>(true);
 					Send_Packet(ACK);
 					//	Process the packet
@@ -242,7 +237,7 @@ namespace PeerNet
 			default: printf("Recv Unknown Packet Type\n"); delete IncomingPacket;
 			}
 		}
-		inline void Send_Packet(SendPacket*const Packet) {
+		inline void Send_Packet(SendPacket* Packet) {
 			Socket->PostCompletion(CK_SEND, Packet);
 		}
 

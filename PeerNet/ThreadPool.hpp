@@ -28,7 +28,7 @@ protected:
 	stack<thread> Threads;
 
 private:
-	inline virtual void OnCompletion(T*const ThreadEnv, const DWORD& numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED*const pOverlapped) = 0;
+	inline virtual void OnCompletion(T*const ThreadEnv, const DWORD& numberOfBytes, const ULONG_PTR completionKey, LPOVERLAPPED pOverlapped) = 0;
 public:
 	inline auto const GetThreadEnv(const unsigned char& ThreadNum) const { return Environments.at(ThreadNum); }
 
@@ -46,7 +46,7 @@ public:
 				T*const MyEnv = Environments[i];
 				DWORD numberOfBytes = 0;
 				ULONG_PTR completionKey = 0;
-				OVERLAPPED* pOverlapped = 0;
+				LPOVERLAPPED pOverlapped = nullptr;
 
 				//	Lock our thread to its own core
 				SetThreadAffinityMask(GetCurrentThread(), i);
@@ -56,7 +56,10 @@ public:
 				//	Run this threads main loop
 				while (true) {
 					//	Grab the next available completion or block until one arrives
-					GetQueuedCompletionStatus(IOCompletionPort, &numberOfBytes, &completionKey, &pOverlapped, INFINITE);
+					if (GetQueuedCompletionStatus(IOCompletionPort, &numberOfBytes, &completionKey, &pOverlapped, INFINITE) == 0)
+					{
+						printf("GetQueuedCompletionStatus Error: %i\n", GetLastError());
+					}
 					//	break our main loop on CK_STOP
 					if (completionKey == CK_STOP) { delete MyEnv; return; }
 					//	Call user defined completion function
@@ -84,14 +87,14 @@ public:
 	}
 
 	inline void PostCompletion(const ULONG_PTR Key) const {
-		if (!PostQueuedCompletionStatus(IOCompletionPort, NULL, Key, NULL))
+		if (PostQueuedCompletionStatus(IOCompletionPort, NULL, Key, NULL) == 0)
 		{
 			printf("PostQueuedCompletionStatus Error: %i\n", GetLastError());
 		}
 	}
 
-	inline void PostCompletion(const ULONG_PTR Key, LPOVERLAPPED OverlappedData) const {
-		if (!PostQueuedCompletionStatus(IOCompletionPort, NULL, Key, OverlappedData))
+	inline void PostCompletion(const ULONG_PTR Key, LPOVERLAPPED OutPacket) const {
+		if (PostQueuedCompletionStatus(IOCompletionPort, NULL, Key, OutPacket) == 0)
 		{
 			printf("PostQueuedCompletionStatus Error: %i\n", GetLastError());
 		}

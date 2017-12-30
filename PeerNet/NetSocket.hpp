@@ -2,8 +2,8 @@
 #include "ThreadPool.hpp"
 
 #define PN_MaxPacketSize 1472		//	Max size of an outgoing or incoming packet
-#define RIO_ResultsPerThread 128	//	How many results to dequeue from the stack per thread
-#define PN_MaxSendPackets 10240		//	Max outgoing packets per socket before you run out of memory
+#define RIO_ResultsPerThread 2	//	How many results to dequeue from the stack per thread
+#define PN_MaxSendPackets 102400		//	Max outgoing packets per socket before you run out of memory
 #define PN_MaxReceivePackets 10240	//	Max pending incoming packets before new packets are disgarded
 
 namespace PeerNet
@@ -84,6 +84,12 @@ namespace PeerNet
 			Data_Buffers.push(Buffer);
 			BuffersMutex.unlock();
 		}
+		inline void PrintSize()
+		{
+			BuffersMutex.lock();
+			printf("Size %i\n", Data_Buffers.size());
+			BuffersMutex.unlock();
+		}
 	};
 
 	//
@@ -123,7 +129,7 @@ namespace PeerNet
 		//	Process Sends and Receives
 		//	(Executed via the Thread Pool)
 		//
-		inline void OnCompletion(ThreadEnvironment*const Env, const DWORD& numberOfBytes, const ULONG_PTR completionKey, OVERLAPPED*const pOverlapped)
+		inline void OnCompletion(ThreadEnvironment*const Env, const DWORD& numberOfBytes, const ULONG_PTR completionKey, LPOVERLAPPED pOverlapped)
 		{
 			switch (completionKey)
 			{
@@ -152,7 +158,7 @@ namespace PeerNet
 					//	Return if decompression fails
 					//	TODO: Should be < 0; Will randomly crash at 0 though.
 					if (DecompressResult < 1) {
-						printf("Receive Packet - Decompression Failed!\n"); return;
+						printf("Receive Packet - Decompression Failed!\n"); continue;
 					}
 					//	Grab
 					//	"show" packet to peer for processing
@@ -200,9 +206,9 @@ namespace PeerNet
 			{
 				const PRIO_BUF_EXT pBuffer = Env->PopBuffer();
 				//	If we are out of buffers push the request back out for another thread to pick up
-				if (pBuffer == nullptr) { PostCompletion(CK_SEND, pOverlapped); printf("Out Of Send Buffers; Reposting Request\n"); return; }
+				if (pBuffer == nullptr) { PostCompletion(CK_SEND, pOverlapped); return; }
 
-				SendPacket*const OutPacket = static_cast<SendPacket*const>(pOverlapped);
+				SendPacket* OutPacket = static_cast<SendPacket*>(pOverlapped);
 
 				//	Compress our outgoing packets data payload into the rest of the data buffer
 				pBuffer->Length = (ULONG)ZSTD_compressCCtx(Env->Compression_Context,
@@ -216,7 +222,7 @@ namespace PeerNet
 #else
 					RioMutex_Send.lock();
 #endif
-					RIO.RIOSendEx(RequestQueue, pBuffer, 1, NULL, const_cast<NetAddress*const>(OutPacket->GetAddress()), NULL, NULL, NULL, pBuffer);
+					RIO.RIOSendEx(RequestQueue, pBuffer, 1, NULL, OutPacket->GetAddress(), NULL, NULL, NULL, pBuffer);
 					RioMutex_Send.unlock();
 				}
 				else { printf("Packet Compression Failed - %i\n", pBuffer->Length); }
@@ -231,6 +237,8 @@ namespace PeerNet
 				}
 			}
 			break;
+
+			default: printf("Default Case!\n");
 			}
 		}
 
@@ -243,7 +251,7 @@ namespace PeerNet
 			Address_Buffer(new char[sizeof(SOCKADDR_INET)*(PN_MaxSendPackets + PN_MaxReceivePackets)]),
 			Data_Buffer(new char[PN_MaxPacketSize*(PN_MaxSendPackets + PN_MaxReceivePackets)]),
 			Overlapped_Recv(new OVERLAPPED()), Overlapped_Send(new OVERLAPPED()),
-			Socket(WSASocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, NULL, WSA_FLAG_REGISTERED_IO)),
+			Socket(WSASocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP, NULL, NULL, WSA_FLAG_REGISTERED_IO | WSA_FLAG_OVERLAPPED)),
 			RioMutex_Send(), RioMutex_Receive(), RIO(_PeerNet->RIO()), ThreadPoolIOCP()
 		{
 			//	Make sure our socket was created properly
@@ -264,7 +272,7 @@ namespace PeerNet
 			CompletionType_Send.Iocp.IocpHandle = this->IOCP();
 			CompletionType_Send.Iocp.CompletionKey = (void*)CK_RIO_SEND;
 			CompletionType_Send.Iocp.Overlapped = Overlapped_Send;
-			CompletionQueue_Send = RIO.RIOCreateCompletionQueue(PN_MaxSendPackets + PN_MaxReceivePackets, &CompletionType_Send);
+			CompletionQueue_Send = RIO.RIOCreateCompletionQueue(PN_MaxSendPackets, &CompletionType_Send);
 			if (CompletionQueue_Send == RIO_INVALID_CQ) { printf("Create Completion Queue Failed: %i\n", WSAGetLastError()); }
 
 			//	Create Request Queue

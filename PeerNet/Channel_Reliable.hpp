@@ -13,7 +13,7 @@ namespace PeerNet
 	};
 	class ReliableChannel
 	{
-		const NetAddress*const Address;
+		NetAddress*const Address;
 		const PacketType ChannelID;
 
 		std::mutex OUT_Mutex;
@@ -21,10 +21,10 @@ namespace PeerNet
 
 		std::unordered_map<unsigned long, ReliableOperation> Operations;
 
-		std::queue<ReceivePacket*> NeedsProcessed;	//	Packets that need to be processed
+		std::deque<ReceivePacket*> NeedsProcessed;	//	Packets that need to be processed
 
 	public:
-		inline ReliableChannel(const NetAddress*const Addr, const PacketType &ChanID)
+		inline ReliableChannel(NetAddress*const Addr, const PacketType &ChanID)
 			: Address(Addr), ChannelID(ChanID),
 			IN_Mutex(), OUT_Mutex(), NeedsProcessed() {}
 
@@ -50,10 +50,10 @@ namespace PeerNet
 		}
 
 		//	Initialize and return a new packet for sending
-		inline SendPacket*const NewPacket(const unsigned long& OP)
+		inline SendPacket* NewPacket(const unsigned long& OP)
 		{
 			const unsigned long PacketID = Operations[OP].OUT_NextID++;
-			SendPacket*const Packet = new SendPacket(PacketID, ChannelID, OP, Address);
+			SendPacket* Packet = new SendPacket(PacketID, ChannelID, OP, Address);
 			Packet->WriteData<bool>(false);	//	Not an ACK
 #ifdef _PERF_SPINLOCK
 			while (!OUT_Mutex.try_lock()) {}
@@ -66,7 +66,7 @@ namespace PeerNet
 		}
 
 		//	Resends all unacknowledged packets across a specific NetSocket
-		inline void ResendUnacknowledged(NetSocket*const Socket)
+		inline void ResendUnacknowledged(NetSocket* Socket)
 		{
 			OUT_Mutex.lock();
 			auto Operation = Operations.begin();
@@ -103,7 +103,7 @@ namespace PeerNet
 		}
 
 		//	Swaps the NeedsProcessed queue with an external empty queue (from another thread)
-		inline void SwapProcessingQueue(std::queue<ReceivePacket*> &Queue)
+		inline void SwapProcessingQueue(std::deque<ReceivePacket*> &Queue)
 		{
 			IN_Mutex.lock();
 			NeedsProcessed.swap(Queue);
@@ -114,9 +114,9 @@ namespace PeerNet
 		inline void Receive(ReceivePacket*const IN_Packet)
 		{
 			if (IN_Packet->GetPacketID() <= Operations[IN_Packet->GetOperationID()].IN_LastID.load()) { delete IN_Packet; return; }
-			Operations[IN_Packet->GetOperationID()].IN_LastID.store(IN_Packet->GetPacketID());
 			IN_Mutex.lock();
-			NeedsProcessed.push(IN_Packet);
+			Operations[IN_Packet->GetOperationID()].IN_LastID.store(IN_Packet->GetPacketID());
+			NeedsProcessed.push_back(IN_Packet);
 			IN_Mutex.unlock();
 		}
 

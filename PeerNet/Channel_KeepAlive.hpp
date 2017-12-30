@@ -7,7 +7,7 @@ namespace PeerNet
 
 	class KeepAliveChannel
 	{
-		const NetAddress*const Address;
+		NetAddress*const Address;
 		const PacketType ChannelID;
 
 		const long long RollingRTT;			//	Keep a rolling average of the last estimated 60 Round Trip Times
@@ -20,7 +20,7 @@ namespace PeerNet
 		std::atomic<unsigned long> OUT_LastACK;	//	Highest ACK'd packet id
 
 	public:
-		inline KeepAliveChannel(const NetAddress*const Addr, const PacketType &ChanID)
+		inline KeepAliveChannel(NetAddress*const Addr, const PacketType &ChanID)
 			: Address(Addr), ChannelID(ChanID), RollingRTT(60), OUT_RTT(100),
 			IN_LastID(0),
 			OUT_Mutex(), OUT_NextID(1), OUT_LastACK(0) {}
@@ -28,7 +28,8 @@ namespace PeerNet
 		//	Initialize and return a new packet for sending
 		inline SendPacket*const NewPacket()
 		{
-			return new SendPacket(OUT_NextID++, ChannelID, 0, Address, true);
+			const unsigned long PacketID = OUT_NextID++;
+			return new SendPacket(PacketID, ChannelID, 0, Address, true);
 		}
 
 		//	Receives a packet
