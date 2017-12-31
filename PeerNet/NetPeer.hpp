@@ -42,9 +42,11 @@ namespace PeerNet
 				Avg_RTT += CH_KOL->RTT() / RollingRTT;
 
 				//	Send a Keep-Alive
-				SendPacket* KeepAlive = CH_KOL->NewPacket();
-				KeepAlive->WriteData<bool>(false);	//	Not an ACK
-				Send_Packet(KeepAlive);
+				Send_Packet(CH_KOL->NewPacket());
+
+				//	Delete managed packets
+				CH_KOL->DeleteUsed();
+				CH_Unreliable->DeleteUsed();
 
 				//	Call Receive() on all our waiting-to-be-processed packets from each channel
 				CH_Unreliable->SwapProcessingQueue(ProcessingQueue_RAW);
@@ -165,14 +167,10 @@ namespace PeerNet
 
 			case PN_KeepAlive:
 			{
-				if (CH_KOL->Receive(IncomingPacket))
-				{
-					//	Process this Keep-Alive Packet
-					//	Memory for the ACK is cleaned up by the NetSocket that sends it
-					//	Inject our received creation time back into the ACK
-					SendPacket* ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, IncomingPacket->GetOperationID(), Address, true, IncomingPacket->GetCreationTime());
-					ACK->WriteData<bool>(true);	//	Are we an ACK?
-					Send_Packet(ACK);
+				//	Process the incoming keep-alive
+				if (CH_KOL->Receive(IncomingPacket)) {
+					//	Send an ACK if needed
+					Send_Packet(CH_KOL->NewACK(IncomingPacket, Address));
 				}
 				delete IncomingPacket;
 				break;
@@ -197,9 +195,7 @@ namespace PeerNet
 				}
 				else {
 					//	Send back an ACK
-					SendPacket* ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_Reliable, IncomingPacket->GetOperationID(), Address, true, IncomingPacket->GetCreationTime());
-					ACK->WriteData<bool>(true);	//	Are we an ACK?
-					Send_Packet(ACK);
+					Send_Packet(CH_Reliable->NewACK(IncomingPacket, Address));
 					//	Process the packet
 					CH_Reliable->Receive(IncomingPacket); break;
 				}
@@ -224,9 +220,7 @@ namespace PeerNet
 				}
 				else {
 					//	Send back an ACK
-					SendPacket* ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_Ordered, IncomingPacket->GetOperationID(), Address, true, IncomingPacket->GetCreationTime());
-					ACK->WriteData<bool>(true);
-					Send_Packet(ACK);
+					Send_Packet(CH_Ordered->NewACK(IncomingPacket, Address));
 					//	Process the packet
 					CH_Ordered->Receive(IncomingPacket);
 				}

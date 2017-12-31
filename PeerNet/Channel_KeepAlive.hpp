@@ -18,6 +18,7 @@ namespace PeerNet
 		std::mutex OUT_Mutex;
 		std::atomic<unsigned long> OUT_NextID;	//	Next packet ID we'll use
 		std::atomic<unsigned long> OUT_LastACK;	//	Highest ACK'd packet id
+		std::deque<SendPacket*> OUT_Packets;	//	Packets that need to be deleted
 
 	public:
 		inline KeepAliveChannel(NetAddress*const Addr, const PacketType &ChanID)
@@ -29,7 +30,39 @@ namespace PeerNet
 		inline SendPacket*const NewPacket()
 		{
 			const unsigned long PacketID = OUT_NextID++;
-			return new SendPacket(PacketID, ChannelID, 0, Address, true);
+			SendPacket* Packet = new SendPacket(PacketID, ChannelID, 0, Address, true);
+			Packet->WriteData<bool>(false);	//	Not an ACK
+			OUT_Mutex.lock();
+			OUT_Packets.push_back(Packet);
+			OUT_Mutex.unlock();
+			return Packet;
+		}
+
+		inline SendPacket*const NewACK(ReceivePacket* IncomingPacket, NetAddress* Address)
+		{
+			SendPacket* ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, IncomingPacket->GetOperationID(), Address, true, IncomingPacket->GetCreationTime());
+			ACK->WriteData<bool>(true);	//	Is an ACK
+			OUT_Mutex.lock();
+			OUT_Packets.push_back(ACK);
+			OUT_Mutex.unlock();
+			return ACK;
+		}
+
+		inline void DeleteUsed()
+		{
+			OUT_Mutex.lock();
+			auto Packet = OUT_Packets.begin();
+			while (Packet != OUT_Packets.end())
+			{
+				if ((*Packet)->NeedsDelete == 1) {
+					delete (*Packet);
+					Packet = OUT_Packets.erase(Packet);
+				}
+				else {
+					++Packet;
+				}
+			}
+			OUT_Mutex.unlock();
 		}
 
 		//	Receives a packet

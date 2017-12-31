@@ -1,10 +1,13 @@
 #pragma once
-#include "ThreadPool.hpp"
 
 #define PN_MaxPacketSize 1472		//	Max size of an outgoing or incoming packet
 #define RIO_ResultsPerThread 1024	//	How many results to dequeue from the stack per thread
 #define PN_MaxSendPackets 102400	//	Max outgoing packets per socket before you run out of memory
 #define PN_MaxReceivePackets 10240	//	Max pending incoming packets before new packets are disgarded
+
+#include "ThreadPoolReceive.hpp"
+#include "ThreadPool.hpp"
+
 
 namespace PeerNet
 {
@@ -220,14 +223,13 @@ namespace PeerNet
 					RioMutex_Send.unlock();
 				}
 				else { printf("Packet Compression Failed - %i\n", pBuffer->Length); }
+				//	Mark packet as not sending
+				OutPacket->IsSending.store(0);
 				//	Cleanup managed SendPackets
 				if (OutPacket->GetManaged())
 				{
-					delete OutPacket;
-				}
-				else {
-					//	Wont allow a channel to remove this packet from their out-pool while IsSending == true
-					OutPacket->IsSending.store(0);
+					//delete OutPacket;
+					OutPacket->NeedsDelete.store(1);
 				}
 			}
 			break;

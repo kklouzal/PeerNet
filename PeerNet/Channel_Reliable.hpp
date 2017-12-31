@@ -16,8 +16,9 @@ namespace PeerNet
 		NetAddress*const Address;
 		const PacketType ChannelID;
 
-		std::mutex OUT_Mutex;
 		std::mutex IN_Mutex;
+		std::mutex OUT_Mutex;
+		std::deque<SendPacket*> OUT_ACKs;	//	ACKs that need to be deleted
 
 		std::unordered_map<unsigned long, ReliableOperation> Operations;
 
@@ -59,10 +60,34 @@ namespace PeerNet
 			return Packet;
 		}
 
+		inline SendPacket*const NewACK(ReceivePacket* IncomingPacket, NetAddress* Address)
+		{
+			SendPacket* ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_Reliable, IncomingPacket->GetOperationID(), Address, true, IncomingPacket->GetCreationTime());
+			ACK->WriteData<bool>(true);	//	Is an ACK
+			OUT_Mutex.lock();
+			OUT_ACKs.push_back(ACK);
+			OUT_Mutex.unlock();
+			return ACK;
+		}
+
 		//	Resends all unacknowledged packets across a specific NetSocket
 		inline void ResendUnacknowledged(NetSocket* Socket)
 		{
 			OUT_Mutex.lock();
+			//	Cleanup sent ACKs
+			auto Packet = OUT_ACKs.begin();
+			while (Packet != OUT_ACKs.end())
+			{
+				if ((*Packet)->NeedsDelete == 1) {
+					delete (*Packet);
+					(*Packet) = NULL;
+					Packet = OUT_ACKs.erase(Packet);
+				}
+				else {
+					++Packet;
+				}
+			}
+			//	Resend unacknowledged packets
 			auto Operation = Operations.begin();
 			while (Operation != Operations.end())
 			{

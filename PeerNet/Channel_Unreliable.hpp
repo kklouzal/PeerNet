@@ -15,6 +15,8 @@ namespace PeerNet
 		const PacketType ChannelID;
 
 		std::mutex IN_Mutex;
+		std::mutex OUT_Mutex;
+		std::deque<SendPacket*> OUT_Packets;	//	Packets that need to be deleted
 
 		std::unordered_map<unsigned long, UnreliableOperation> Operations;
 
@@ -28,7 +30,28 @@ namespace PeerNet
 		//	Initialize and return a new packet for sending
 		inline SendPacket* NewPacket(const unsigned long& OP)
 		{
-			return new SendPacket(Operations[OP].OUT_NextID++, ChannelID, OP, Address, true);
+			SendPacket* Packet = new SendPacket(Operations[OP].OUT_NextID++, ChannelID, OP, Address, true);
+			OUT_Mutex.lock();
+			OUT_Packets.push_back(Packet);
+			OUT_Mutex.unlock();
+			return Packet;
+		}
+
+		inline void DeleteUsed()
+		{
+			OUT_Mutex.lock();
+			auto Packet = OUT_Packets.begin();
+			while (Packet != OUT_Packets.end())
+			{
+				if ((*Packet)->NeedsDelete == 1) {
+					delete (*Packet);
+					Packet = OUT_Packets.erase(Packet);
+				}
+				else {
+					++Packet;
+				}
+			}
+			OUT_Mutex.unlock();
 		}
 
 		//	Swaps the NeedsProcessed queue with an external empty queue (from another thread)
