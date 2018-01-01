@@ -232,7 +232,7 @@ namespace PeerNet
 			}
 		}
 		inline void Send_Packet(SendPacket* Packet) {
-			Socket->PostCompletion(CK_SEND, Packet);
+			Socket->SendPacket(Packet);
 		}
 
 		inline const auto RTT_KOL() const { return Avg_RTT; }

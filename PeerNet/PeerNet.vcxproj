@@ -28,8 +28,8 @@
     <ClInclude Include="NetPeer.hpp" />
     <ClInclude Include="PeerNet.hpp" />
     <ClInclude Include="NetSocket.hpp" />
-    <ClInclude Include="ThreadPool.hpp" />
     <ClInclude Include="ThreadPoolReceive.hpp" />
+    <ClInclude Include="ThreadPoolSend.hpp" />
     <ClInclude Include="TimedEvent.hpp" />
   </ItemGroup>
   <ItemGroup>

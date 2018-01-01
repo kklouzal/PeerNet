@@ -110,7 +110,7 @@ namespace PeerNet
 							//	Flag this packet as sending
 							Packet->second->IsSending.store(1);
 							//	Resend the packet
-							Socket->PostCompletion(CK_SEND, Packet->second);
+							Socket->SendPacket(Packet->second);
 						}
 					}
 					//	Move to the next packet
