@@ -5,8 +5,8 @@ namespace PeerNet
 	struct ReliableOperation
 	{
 		//	IN
-		std::atomic<unsigned long> IN_LastID = 0;	//	The largest received ID so far
-													//	OUT
+		std::atomic<unsigned long> IN_LastID = 0;	//	The largest received (and acknowledged) ID so far
+		//	OUT
 		std::atomic<unsigned long> OUT_NextID = 1;	//	Next packet ID we'll use
 		std::atomic<unsigned long> OUT_LastACK = 0;	//	Next packet ID we'll use
 		std::unordered_map<unsigned long, SendPacket*> OUT_Packets;	//	Unacknowledged outgoing packets
