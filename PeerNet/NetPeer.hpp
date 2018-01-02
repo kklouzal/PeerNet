@@ -30,8 +30,8 @@ namespace PeerNet
 		inline void OnTick()
 		{
 			//	Check to see if this peer is no longer alive
-			const unsigned long UnACK = CH_KOL->GetUnacknowledgedCount();
-			printf("UnAck %zi\n", UnACK);
+			//const unsigned long UnACK = CH_KOL->GetUnacknowledgedCount();
+			//printf("UnAck %zi\n", UnACK);
 			if (CH_KOL->GetUnacknowledgedCount() > 1000) {
 				_PeerNet->DisconnectPeer(this);
 			} else {
@@ -90,8 +90,8 @@ namespace PeerNet
 				Tick();
 
 				//	Resend all unacknowledged packets
-				CH_Ordered->ResendUnacknowledged(this->Socket);
 				CH_Reliable->ResendUnacknowledged(this->Socket);
+				CH_Ordered->ResendUnacknowledged(this->Socket);
 			}
 		}
 		inline void NetPeer::OnExpire()

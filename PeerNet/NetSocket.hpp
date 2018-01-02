@@ -134,11 +134,11 @@ namespace PeerNet
 			OVERLAPPED Overlap_Send;
 			RIO_NOTIFICATION_COMPLETION Completion_Send;
 			Completion_Send.Type = RIO_IOCP_COMPLETION;
-			Completion_Send.Iocp.IocpHandle = IOCP_Receive;
-			Completion_Send.Iocp.CompletionKey = (void*)CK_RIO_RECV;
+			Completion_Send.Iocp.IocpHandle = IOCP_Send;
+			Completion_Send.Iocp.CompletionKey = (void*)CK_RIO_SEND;
 			Completion_Send.Iocp.Overlapped = &Overlap_Send;
-			CompletionQueue_Send = RIO.RIOCreateCompletionQueue(PN_MaxReceivePackets, &Completion_Send);
-			if (CompletionQueue_Send == RIO_INVALID_CQ) { printf("Create Receive Completion Queue Failed: %i\n", WSAGetLastError()); }
+			CompletionQueue_Send = RIO.RIOCreateCompletionQueue(PN_MaxSendPackets, &Completion_Send);
+			if (CompletionQueue_Send == RIO_INVALID_CQ) { printf("Create Send Completion Queue Failed: %i\n", WSAGetLastError()); }
 
 			//	Create Request Queue
 			RequestQueue = RIO.RIOCreateRequestQueue(Socket, PN_MaxReceivePackets, 1, PN_MaxSendPackets, 1, CompletionQueue_Receive, CompletionQueue_Send, NULL);
@@ -190,7 +190,7 @@ namespace PeerNet
 					ULONG_PTR completionKey = 0;
 					LPOVERLAPPED pOverlapped = nullptr;
 					//	ZStd
-					char*const Uncompressed_Data = new char[PN_MaxPacketSize];
+					char*const Uncompressed_Data = new char[PN_MaxPacketSize]; //-V819
 					ZSTD_DCtx*const Decompression_Context = ZSTD_createDCtx();
 
 					//	Lock our thread to its own core
@@ -208,15 +208,10 @@ namespace PeerNet
 						case CK_STOP_RECV: return;	// Break our main loop on CK_STOP
 						case CK_RIO_RECV:
 						{
-							//RioMutex.lock();
+							RioMutex.lock();
 							const ULONG NumResults = RIO.RIODequeueCompletion(CompletionQueue_Receive, CompletionResults, RIO_ResultsPerThread);
-							//RioMutex.unlock();
-#ifdef NDEBUG
 							RIO.RIONotify(CompletionQueue_Receive);
-#else
-							if (RIO.RIONotify(CompletionQueue_Receive) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
-							if (RIO_CORRUPT_CQ == NumResults) { printf("RIO Corrupt Results\n"); return; }
-#endif
+							RioMutex.unlock();
 
 							//	Actually read the data from each received packet
 							for (ULONG CurResult = 0; CurResult < NumResults; CurResult++)
@@ -239,14 +234,10 @@ namespace PeerNet
 
 								_PeerNet->TranslateData((SOCKADDR_INET*)&Address_Buffer_Receive[pBuffer->pAddrBuff->Offset], std::string(Uncompressed_Data, DecompressResult));
 
-/*#ifdef _PERF_SPINLOCK
-								while (!RioMutex_Receive.try_lock()) {}
-#else
 								RioMutex.lock();
-#endif*/
 								//	Push another read request into the queue
 								if (!RIO.RIOReceiveEx(RequestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, 0, pBuffer)) { printf("RIO Receive2 Failed\n"); }
-								//RioMutex.unlock();
+								RioMutex.unlock();
 							}
 						}
 						break;
@@ -311,22 +302,18 @@ namespace PeerNet
 													//	Finish Sending Event
 						case CK_RIO_SEND:
 						{
-							//RioMutex.lock();
+							RioMutex.lock();
 							const ULONG NumResults = RIO.RIODequeueCompletion(CompletionQueue_Send, CompletionResults, RIO_ResultsPerThread);
-							//RioMutex.unlock();
-#ifdef NDEBUG
 							RIO.RIONotify(CompletionQueue_Send);
-#else
-							if (RIO.RIONotify(CompletionQueue_Send) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
-							if (RIO_CORRUPT_CQ == NumResults) { printf("RIO Corrupt Results\n"); return; }
-#endif
+							RioMutex.unlock();
 							//	Actually read the data from each received packet
 							for (ULONG CurResult = 0; CurResult < NumResults; CurResult++)
 							{
 								//	Get the raw packet data into our buffer
 								RIO_BUF_SEND* pBuffer = reinterpret_cast<RIO_BUF_SEND*>(CompletionResults[CurResult].RequestContext);
 								//	Send this pBuffer back to the correct Thread Environment
-								pBuffer->BufferContainer->Push(pBuffer);
+								//pBuffer->BufferContainer->Push(pBuffer);
+								Buffers_Send->Push(pBuffer);
 							}
 						}
 						break;
@@ -341,7 +328,7 @@ namespace PeerNet
 								if (PostQueuedCompletionStatus(IOCP_Send, NULL, CK_SEND, pOverlapped) == 0) {
 									printf("PostQueuedCompletionStatus Error: %i\n", GetLastError());
 								}
-							return;
+							break;
 							}
 							::PeerNet::SendPacket* OutPacket = static_cast<::PeerNet::SendPacket*>(pOverlapped);
 
@@ -352,13 +339,10 @@ namespace PeerNet
 							//	If compression was successful, actually transmit our packet
 							if (pBuffer->Length > 0) {
 								//printf("Compressed: %i->%i\n", SendPacket->GetData().size(), pBuffer->Length);
-/*#ifdef _PERF_SPINLOCK
-								while (!RioMutex_Send.try_lock()) {}
-#else
+
 								RioMutex.lock();
-#endif*/
 								RIO.RIOSendEx(RequestQueue, pBuffer, 1, NULL, OutPacket->GetAddress(), NULL, NULL, NULL, pBuffer);
-								//RioMutex.unlock();
+								RioMutex.unlock();
 							}
 							else { printf("Packet Compression Failed - %i\n", pBuffer->Length); }
 							//	Mark packet as not sending
@@ -380,6 +364,10 @@ namespace PeerNet
 					ZSTD_freeCCtx(Compression_Context);
 				}));
 			}
+
+			//	Notify sends are ready
+			if (RIO.RIONotify(CompletionQueue_Send) != ERROR_SUCCESS) { printf("\tRIO Send Notify Failed\n"); }
+
 			//	Finally bind our socket so we can send/receive data
 			if (bind(Socket, Address->AddrInfo()->ai_addr, (int)Address->AddrInfo()->ai_addrlen) == SOCKET_ERROR)
 			{ printf("Bind Failed(%i)\n", WSAGetLastError()); }

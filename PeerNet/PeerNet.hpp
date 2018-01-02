@@ -137,7 +137,7 @@ namespace PeerNet
 			if (WSAIoctl(RioSocket, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER,
 				&functionTableID,
 				sizeof(GUID),
-				(void**)&g_rio,
+				(void**)&g_rio, //-V580
 				sizeof(g_rio),
 				&dwBytes, 0, 0) == SOCKET_ERROR) {
 				printf("RIO Failed(%i)\n", WSAGetLastError());
