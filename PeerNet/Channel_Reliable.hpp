@@ -13,18 +13,19 @@ namespace PeerNet
 	};
 	class ReliableChannel
 	{
-		const NetAddress*const Address;
+		NetAddress*const Address;
 		const PacketType ChannelID;
 
-		std::mutex OUT_Mutex;
 		std::mutex IN_Mutex;
+		std::mutex OUT_Mutex;
+		std::deque<SendPacket*> OUT_ACKs;	//	ACKs that need to be deleted
 
 		std::unordered_map<unsigned long, ReliableOperation> Operations;
 
-		std::queue<ReceivePacket*> NeedsProcessed;	//	Packets that need to be processed
+		std::deque<ReceivePacket*> NeedsProcessed;	//	Packets that need to be processed
 
 	public:
-		inline ReliableChannel(const NetAddress*const Addr, const PacketType &ChanID)
+		inline ReliableChannel(NetAddress*const Addr, const PacketType &ChanID)
 			: Address(Addr), ChannelID(ChanID),
 			IN_Mutex(), OUT_Mutex(), NeedsProcessed() {}
 
@@ -33,27 +34,21 @@ namespace PeerNet
 		{
 			if (ID <= Operations[OP].OUT_LastACK.load()) { return; }
 
-#ifdef _PERF_SPINLOCK
-			while (!OUT_Mutex.try_lock()) {}
-#else
-			OUT_Mutex.lock();
-#endif
 			Operations[OP].OUT_LastACK.store(ID);
 			auto it = Operations[OP].OUT_Packets.begin();
 			while (it != Operations[OP].OUT_Packets.end()) {
-				if (it->first <= Operations[OP].OUT_LastACK.load()) {
+				if (it->first <= ID) {
 					it->second->NeedsDelete.store(1);
 				}
 				++it;
 			}
-			OUT_Mutex.unlock();
 		}
 
 		//	Initialize and return a new packet for sending
-		inline SendPacket*const NewPacket(const unsigned long& OP)
+		inline SendPacket* NewPacket(const unsigned long& OP)
 		{
 			const unsigned long PacketID = Operations[OP].OUT_NextID++;
-			SendPacket*const Packet = new SendPacket(PacketID, ChannelID, OP, Address);
+			SendPacket* Packet = new SendPacket(PacketID, ChannelID, OP, Address);
 			Packet->WriteData<bool>(false);	//	Not an ACK
 #ifdef _PERF_SPINLOCK
 			while (!OUT_Mutex.try_lock()) {}
@@ -65,10 +60,34 @@ namespace PeerNet
 			return Packet;
 		}
 
+		inline SendPacket*const NewACK(ReceivePacket* IncomingPacket, NetAddress* Address)
+		{
+			SendPacket* ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_Reliable, IncomingPacket->GetOperationID(), Address, true, IncomingPacket->GetCreationTime());
+			ACK->WriteData<bool>(true);	//	Is an ACK
+			OUT_Mutex.lock();
+			OUT_ACKs.push_back(ACK);
+			OUT_Mutex.unlock();
+			return ACK;
+		}
+
 		//	Resends all unacknowledged packets across a specific NetSocket
-		inline void ResendUnacknowledged(NetSocket*const Socket)
+		inline void ResendUnacknowledged(NetSocket* Socket)
 		{
 			OUT_Mutex.lock();
+			//	Cleanup sent ACKs
+			auto Packet = OUT_ACKs.begin();
+			while (Packet != OUT_ACKs.end())
+			{
+				if ((*Packet)->NeedsDelete == 1) {
+					delete (*Packet);
+					(*Packet) = NULL;
+					Packet = OUT_ACKs.erase(Packet);
+				}
+				else {
+					++Packet;
+				}
+			}
+			//	Resend unacknowledged packets
 			auto Operation = Operations.begin();
 			while (Operation != Operations.end())
 			{
@@ -90,7 +109,7 @@ namespace PeerNet
 							//	Flag this packet as sending
 							Packet->second->IsSending.store(1);
 							//	Resend the packet
-							Socket->PostCompletion(CK_SEND, Packet->second);
+							Socket->SendPacket(Packet->second);
 						}
 					}
 					//	Move to the next packet
@@ -103,7 +122,7 @@ namespace PeerNet
 		}
 
 		//	Swaps the NeedsProcessed queue with an external empty queue (from another thread)
-		inline void SwapProcessingQueue(std::queue<ReceivePacket*> &Queue)
+		inline void SwapProcessingQueue(std::deque<ReceivePacket*> &Queue)
 		{
 			IN_Mutex.lock();
 			NeedsProcessed.swap(Queue);
@@ -114,9 +133,9 @@ namespace PeerNet
 		inline void Receive(ReceivePacket*const IN_Packet)
 		{
 			if (IN_Packet->GetPacketID() <= Operations[IN_Packet->GetOperationID()].IN_LastID.load()) { delete IN_Packet; return; }
-			Operations[IN_Packet->GetOperationID()].IN_LastID.store(IN_Packet->GetPacketID());
 			IN_Mutex.lock();
-			NeedsProcessed.push(IN_Packet);
+			Operations[IN_Packet->GetOperationID()].IN_LastID.store(IN_Packet->GetPacketID());
+			NeedsProcessed.push_back(IN_Packet);
 			IN_Mutex.unlock();
 		}
 

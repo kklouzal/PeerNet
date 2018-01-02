@@ -7,7 +7,7 @@ namespace PeerNet
 
 	class KeepAliveChannel
 	{
-		const NetAddress*const Address;
+		NetAddress*const Address;
 		const PacketType ChannelID;
 
 		const long long RollingRTT;			//	Keep a rolling average of the last estimated 60 Round Trip Times
@@ -18,9 +18,10 @@ namespace PeerNet
 		std::mutex OUT_Mutex;
 		std::atomic<unsigned long> OUT_NextID;	//	Next packet ID we'll use
 		std::atomic<unsigned long> OUT_LastACK;	//	Highest ACK'd packet id
+		std::deque<SendPacket*> OUT_Packets;	//	Packets that need to be deleted
 
 	public:
-		inline KeepAliveChannel(const NetAddress*const Addr, const PacketType &ChanID)
+		inline KeepAliveChannel(NetAddress*const Addr, const PacketType &ChanID)
 			: Address(Addr), ChannelID(ChanID), RollingRTT(60), OUT_RTT(100),
 			IN_LastID(0),
 			OUT_Mutex(), OUT_NextID(1), OUT_LastACK(0) {}
@@ -28,7 +29,40 @@ namespace PeerNet
 		//	Initialize and return a new packet for sending
 		inline SendPacket*const NewPacket()
 		{
-			return new SendPacket(OUT_NextID++, ChannelID, 0, Address, true);
+			const unsigned long PacketID = OUT_NextID++;
+			SendPacket* Packet = new SendPacket(PacketID, ChannelID, 0, Address, true);
+			Packet->WriteData<bool>(false);	//	Not an ACK
+			OUT_Mutex.lock();
+			OUT_Packets.push_back(Packet);
+			OUT_Mutex.unlock();
+			return Packet;
+		}
+
+		inline SendPacket*const NewACK(ReceivePacket* IncomingPacket, NetAddress* Address)
+		{
+			SendPacket* ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, IncomingPacket->GetOperationID(), Address, true, IncomingPacket->GetCreationTime());
+			ACK->WriteData<bool>(true);	//	Is an ACK
+			OUT_Mutex.lock();
+			OUT_Packets.push_back(ACK);
+			OUT_Mutex.unlock();
+			return ACK;
+		}
+
+		inline void DeleteUsed()
+		{
+			OUT_Mutex.lock();
+			auto Packet = OUT_Packets.begin();
+			while (Packet != OUT_Packets.end())
+			{
+				if ((*Packet)->NeedsDelete == 1) {
+					delete (*Packet);
+					Packet = OUT_Packets.erase(Packet);
+				}
+				else {
+					++Packet;
+				}
+			}
+			OUT_Mutex.unlock();
 		}
 
 		//	Receives a packet

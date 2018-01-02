@@ -95,9 +95,6 @@ namespace PeerNet
 		//	And let their respective classes destructors handle it <--
 		inline void DisconnectPeer(NetPeer*const Peer);
 
-		//	Transmits a packet over the specified socket
-		inline void TransmitPacket(SendPacket*const Packet, NetSocket*const Socket);
-
 		//	Takes raw incoming uncompressed data and an address buffer
 		//	Gets a peer from the buffer and passes the data to them for processing
 		inline void TranslateData(const SOCKADDR_INET*const AddrBuff, const string& IncomingData);
@@ -140,7 +137,7 @@ namespace PeerNet
 			if (WSAIoctl(RioSocket, SIO_GET_MULTIPLE_EXTENSION_FUNCTION_POINTER,
 				&functionTableID,
 				sizeof(GUID),
-				(void**)&g_rio,
+				(void**)&g_rio, //-V580
 				sizeof(g_rio),
 				&dwBytes, 0, 0) == SOCKET_ERROR) {
 				printf("RIO Failed(%i)\n", WSAGetLastError());
@@ -167,10 +164,6 @@ namespace PeerNet
 		WSACleanup();
 		delete Addresses;
 		printf("Deinitialization Complete\n");
-	}
-	inline void PeerNet::TransmitPacket(SendPacket*const Packet, NetSocket*const Socket)
-	{
-		Socket->PostCompletion(CK_SEND, Packet);
 	}
 	inline void PeerNet::TranslateData(const SOCKADDR_INET*const AddrBuff, const string& IncomingData)
 	{
@@ -204,9 +197,7 @@ namespace PeerNet
 		else {
 			//NetAddress* NewAddr = Addresses->FreeAddress(AddrBuff);
 			NetAddress*const NewAddr = Addresses->FreeAddress();
-			const string IP(inet_ntoa(AddrBuff->Ipv4.sin_addr));
-			const string Port(std::to_string(ntohs(AddrBuff->Ipv4.sin_port)));
-			NewAddr->Resolve(IP, Port);
+			NewAddr->Resolve(string(inet_ntoa(AddrBuff->Ipv4.sin_addr)), string(std::to_string(ntohs(AddrBuff->Ipv4.sin_port))));
 			Addresses->WriteAddress(NewAddr);
 			NetPeer*const ThisPeer = _PeerFactory->Create(this, DefaultSocket, NewAddr);
 #ifdef _PERF_SPINLOCK

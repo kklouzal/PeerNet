@@ -19,7 +19,7 @@ class MyPeer : public PeerNet::NetPeer
 public:
 	inline MyPeer(PeerNet::PeerNet* PNInstance, PeerNet::NetSocket*const DefaultSocket, PeerNet::NetAddress*const NetAddr)
 		: PeerNet::NetPeer(PNInstance, DefaultSocket, NetAddr) {
-		NewInterval(std::chrono::milliseconds(1000 / 60));	// 60 Ticks every 1 second
+		NewInterval(std::chrono::milliseconds(1000 / 60).count());	// 60 Ticks every 1 second
 	}
 };
 
@@ -41,10 +41,16 @@ enum OperationID
 {
 	Unreliable1 = 0,
 	Unreliable2 = 1,
+	Unreliable3 = 2,
+	Unreliable4 = 3,
 	Reliable1 = 0,
 	Reliable2 = 1,
+	Reliable3 = 2,
+	Reliable4 = 3,
 	Ordered1 = 0,
-	Ordered2 = 1
+	Ordered2 = 1,
+	Ordered3 = 2,
+	Ordered4 = 3
 };
 
 int main()
@@ -64,12 +70,18 @@ int main()
 	printf("\tforget - Forget a discovered peer\n");
 	printf("\n");
 	printf("\tPackets:\n");
-	printf("\to0 - Send ordered packets to the discovered peer - Operation 0\n");
-	printf("\to1 - Send ordered packets to the discovered peer - Operation 1\n");
-	printf("\tr0 - Send reliable packets to the discovered peer - Operation 0\n");
-	printf("\tr1 - Send reliable packets to the discovered peer - Operation 1\n");
-	printf("\tu0 - Send unreliable packets to the discovered peer - Operation 0\n");
-	printf("\tu1 - Send unreliable packets to the discovered peer - Operation 1\n");
+	printf("\to0 - Send 16 ordered packets to the discovered peer - Operation 0\n");
+	printf("\to1 - Send 256 ordered packets to the discovered peer - Operation 1\n");
+	printf("\to2 - Send 1024 ordered packets to the discovered peer - Operation 2\n");
+	printf("\to3 - Send 10240 ordered packets to the discovered peer - Operation 3\n");
+	printf("\tr0 - Send 16 reliable packets to the discovered peer - Operation 0\n");
+	printf("\tr1 - Send 256 reliable packets to the discovered peer - Operation 1\n");
+	printf("\tr2 - Send 1024 reliable packets to the discovered peer - Operation 2\n");
+	printf("\tr3 - Send 10240 reliable packets to the discovered peer - Operation 3\n");
+	printf("\tu0 - Send 16 unreliable packets to the discovered peer - Operation 0\n");
+	printf("\tu1 - Send 256 unreliable packets to the discovered peer - Operation 1\n");
+	printf("\tu2 - Send 1024 unreliable packets to the discovered peer - Operation 2\n");
+	printf("\tu3 - Send 10240 unreliable packets to the discovered peer - Operation 3\n");
 	printf("\n");
 	printf("\tStatistics:\n");
 	printf("\trtt - Print the discovered peer's RTT's to the console\n");
@@ -173,6 +185,34 @@ int main()
 				}
 			}
 		}
+		else if (ConsoleInput == "o2")
+		{
+			if (Peer != nullptr)
+			{
+				unsigned int i = 0;
+				while (i < 1024)
+				{
+					auto NewPacket = Peer->CreateOrderedPacket(OperationID::Ordered3);
+					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm ordered!!");
+					Peer->Send_Packet(NewPacket);
+					i++;
+				}
+			}
+		}
+		else if (ConsoleInput == "o3")
+		{
+			if (Peer != nullptr)
+			{
+				unsigned int i = 0;
+				while (i < 10240)
+				{
+					auto NewPacket = Peer->CreateOrderedPacket(OperationID::Ordered4);
+					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm ordered!!");
+					Peer->Send_Packet(NewPacket);
+					i++;
+				}
+			}
+		}
 		else if (ConsoleInput == "r0")
 		{
 			if (Peer != nullptr)
@@ -201,6 +241,34 @@ int main()
 				}
 			}
 		}
+		else if (ConsoleInput == "r2")
+		{
+			if (Peer != nullptr)
+			{
+				unsigned int i = 0;
+				while (i < 1024)
+				{
+					auto NewPacket = Peer->CreateReliablePacket(OperationID::Reliable3);
+					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm reliable!!");
+					Peer->Send_Packet(NewPacket);
+					i++;
+				}
+			}
+		}
+		else if (ConsoleInput == "r3")
+		{
+			if (Peer != nullptr)
+			{
+				unsigned int i = 0;
+				while (i < 10240)
+				{
+					auto NewPacket = Peer->CreateReliablePacket(OperationID::Reliable4);
+					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm reliable!!");
+					Peer->Send_Packet(NewPacket);
+					i++;
+				}
+			}
+		}
 		else if (ConsoleInput == "u0")
 		{
 			if (Peer != nullptr)
@@ -223,6 +291,34 @@ int main()
 				while (i < 256)
 				{
 					auto NewPacket = Peer->CreateUnreliablePacket(OperationID::Unreliable2);
+					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm unreliable!!");
+					Peer->Send_Packet(NewPacket);
+					i++;
+				}
+			}
+		}
+		else if (ConsoleInput == "u2")
+		{
+			if (Peer != nullptr)
+			{
+				unsigned int i = 0;
+				while (i < 1024)
+				{
+					auto NewPacket = Peer->CreateUnreliablePacket(OperationID::Unreliable3);
+					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm unreliable!!");
+					Peer->Send_Packet(NewPacket);
+					i++;
+				}
+			}
+		}
+		else if (ConsoleInput == "u3")
+		{
+			if (Peer != nullptr)
+			{
+				unsigned int i = 0;
+				while (i < 10240)
+				{
+					auto NewPacket = Peer->CreateUnreliablePacket(OperationID::Unreliable4);
 					NewPacket->WriteData<std::string>("I'm about to be serialized and I'm unreliable!!");
 					Peer->Send_Packet(NewPacket);
 					i++;

@@ -18,7 +18,7 @@ namespace PeerNet
 		inline NetAddress() : Address(), RIO_BUF() {}
 
 		//	Resolve initializes the NetAddress from an IP address or hostname along with a port number
-		inline void Resolve(std::string StrHost, std::string StrPort)
+		inline void Resolve(std::string &StrHost, std::string &StrPort)
 		{
 			//	Describe the End Hosts Protocol
 			addrinfo Hint;
