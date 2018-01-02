@@ -30,7 +30,7 @@ public:
 	//	TODO: Multiply LastRTT here by some small percentage
 	//	Based on the variation between the last few values of LastRTT
 	//	This will smooth out random hiccups in the network
-	inline void NewInterval(duration<double, std::milli> LastRTT) { IntervalTime = milliseconds((const unsigned int)ceil(LastRTT.count())); }
+	inline void NewInterval(const double &LastRTT) { IntervalTime = milliseconds((const unsigned int)ceil(LastRTT)); }
 
 	//	Constructor
 	inline TimedEvent(milliseconds Interval, const unsigned char iMaxTicks) :

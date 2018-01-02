@@ -31,7 +31,7 @@ namespace PeerNet
 		{
 			//	Check to see if this peer is no longer alive
 			const unsigned long UnACK = CH_KOL->GetUnacknowledgedCount();
-			//printf("UnAck %zi\n", UnACK);
+			printf("UnAck %zi\n", UnACK);
 			if (CH_KOL->GetUnacknowledgedCount() > 1000) {
 				_PeerNet->DisconnectPeer(this);
 			} else {

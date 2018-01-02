@@ -197,9 +197,7 @@ namespace PeerNet
 		else {
 			//NetAddress* NewAddr = Addresses->FreeAddress(AddrBuff);
 			NetAddress*const NewAddr = Addresses->FreeAddress();
-			const string IP(inet_ntoa(AddrBuff->Ipv4.sin_addr));
-			const string Port(std::to_string(ntohs(AddrBuff->Ipv4.sin_port)));
-			NewAddr->Resolve(IP, Port);
+			NewAddr->Resolve(string(inet_ntoa(AddrBuff->Ipv4.sin_addr)), string(std::to_string(ntohs(AddrBuff->Ipv4.sin_port))));
 			Addresses->WriteAddress(NewAddr);
 			NetPeer*const ThisPeer = _PeerFactory->Create(this, DefaultSocket, NewAddr);
 #ifdef _PERF_SPINLOCK

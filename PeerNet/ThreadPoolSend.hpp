@@ -250,7 +250,4 @@ public:
 			printf("PostQueuedCompletionStatus Error: %i\n", GetLastError());
 		}
 	}
-
-	inline const auto IOCP() const { return IOCompletionPort; }
-	inline const auto& HardwareConcurrency() const { return MaxThreads; }
 };

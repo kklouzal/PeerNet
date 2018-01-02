@@ -8,18 +8,6 @@
 
 namespace PeerNet
 {
-	enum COMPLETION_KEY_RECV
-	{
-		CK_STOP_RECV = 0,	//	used to break a threads main loop
-		CK_RIO_RECV = 1,	//	RIO Receive completions
-	};
-
-	//	Receive Data Buffer Struct
-	//	Holds a pointer to the senders address buffer
-	struct RIO_BUF_RECV : public RIO_BUF {
-		PRIO_BUF pAddrBuff;	//	Address Buffer for this data buffer
-	};
-
 	class ThreadPoolReceive
 	{
 	public:
@@ -27,8 +15,10 @@ namespace PeerNet
 		RIO_EXTENSION_FUNCTION_TABLE _RIO;
 		const unsigned char MaxThreads;
 		const HANDLE IOCompletionPort;
+		//
 		OVERLAPPED Overlap;
-		RIO_CQ CompletionQueue;
+		RIO_NOTIFICATION_COMPLETION Completion;
+
 		RIO_RQ RequestQueue;
 		std::deque<RIO_BUF_RECV*> Buffers;
 		std::mutex* RioMutex;
@@ -50,25 +40,6 @@ namespace PeerNet
 		}
 	public:
 
-		inline RIO_CQ GetCompletionQueue() {
-			return CompletionQueue;
-		}
-
-		inline void Initialize(RIO_RQ RQ) {
-			RequestQueue = RQ;
-			RioMutex->lock();
-			for (auto Buffer : Buffers)
-			{
-				printf("Hellooo\n");
-				if (!_RIO.RIOReceiveEx(RQ, Buffer, 1, NULL, Buffer->pAddrBuff, NULL, NULL, NULL, Buffer))
-				{
-					printf("RIO Receive Failed %i\n", WSAGetLastError());
-				}
-			}
-			if (_RIO.RIONotify(CompletionQueue) != ERROR_SUCCESS) { printf("\tRIO Receive Notify Failed\n");
-			RioMutex->unlock(); return; }
-			RioMutex->unlock();
-		}
 
 		//	Constructor
 		inline ThreadPoolReceive(PeerNet* PN, RIO_RQ RQ, std::mutex* RQMutex)
@@ -81,13 +52,10 @@ namespace PeerNet
 			printf("\tOpening %i Receive Threads\n", MaxThreads);
 
 			//	Create Receive Completion Type and Queue
-			RIO_NOTIFICATION_COMPLETION Completion;
 			Completion.Type = RIO_IOCP_COMPLETION;
 			Completion.Iocp.IocpHandle = IOCompletionPort;
 			Completion.Iocp.CompletionKey = (void*)CK_RIO_RECV;
 			Completion.Iocp.Overlapped = &Overlap;
-			CompletionQueue = _RIO.RIOCreateCompletionQueue(PN_MaxReceivePackets, &Completion);
-			if (CompletionQueue == RIO_INVALID_CQ) { printf("Create Receive Completion Queue Failed: %i\n", WSAGetLastError()); }
 
 			//	Register Address Memory Buffer
 			Address_BufferID = _RIO.RIORegisterBuffer(Address_Buffer, sizeof(SOCKADDR_INET)*PN_MaxReceivePackets);
@@ -120,7 +88,7 @@ namespace PeerNet
 				CurBuffer++;
 			}
 
-			//	Create our threads
+			//	Create our Receive threads
 			for (unsigned char i = 0; i < MaxThreads; i++) {
 				Threads.emplace(thread([&]() {
 					RIORESULT CompletionResults[RIO_ResultsPerThread];
@@ -199,38 +167,5 @@ namespace PeerNet
 				}));
 			}
 		}
-
-		//	Destructor
-		inline ~ThreadPoolReceive() {
-			//	Shutdown our threads
-			ShutdownThreads();
-			//	Close the completion queue
-			_RIO.RIOCloseCompletionQueue(CompletionQueue);
-			//	Deregister the address buffer
-			_RIO.RIODeregisterBuffer(Address_BufferID);
-			while (!Buffers.empty())
-			{
-				RIO_BUF_RECV* Buff = Buffers.front();
-				delete Buff->pAddrBuff;
-				delete Buff;
-				Buffers.pop_front();
-			}
-			delete Address_Buffer;
-			//	Deregister the data buffer
-			_RIO.RIODeregisterBuffer(Data_BufferID);
-			delete Data_Buffer;
-			//	Close the IO Completion Port
-			CloseHandle(IOCompletionPort);
-			printf("\tClosed Receive Thread Pool\n");
-		}
-
-		inline void PostCompletion(const ULONG_PTR Key, LPOVERLAPPED OutPacket = NULL) const {
-			if (PostQueuedCompletionStatus(IOCompletionPort, NULL, Key, OutPacket) == 0) {
-				printf("PostQueuedCompletionStatus Error: %i\n", GetLastError());
-			}
-		}
-
-		inline const auto IOCP() const { return IOCompletionPort; }
-		inline const auto& HardwareConcurrency() const { return MaxThreads; }
 	};
 }

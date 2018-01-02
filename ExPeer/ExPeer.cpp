@@ -19,7 +19,7 @@ class MyPeer : public PeerNet::NetPeer
 public:
 	inline MyPeer(PeerNet::PeerNet* PNInstance, PeerNet::NetSocket*const DefaultSocket, PeerNet::NetAddress*const NetAddr)
 		: PeerNet::NetPeer(PNInstance, DefaultSocket, NetAddr) {
-		NewInterval(std::chrono::milliseconds(1000 / 60));	// 60 Ticks every 1 second
+		NewInterval(std::chrono::milliseconds(1000 / 60).count());	// 60 Ticks every 1 second
 	}
 };
 
