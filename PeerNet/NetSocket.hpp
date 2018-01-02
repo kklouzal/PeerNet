@@ -16,6 +16,7 @@ namespace PeerNet
 	//
 	class NetSocket
 	{
+	public:
 		PeerNet* _PeerNet = nullptr;
 		NetAddress* Address = nullptr;
 		SOCKET Socket;
@@ -28,7 +29,6 @@ namespace PeerNet
 		ThreadPoolReceive* ReceivePool;
 		ThreadPoolSend* SendPool;
 
-	public:
 
 		//
 		//	NetSocket Constructor
@@ -41,15 +41,15 @@ namespace PeerNet
 			
 			ReceivePool = new ThreadPoolReceive(PNInstance, RequestQueue, &RioMutex);
 			SendPool = new ThreadPoolSend(PNInstance, RequestQueue, &RioMutex);
-			
+
 			//	Create Request Queue
 			RequestQueue = RIO.RIOCreateRequestQueue(Socket, PN_MaxReceivePackets, 1, PN_MaxSendPackets, 1, ReceivePool->GetCompletionQueue(), SendPool->GetCompletionQueue(), NULL);
 			if (RequestQueue == RIO_INVALID_RQ) { printf("Request Queue Failed: %i\n", WSAGetLastError()); }
 
-			//	Initialize our SendPool
-			SendPool->Initialize(RequestQueue);
 			//	Initialize our ReceivePool
 			ReceivePool->Initialize(RequestQueue);
+			//	Initialize our SendPool
+			SendPool->Initialize(RequestQueue);
 
 			//	Finally bind our socket so we can send/receive data
 			if (bind(Socket, Address->AddrInfo()->ai_addr, (int)Address->AddrInfo()->ai_addrlen) == SOCKET_ERROR)

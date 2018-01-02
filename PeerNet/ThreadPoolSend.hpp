@@ -20,23 +20,23 @@ class ConcurrentDeque;
 struct RIO_BUF_SEND : public RIO_BUF {
 	//	Originating container for this buffer
 	ConcurrentDeque* BufferContainer;
-}; typedef RIO_BUF_SEND* PRIO_BUF_SEND;
+};
 
 //	Single Consumer Multi Producer concurrent deque manager
 class ConcurrentDeque {
-	std::deque<PRIO_BUF_SEND> Buffers;
+	std::deque<RIO_BUF_SEND*> Buffers;
 	std::mutex BufferMutex;
 public:
 	//	Push a buffer back into the container
-	inline void Push(PRIO_BUF_SEND Buffer) {
+	inline void Push(RIO_BUF_SEND* Buffer) {
 		BufferMutex.lock();
 		Buffers.push_back(Buffer);
 		BufferMutex.unlock();
 	}
 
 	//	Pull a buffer removing it from the container
-	inline PRIO_BUF_SEND Pull() {
-		PRIO_BUF_SEND Buffer = nullptr;
+	inline RIO_BUF_SEND* Pull() {
+		RIO_BUF_SEND* Buffer = nullptr;
 		BufferMutex.lock();
 		Buffer = Buffers.front();
 		Buffers.pop_front();
@@ -48,7 +48,7 @@ public:
 	inline void Cleanup() {
 		while (!Buffers.empty())
 		{
-			PRIO_BUF_SEND Buff = Buffers.front();
+			RIO_BUF_SEND* Buff = Buffers.front();
 			delete Buff;
 			Buffers.pop_front();
 		}
@@ -57,6 +57,7 @@ public:
 
 class ThreadPoolSend
 {
+public:
 	PeerNet::PeerNet* _PeerNet;
 	RIO_EXTENSION_FUNCTION_TABLE _RIO;
 	const unsigned char MaxThreads;
@@ -121,7 +122,7 @@ public:
 				while (CurBuffer < BufferCount)
 				{
 					//
-					PRIO_BUF_SEND pBuf = new RIO_BUF_SEND;
+					RIO_BUF_SEND* pBuf = new RIO_BUF_SEND;
 					pBuf->BufferId = Data_BufferID;
 					pBuf->Offset = SendOffset;
 					pBuf->Length = PN_MaxPacketSize;
@@ -158,18 +159,20 @@ public:
 						//	Finish Sending Event
 					case CK_RIO_SEND:
 					{
+						RioMutex->lock();
 						const ULONG NumResults = _RIO.RIODequeueCompletion(CompletionQueue, CompletionResults, RIO_ResultsPerThread);
+						RioMutex->unlock();
 #ifdef NDEBUG
 						_RIO.RIONotify(CompletionQueue);
 #else
-						if (RIO.RIONotify(CompletionQueue_Send) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
+						if (_RIO.RIONotify(CompletionQueue) != ERROR_SUCCESS) { printf("\tRIO Notify Failed\n"); return; }
 						if (RIO_CORRUPT_CQ == NumResults) { printf("RIO Corrupt Results\n"); return; }
 #endif
 						//	Actually read the data from each received packet
 						for (ULONG CurResult = 0; CurResult < NumResults; CurResult++)
 						{
 							//	Get the raw packet data into our buffer
-							PRIO_BUF_SEND pBuffer = reinterpret_cast<PRIO_BUF_SEND>(CompletionResults[CurResult].RequestContext);
+							RIO_BUF_SEND* pBuffer = reinterpret_cast<RIO_BUF_SEND*>(CompletionResults[CurResult].RequestContext);
 							//	Send this pBuffer back to the correct Thread Environment
 							pBuffer->BufferContainer->Push(pBuffer);
 						}
@@ -180,7 +183,7 @@ public:
 					//	Start Sending Event
 					case CK_SEND:
 					{
-						const PRIO_BUF_SEND pBuffer = Buffers->Pull();
+						RIO_BUF_SEND*const pBuffer = Buffers->Pull();
 						//	If we are out of buffers push the request back out for another thread to pick up
 						if (pBuffer == nullptr) { PostCompletion(CK_SEND, pOverlapped); return; }
 
