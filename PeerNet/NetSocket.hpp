@@ -182,7 +182,10 @@ namespace PeerNet
 			//	Notify receives are ready
 			if (RIO.RIONotify(CompletionQueue_Receive) != ERROR_SUCCESS) { printf("\tRIO Receive Notify Failed\n"); }
 
-			//	Create our Receive threads
+			//
+			//
+			//	Receive Threads
+			//
 			for (unsigned char i = 0; i < ThreadCount_Receive; i++) {
 				Threads_Receive.emplace(thread([&]() {
 					RIORESULT CompletionResults[RIO_ResultsPerThread];
@@ -202,16 +205,17 @@ namespace PeerNet
 					while (true) {
 						//	Grab the next available completion or block until one arrives
 						GetQueuedCompletionStatus(IOCP_Receive, &numberOfBytes, &completionKey, &pOverlapped, INFINITE);
+						// Break our main loop on CK_STOP
+						if (completionKey == CK_STOP_RECV) { break; }
 						//	Process our completion
 						switch (completionKey)
 						{
-						case CK_STOP_RECV: return;	// Break our main loop on CK_STOP
 						case CK_RIO_RECV:
 						{
-							RioMutex.lock();
+							//RioMutex.lock();
 							const ULONG NumResults = RIO.RIODequeueCompletion(CompletionQueue_Receive, CompletionResults, RIO_ResultsPerThread);
 							RIO.RIONotify(CompletionQueue_Receive);
-							RioMutex.unlock();
+							//RioMutex.unlock();
 
 							//	Actually read the data from each received packet
 							for (ULONG CurResult = 0; CurResult < NumResults; CurResult++)
@@ -234,10 +238,10 @@ namespace PeerNet
 
 								_PeerNet->TranslateData((SOCKADDR_INET*)&Address_Buffer_Receive[pBuffer->pAddrBuff->Offset], std::string(Uncompressed_Data, DecompressResult));
 
-								RioMutex.lock();
+								//RioMutex.lock();
 								//	Push another read request into the queue
 								if (!RIO.RIOReceiveEx(RequestQueue, pBuffer, 1, NULL, pBuffer->pAddrBuff, NULL, NULL, 0, pBuffer)) { printf("RIO Receive2 Failed\n"); }
-								RioMutex.unlock();
+								//RioMutex.unlock();
 							}
 						}
 						break;
@@ -274,7 +278,10 @@ namespace PeerNet
 				SendOffset += PN_MaxPacketSize;
 			}
 
-			//	Create our Send threads
+			//
+			//
+			//	Send Threads
+			//
 			for (unsigned char i = 0; i < ThreadCount_Send; i++) {
 				Threads_Send.emplace(thread([&]() {
 					//
@@ -294,18 +301,19 @@ namespace PeerNet
 					while (true) {
 						//	Grab the next available completion or block until one arrives
 						GetQueuedCompletionStatus(IOCP_Send, &numberOfBytes, &completionKey, &pOverlapped, INFINITE);
+						// Break our main loop on CK_STOP
+						if (completionKey == CK_STOP_RECV) { break; }
 						//	Process our completion
 						switch (completionKey)
 						{
-						case CK_STOP_SEND: return;	// Break our main loop on CK_STOP
-													//
-													//	Finish Sending Event
+						//
+						//	Finish Sending Event
 						case CK_RIO_SEND:
 						{
-							RioMutex.lock();
+							//RioMutex.lock();
 							const ULONG NumResults = RIO.RIODequeueCompletion(CompletionQueue_Send, CompletionResults, RIO_ResultsPerThread);
 							RIO.RIONotify(CompletionQueue_Send);
-							RioMutex.unlock();
+							//RioMutex.unlock();
 							//	Actually read the data from each received packet
 							for (ULONG CurResult = 0; CurResult < NumResults; CurResult++)
 							{
@@ -340,9 +348,9 @@ namespace PeerNet
 							if (pBuffer->Length > 0) {
 								//printf("Compressed: %i->%i\n", SendPacket->GetData().size(), pBuffer->Length);
 
-								RioMutex.lock();
+								//RioMutex.lock();
 								RIO.RIOSendEx(RequestQueue, pBuffer, 1, NULL, OutPacket->GetAddress(), NULL, NULL, NULL, pBuffer);
-								RioMutex.unlock();
+								//RioMutex.unlock();
 							}
 							else { printf("Packet Compression Failed - %i\n", pBuffer->Length); }
 							//	Mark packet as not sending
