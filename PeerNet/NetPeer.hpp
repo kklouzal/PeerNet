@@ -139,17 +139,17 @@ namespace PeerNet
 		}
 
 		//	Construct and return a reliable NetPacket to fill and send to this NetPeer
-		inline SendPacket* NetPeer::CreateOrderedPacket(const unsigned long& OP) {
+		inline SendPacket* CreateOrderedPacket(const unsigned long& OP) {
 			return CH_Ordered->NewPacket(OP);
 		}
 
 		//	Construct and return a reliable NetPacket to fill and send to this NetPeer
-		inline SendPacket* NetPeer::CreateReliablePacket(const unsigned long& OP) {
+		inline SendPacket* CreateReliablePacket(const unsigned long& OP) {
 			return CH_Reliable->NewPacket(OP);
 		}
 
 		//	Construct and return a unreliable NetPacket to fill and send to this NetPeer
-		inline SendPacket* NetPeer::CreateUnreliablePacket(const unsigned long& OP) {
+		inline SendPacket* CreateUnreliablePacket(const unsigned long& OP) {
 			return CH_Unreliable->NewPacket(OP);
 		}
 
@@ -197,7 +197,8 @@ namespace PeerNet
 					//	Send back an ACK
 					Send_Packet(CH_Reliable->NewACK(IncomingPacket, Address));
 					//	Process the packet
-					CH_Reliable->Receive(IncomingPacket); break;
+					CH_Reliable->Receive(IncomingPacket); 
+					break;
 				}
 				break;
 			}

@@ -101,7 +101,7 @@ namespace PeerNet
 
 		//	Gets an existing peer from a provided AddrBuff
 		//	Creates a new peer if one does not exist
-		inline NetPeer*const PeerNet::GetPeer(const SOCKADDR_INET*const AddrBuff);
+		inline NetPeer*const GetPeer(const SOCKADDR_INET*const AddrBuff);
 		inline NetPeer*const GetPeer(string IP, string Port);
 	};
 }
