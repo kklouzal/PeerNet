@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stack>
+#include <deque>
 
 #define PN_MaxPacketSize 1472		//	Max size of an outgoing or incoming packet
 #define RIO_ResultsPerThread 128	//	How many results to dequeue from the stack per thread
@@ -97,7 +98,6 @@ namespace PeerNet
 		const HANDLE IOCP_Send;
 		RIO_BUFFERID Data_BufferID_Send;
 		PCHAR const Data_Buffer_Send;
-		ConcurrentDeque* Buffers_Send;
 		std::stack<thread> Threads_Send;
 
 		//	Request Queue
@@ -115,7 +115,7 @@ namespace PeerNet
 			Address_Buffer_Receive(new char[sizeof(SOCKADDR_INET)*PN_MaxReceivePackets]),
 			Data_Buffer_Receive(new char[PN_MaxPacketSize*PN_MaxReceivePackets]),
 			Data_Buffer_Send(new char[PN_MaxPacketSize*PN_MaxSendPackets]),
-			Buffers_Receive(), Buffers_Send(new ConcurrentDeque)
+			Buffers_Receive()
 		{
 			//	Make sure our socket was created properly
 			if (Socket == INVALID_SOCKET) { printf("Socket Failed(%i)\n", WSAGetLastError()); }
@@ -265,26 +265,32 @@ namespace PeerNet
 			if (Data_BufferID_Send == RIO_INVALID_BUFFERID) { printf("Send Data_Buffer: Invalid BufferID\n"); }
 
 			//	Fill our Send buffers
-			ULONG SendOffset = 0;
-			for (unsigned long i = 0; i < PN_MaxSendPackets; i++)
-			{
-				RIO_BUF_SEND* pBuf = new RIO_BUF_SEND;
-				pBuf->BufferId = Data_BufferID_Send;
-				pBuf->Offset = SendOffset;
-				pBuf->Length = PN_MaxPacketSize;
-				//	Save our Receive buffer so it can be cleaned up when the socket is destroyed
-				Buffers_Send->Push(pBuf);
-				//	Increment counters
-				SendOffset += PN_MaxPacketSize;
-			}
 
 			//
 			//
 			//	Send Threads
 			//
+			ULONG SendOffset = 0;
 			for (unsigned char i = 0; i < ThreadCount_Send; i++) {
+				//	Fill Send buffers for this thread
+				ConcurrentDeque* SendBuffers = new ConcurrentDeque;
+				for (unsigned long b = 0; b < PN_MaxSendPackets / ThreadCount_Send; b++)
+				{
+					RIO_BUF_SEND* pBuf = new RIO_BUF_SEND;
+					pBuf->BufferId = Data_BufferID_Send;
+					pBuf->Offset = SendOffset;
+					pBuf->Length = PN_MaxPacketSize;
+					//	Save our BufferContainer so used buffers can be returned to it later
+					pBuf->BufferContainer = SendBuffers;
+					//	Save our Receive buffer so it can be cleaned up when this thread is destroyed
+					SendBuffers->Push(pBuf);
+					//	Increment counters
+					SendOffset += PN_MaxPacketSize;
+				}
+				//	Create the thread
 				Threads_Send.emplace(thread([&]() {
 					//
+					ConcurrentDeque* MyBuffers = SendBuffers;
 					RIORESULT CompletionResults[RIO_ResultsPerThread];
 					DWORD numberOfBytes = 0;	//	Unused
 					ULONG_PTR completionKey = 0;
@@ -320,8 +326,7 @@ namespace PeerNet
 								//	Get the raw packet data into our buffer
 								RIO_BUF_SEND* pBuffer = reinterpret_cast<RIO_BUF_SEND*>(CompletionResults[CurResult].RequestContext);
 								//	Send this pBuffer back to the correct Thread Environment
-								//pBuffer->BufferContainer->Push(pBuffer);
-								Buffers_Send->Push(pBuffer);
+								pBuffer->BufferContainer->Push(pBuffer);
 							}
 						}
 						break;
@@ -330,7 +335,7 @@ namespace PeerNet
 						//	Start Sending Event
 						case CK_SEND:
 						{
-							RIO_BUF_SEND*const pBuffer = Buffers_Send->Pull();
+							RIO_BUF_SEND*const pBuffer = MyBuffers->Pull();
 							//	If we are out of buffers push the request back out for another thread to pick up
 							if (pBuffer == nullptr) {
 								if (PostQueuedCompletionStatus(IOCP_Send, NULL, CK_SEND, pOverlapped) == 0) {
@@ -366,8 +371,9 @@ namespace PeerNet
 
 						default: printf("Send Thread - Unknown Completion Key\n");
 						}
-					} // Close While Loop
-
+					}
+					//	Cleanup the send buffers for this thread
+					MyBuffers->Cleanup();
 					//	Cleanup ZStd
 					ZSTD_freeCCtx(Compression_Context);
 				}));
@@ -417,8 +423,6 @@ namespace PeerNet
 				delete Buff;
 				Buffers_Receive.pop_front();
 			}
-			Buffers_Send->Cleanup();
-			delete Buffers_Send;
 			delete[] Address_Buffer_Receive;
 			//	Deregister each send/receive data buffer
 			RIO.RIODeregisterBuffer(Data_BufferID_Receive);
