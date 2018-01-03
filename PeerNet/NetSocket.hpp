@@ -274,7 +274,7 @@ namespace PeerNet
 			for (unsigned char i = 0; i < ThreadCount_Send; i++) {
 				//	Fill Send buffers for this thread
 				ConcurrentDeque* SendBuffers = new ConcurrentDeque;
-				for (unsigned long b = 0; b < PN_MaxSendPackets / ThreadCount_Send; b++)
+				for (unsigned long b = 0; b < PN_MaxSendPackets / ceil(ThreadCount_Send); b++)
 				{
 					RIO_BUF_SEND* pBuf = new RIO_BUF_SEND;
 					pBuf->BufferId = Data_BufferID_Send;
@@ -360,10 +360,9 @@ namespace PeerNet
 							else { printf("Packet Compression Failed - %i\n", pBuffer->Length); }
 							//	Mark packet as not sending
 							OutPacket->IsSending.store(0);
-							//	Cleanup managed SendPackets
+							//	Mark managed SendPackets for cleanup
 							if (OutPacket->GetManaged())
 							{
-								//delete OutPacket;
 								OutPacket->NeedsDelete.store(1);
 							}
 						}
@@ -374,6 +373,7 @@ namespace PeerNet
 					}
 					//	Cleanup the send buffers for this thread
 					MyBuffers->Cleanup();
+					delete MyBuffers;
 					//	Cleanup ZStd
 					ZSTD_freeCCtx(Compression_Context);
 				}));
