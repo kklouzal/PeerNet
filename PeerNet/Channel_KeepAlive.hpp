@@ -38,9 +38,9 @@ namespace PeerNet
 			return Packet;
 		}
 
-		inline SendPacket*const NewACK(ReceivePacket* IncomingPacket, NetAddress* Address)
+		inline SendPacket*const NewACK(ReceivePacket* IncomingPacket, NetAddress* SourceAddress)
 		{
-			SendPacket* ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, IncomingPacket->GetOperationID(), Address, true, IncomingPacket->GetCreationTime());
+			SendPacket* ACK = new SendPacket(IncomingPacket->GetPacketID(), PN_KeepAlive, IncomingPacket->GetOperationID(), SourceAddress, true, IncomingPacket->GetCreationTime());
 			ACK->WriteData<bool>(true);	//	Is an ACK
 			OUT_Mutex.lock();
 			OUT_Packets.push_back(ACK);

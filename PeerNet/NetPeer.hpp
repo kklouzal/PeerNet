@@ -182,7 +182,7 @@ namespace PeerNet
 			{
 				//	If a random number between 1-10 equals another random number between 1-10
 				//	Drop the packet to simulate packet loss
-				if (FakePacketLoss && (rand() % 10 + 1) == (rand() % 10 + 1))
+				if (FakePacketLoss && (rand() % 10 + 1) == 5)
 				{
 					delete IncomingPacket;
 					break;
@@ -208,7 +208,7 @@ namespace PeerNet
 			{
 				//	If a random number between 1-10 equals another random number between 1-10
 				//	Drop the packet to simulate packet loss
-				if (FakePacketLoss && (rand() % 10 + 1) == (rand() % 10 + 1))
+				if (FakePacketLoss && (rand() % 10 + 1) == 5)
 				{
 					delete IncomingPacket;
 					break;

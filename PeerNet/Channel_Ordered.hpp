@@ -139,38 +139,41 @@ namespace PeerNet
 #else
 			IN_Mutex.lock();
 #endif
+			//	Cache our OrderedOperation
+			OrderedOperation* OP = &Operations[IN_Packet->GetOperationID()];
+
 			//	Ignore ID's below the LowestID
-			if (IN_Packet->GetPacketID() <= Operations[IN_Packet->GetOperationID()].IN_LowestID)
+			if (IN_Packet->GetPacketID() <= OP->IN_LowestID)
 			{ IN_Mutex.unlock(); delete IN_Packet; return; }
 
 			//	Ignore ID's we've already stored
-			if (Operations[IN_Packet->GetOperationID()].IN_StoredIDs.count(IN_Packet->GetPacketID()))
+			if (OP->IN_StoredIDs.count(IN_Packet->GetPacketID()))
 			{
 				IN_Mutex.unlock(); delete IN_Packet; return;
 			}
 
 			//	Update our HighestID if needed
-			if (IN_Packet->GetPacketID() > Operations[IN_Packet->GetOperationID()].IN_HighestID)
-			{ Operations[IN_Packet->GetOperationID()].IN_HighestID = IN_Packet->GetPacketID(); }
+			if (IN_Packet->GetPacketID() > OP->IN_HighestID)
+			{ OP->IN_HighestID = IN_Packet->GetPacketID(); }
 
 
 			//	(in-sequence processing)
 			//	Update our LowestID if needed
-			if (IN_Packet->GetPacketID() == Operations[IN_Packet->GetOperationID()].IN_LowestID + 1) {
-				++Operations[IN_Packet->GetOperationID()].IN_LowestID;
+			if (IN_Packet->GetPacketID() == OP->IN_LowestID + 1) {
+				++OP->IN_LowestID;
 				//printf("Ordered - %d - %s\tNew\n", IN_Packet->GetPacketID(), IN_Packet->ReadData<std::string>().c_str());
 				//	Push this packet into the NeedsProcessed Queue
 				NeedsProcessed.push_back(IN_Packet);
 				// Loop through our StoredIDs container until we cant find (LowestID+1)
-				while (Operations[IN_Packet->GetOperationID()].IN_StoredIDs.count(Operations[IN_Packet->GetOperationID()].IN_LowestID + 1))
+				while (OP->IN_StoredIDs.count(OP->IN_LowestID + 1))
 				{
-					++Operations[IN_Packet->GetOperationID()].IN_LowestID;
+					++OP->IN_LowestID;
 					//printf("Ordered - %d - %s\tStored\n", IN_LowestID, IN_StoredIDs.at(IN_LowestID)->ReadData<std::string>().c_str());
 					//	Push this packet into the NeedsProcessed Queue
-					ReceivePacket* Pkt = Operations[IN_Packet->GetOperationID()].IN_StoredIDs.at(Operations[IN_Packet->GetOperationID()].IN_LowestID);
+					ReceivePacket* Pkt = OP->IN_StoredIDs.at(OP->IN_LowestID);
 					NeedsProcessed.push_back(Pkt);
 					//	Erase the ID from our out-of-order map
-					Operations[IN_Packet->GetOperationID()].IN_StoredIDs.erase(Operations[IN_Packet->GetOperationID()].IN_LowestID);
+					OP->IN_StoredIDs.erase(OP->IN_LowestID);
 				}
 				IN_Mutex.unlock();
 				return;
@@ -180,7 +183,7 @@ namespace PeerNet
 			//	(out-of-sequence processing)
 			//	At this point ID must be greater than LowestID
 			//	Which means we have an out-of-sequence ID
-			Operations[IN_Packet->GetOperationID()].IN_StoredIDs.emplace(IN_Packet->GetPacketID(), IN_Packet);
+			OP->IN_StoredIDs.emplace(IN_Packet->GetPacketID(), IN_Packet);
 			IN_Mutex.unlock();
 		}
 

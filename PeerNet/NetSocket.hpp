@@ -126,7 +126,7 @@ namespace PeerNet
 			RIO_NOTIFICATION_COMPLETION Completion_Receive;
 			Completion_Receive.Type = RIO_IOCP_COMPLETION;
 			Completion_Receive.Iocp.IocpHandle = IOCP_Receive;
-			Completion_Receive.Iocp.CompletionKey = (void*)CK_RIO_RECV;
+			Completion_Receive.Iocp.CompletionKey = (void*)CK_RIO_RECV; //-V566
 			Completion_Receive.Iocp.Overlapped = &Overlap_Receive;
 			CompletionQueue_Receive = RIO.RIOCreateCompletionQueue(PN_MaxReceivePackets, &Completion_Receive);
 			if (CompletionQueue_Receive == RIO_INVALID_CQ) { printf("Create Receive Completion Queue Failed: %i\n", WSAGetLastError()); }
@@ -135,7 +135,7 @@ namespace PeerNet
 			RIO_NOTIFICATION_COMPLETION Completion_Send;
 			Completion_Send.Type = RIO_IOCP_COMPLETION;
 			Completion_Send.Iocp.IocpHandle = IOCP_Send;
-			Completion_Send.Iocp.CompletionKey = (void*)CK_RIO_SEND;
+			Completion_Send.Iocp.CompletionKey = (void*)CK_RIO_SEND; //-V566
 			Completion_Send.Iocp.Overlapped = &Overlap_Send;
 			CompletionQueue_Send = RIO.RIOCreateCompletionQueue(PN_MaxSendPackets, &Completion_Send);
 			if (CompletionQueue_Send == RIO_INVALID_CQ) { printf("Create Send Completion Queue Failed: %i\n", WSAGetLastError()); }
@@ -224,8 +224,8 @@ namespace PeerNet
 								RIO_BUF_RECV* pBuffer = reinterpret_cast<RIO_BUF_RECV*>(CompletionResults[CurResult].RequestContext);
 
 								const size_t DecompressResult = ZSTD_decompressDCtx(Decompression_Context,
-									Uncompressed_Data, PN_MaxPacketSize, &Data_Buffer_Receive[pBuffer->Offset],
-									CompletionResults[CurResult].BytesTransferred);
+									Uncompressed_Data, PN_MaxPacketSize, &Data_Buffer_Receive[(size_t)pBuffer->Offset],
+									(size_t)CompletionResults[CurResult].BytesTransferred);
 
 								//	Return if decompression fails
 								//	TODO: Should be < 0; Will randomly crash at 0 though.
@@ -236,7 +236,7 @@ namespace PeerNet
 								//	"show" packet to peer for processing
 								//	
 
-								_PeerNet->TranslateData((SOCKADDR_INET*)&Address_Buffer_Receive[pBuffer->pAddrBuff->Offset], std::string(Uncompressed_Data, DecompressResult));
+								_PeerNet->TranslateData((SOCKADDR_INET*)&Address_Buffer_Receive[(size_t)pBuffer->pAddrBuff->Offset], std::string(Uncompressed_Data, DecompressResult));
 
 								RioMutex.lock();
 								//	Push another read request into the queue
@@ -347,7 +347,7 @@ namespace PeerNet
 
 							//	Compress our outgoing packets data payload into the rest of the data buffer
 							pBuffer->Length = (ULONG)ZSTD_compressCCtx(Compression_Context,
-								&Data_Buffer_Send[pBuffer->Offset], PN_MaxPacketSize, OutPacket->GetData()->str().c_str(), OutPacket->GetData()->str().size(), 1);
+								&Data_Buffer_Send[(size_t)pBuffer->Offset], PN_MaxPacketSize, OutPacket->GetData()->str().c_str(), OutPacket->GetData()->str().size(), 1);
 
 							//	If compression was successful, actually transmit our packet
 							if (pBuffer->Length > 0) {

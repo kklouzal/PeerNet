@@ -77,7 +77,7 @@ namespace PeerNet
 
 	public:
 
-		inline PeerNet(NetPeerFactory* PeerFactory, unsigned int MaxPeers, unsigned int MaxSockets);
+		inline PeerNet(NetPeerFactory* PeerFactory, size_t MaxPeers, size_t MaxSockets);
 		inline ~PeerNet();
 
 		//	Sets the default socket used by new peers
@@ -120,7 +120,7 @@ namespace PeerNet
 	};
 
 
-	inline PeerNet::PeerNet(NetPeerFactory* PeerFactory, unsigned int MaxPeers, unsigned int MaxSockets)
+	inline PeerNet::PeerNet(NetPeerFactory* PeerFactory, size_t MaxPeers, size_t MaxSockets)
 		: _PeerFactory(PeerFactory) {
 		printf("Initializing PeerNet\n");
 		SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS);

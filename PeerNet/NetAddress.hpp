@@ -66,18 +66,18 @@ namespace PeerNet
 
 	public:
 
-		inline AddressPool(RIO_EXTENSION_FUNCTION_TABLE &RIO, unsigned int MaxObjects) :
+		inline AddressPool(RIO_EXTENSION_FUNCTION_TABLE &RIO, size_t MaxObjects) :
 			AddrMutex(), Addr_BufferID(), Addr_Buffer(new char[MaxObjects * sizeof(SOCKADDR_INET)]), UsedAddr(), UnusedAddr()
 		{
 			//	Initialize Address Memory Buffer
 			printf("Address Buffer: ");
-			Addr_BufferID = RIO.RIORegisterBuffer(Addr_Buffer, sizeof(SOCKADDR_INET)*MaxObjects);
+			Addr_BufferID = RIO.RIORegisterBuffer(Addr_Buffer, (DWORD)(sizeof(SOCKADDR_INET)*MaxObjects));
 			if (Addr_BufferID == RIO_INVALID_BUFFERID)
 			{
 				printf("Invalid Memory BufferID\n");
 			}
 			else {
-				for (DWORD i = 0, AddressOffset = 0; i < MaxObjects; i++/*, AddressOffset += sizeof(SOCKADDR_INET)*/)
+				for (ULONG i = 0, AddressOffset = 0; i < MaxObjects; i++)
 				{
 					NetAddress*const Address = new NetAddress();
 					Address->BufferId = Addr_BufferID;
@@ -105,7 +105,7 @@ namespace PeerNet
 		//	Must be called after ->Resolve to write the resolved data to the address buffer
 		inline void WriteAddress(NetAddress*const Addr)
 		{
-			std::memcpy(&Addr_Buffer[Addr->Offset], Addr->AddrInfo()->ai_addr, sizeof(SOCKADDR_INET));
+			std::memcpy(&Addr_Buffer[(size_t)Addr->Offset], Addr->AddrInfo()->ai_addr, sizeof(sockaddr));
 		}
 
 		//	Returns a free and empty address
@@ -139,7 +139,7 @@ namespace PeerNet
 			UsedAddr.push_front(UnusedAddr.back());
 			UnusedAddr.pop_back();
 			AddrMutex.unlock();
-			std::memcpy(&Addr_Buffer[NewAddress->Offset], AddrBuff, sizeof(SOCKADDR_INET));
+			std::memcpy(&Addr_Buffer[(size_t)NewAddress->Offset], AddrBuff, sizeof(SOCKADDR_INET));
 			return NewAddress;
 		}
 	};
